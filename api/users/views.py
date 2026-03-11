@@ -4,8 +4,10 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from .serializers import FirebaseTokenSerializer
 from .services import firebase_login_service
-from rest_framework.generics import RetrieveUpdateDestroyAPIView
-from .serializers import UserSerializer
+from rest_framework.generics import RetrieveUpdateDestroyAPIView, RetrieveUpdateAPIView
+from .serializers import UserSerializer, NotificationSettingsSerializer
+
+from .models import PetProfile, Profile, NotificationSettings
 class FirebaseLoginView(APIView):
     permission_classes = [AllowAny]
     serializer_class = FirebaseTokenSerializer
@@ -49,3 +51,12 @@ class UserDetailView(RetrieveUpdateDestroyAPIView):
         return self.request.user
     
     
+# notifications 
+
+class NotificationSettingsView(RetrieveUpdateAPIView):
+    serializer_class = NotificationSettingsSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        obj, created = NotificationSettings.objects.get_or_create(user=self.request.user)
+        return obj
