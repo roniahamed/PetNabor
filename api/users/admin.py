@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, Profile, NotificationSettings, PetProfile
+from .models import User, Profile, PetProfile
 from django.utils.html import format_html
 
 
@@ -23,12 +23,7 @@ class ProfileAdmin(admin.ModelAdmin):
             return format_html('<img src="{}" width="50" height="50" />', obj.image.url)
         return '-'
     profile_picture.short_description = 'Profile Picture'   
-    
-@admin.register(NotificationSettings)
-class NotificationSettingsAdmin(admin.ModelAdmin):
-    list_display = ('user', 'email_notifications', 'push_notifications')
-    search_fields = ('user__email', 'user__username')
-    ordering = ('user__id',)
+
     
 @admin.register(PetProfile)
 class PetProfileAdmin(admin.ModelAdmin):
