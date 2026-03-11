@@ -42,25 +42,6 @@ class Migration(migrations.Migration):
             ],
         ),
         migrations.CreateModel(
-            name='PetProfile',
-            fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('pet_name', models.CharField(max_length=100)),
-                ('pet_type', models.CharField(max_length=50)),
-                ('size', models.CharField(max_length=50)),
-                ('weight', models.DecimalField(decimal_places=2, max_digits=5)),
-                ('weight_type', models.CharField(choices=[('kg', 'Kilograms'), ('lb', 'Pounds')], default='kg', max_length=10)),
-                ('date_of_birth', models.DateField()),
-                ('vaccination_status', models.CharField(max_length=100)),
-                ('vaccination_document', models.FileField(blank=True, null=True, upload_to='pets/docs/')),
-                ('vet_contact_number', models.CharField(blank=True, max_length=15, null=True)),
-                ('image', models.ImageField(blank=True, null=True, upload_to=api.users.models.pet_image_path)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='pets', to=settings.AUTH_USER_MODEL)),
-            ],
-        ),
-        migrations.CreateModel(
             name='Profile',
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),

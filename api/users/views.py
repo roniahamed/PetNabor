@@ -7,7 +7,7 @@ from .services import firebase_login_service
 from rest_framework.generics import RetrieveUpdateDestroyAPIView
 from .serializers import UserSerializer
 
-from .models import PetProfile, Profile
+from .models import  Profile
 class FirebaseLoginView(APIView):
     permission_classes = [AllowAny]
     serializer_class = FirebaseTokenSerializer
