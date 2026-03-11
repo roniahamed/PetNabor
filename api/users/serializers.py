@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from .models import NotificationSettings, Profile, PetProfile
 
 User = get_user_model()
 
@@ -18,5 +19,11 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'email', 'phone', 'first_name', 'last_name', 'user_type', 'is_verified', 'is_active', 'is_staff', 'is_superuser', 'created_at', 'agree_to_terms_and_conditions', 'is_patpal', 'is_online', 'last_active', 'firebase_uid', 'username', 'updated_at']
         read_only_fields = ['id', 'is_verified', 'is_active', 'is_staff', 'is_superuser', 'created_at', 'email', 'phone', 'updated_at', 'firebase_uid', 'username', 'last_seen',]
+        
+class NotificationSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NotificationSettings
+        fields = ['user', 'push_notifications', 'email_notifications', 'message_notifications', 'friend_request_notifications', 'like_notifications', 'comment_notifications', 'mention_notifications', 'meetup_notifications', 'vendor_post_notifications', 'product_share_notifications', 'product_interest_notifications', 'system_notifications', 'marketing_notifications', 'created_at', 'updated_at']
+        read_only_fields = ['user', 'created_at', 'updated_at']
         
         
