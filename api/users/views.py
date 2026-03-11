@@ -1,10 +1,11 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from .serializers import FirebaseTokenSerializer
 from .services import firebase_login_service
-
+from rest_framework.generics import RetrieveUpdateDestroyAPIView
+from .serializers import UserSerializer
 class FirebaseLoginView(APIView):
     permission_classes = [AllowAny]
     serializer_class = FirebaseTokenSerializer
@@ -39,3 +40,12 @@ class FirebaseLoginView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': 'Something went wrong.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+class UserDetailView(RetrieveUpdateDestroyAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_object(self):
+        return self.request.user
+    
+    
