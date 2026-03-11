@@ -17,4 +17,6 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'email', 'phone', 'first_name', 'last_name', 'user_type', 'is_verified', 'is_active', 'is_staff', 'is_superuser', 'created_at', 'agree_to_terms_and_conditions', 'is_patpal', 'is_online', 'last_active', 'firebase_uid', 'username', 'updated_at']
-        read_only_fields = ['id', 'is_verified', 'is_active', 'is_staff', 'is_superuser', 'created_at', 'email', 'phone', 'updated_at', 'firebase_uid', 'username']
+        read_only_fields = ['id', 'is_verified', 'is_active', 'is_staff', 'is_superuser', 'created_at', 'email', 'phone', 'updated_at', 'firebase_uid', 'username', 'last_seen',]
+        
+        

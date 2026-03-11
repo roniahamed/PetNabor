@@ -1,6 +1,9 @@
 from django.db import models
 import uuid
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+import os
+from django.conf import settings
+
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, email=None, phone=None, password=None, **extra_fields):
@@ -71,8 +74,93 @@ class User(AbstractUser):
     def __str__(self):
         return self.email if self.email else self.phone
     
+    @property
+    def currently_online(self):
+        if self.last_active:
+            from django.utils import timezone
+            return (timezone.now() - self.last_active).total_seconds() < 300
+        return False
+    
     
 
+def profile_image_path(instance, filename):
+    ext = filename.split('.')[-1]
+    filename = f"{uuid.uuid4()}.{ext}"
+    return os.path.join('profiles/images/', filename)
 
+class Profile(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
     
+    address_street = models.CharField(max_length=255, null=True, blank=True)
+    city = models.CharField(max_length=100, null=True, blank=True)
+    state = models.CharField(max_length=100, null=True, blank=True)
+    zipcode = models.CharField(max_length=20, null=True, blank=True)
     
+    location_point = models.CharField(max_length=255, null=True, blank=True) 
+    
+    date_of_birth = models.DateField(null=True, blank=True)
+    image = models.ImageField(upload_to=profile_image_path, null=True, blank=True)
+    bio = models.TextField(null=True, blank=True)
+    
+    referral_code = models.CharField(max_length=50, unique=True, null=True, blank=True)
+    referred_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='referrals')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Profile of {self.user.email}"
+
+
+def pet_image_path(instance, filename):
+    ext = filename.split('.')[-1]
+    filename = f"pet_{uuid.uuid4()}.{ext}"
+    return os.path.join('pets/images/', filename)
+
+class WeightTypes(models.TextChoices):
+    KG = 'kg', 'Kilograms'
+    LB = 'lb', 'Pounds'
+class PetProfile(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='pets')
+    
+    pet_name = models.CharField(max_length=100)
+    pet_type = models.CharField(max_length=50) 
+    size = models.CharField(max_length=50) 
+    weight = models.DecimalField(max_digits=5, decimal_places=2)
+    weight_type = models.CharField(max_length=10, choices=WeightTypes.choices, default=WeightTypes.KG)
+    date_of_birth = models.DateField()
+    
+    vaccination_status = models.CharField(max_length=100)
+    vaccination_document = models.FileField(upload_to='pets/docs/', null=True, blank=True)
+    vet_contact_number = models.CharField(max_length=15, null=True, blank=True)
+    image = models.ImageField(upload_to=pet_image_path, null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.pet_name
+
+
+class NotificationSettings(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notification_settings')
+    
+    push_notifications = models.BooleanField(default=True)
+    email_notifications = models.BooleanField(default=True)
+    message_notifications = models.BooleanField(default=True)
+    friend_request_notifications = models.BooleanField(default=True)
+    like_notifications = models.BooleanField(default=True)
+    comment_notifications = models.BooleanField(default=True)
+    mention_notifications = models.BooleanField(default=True)
+    meetup_notifications = models.BooleanField(default=True)
+    vendor_post_notifications = models.BooleanField(default=True)
+    product_share_notifications = models.BooleanField(default=True)
+    product_interest_notifications = models.BooleanField(default=True)
+    system_notifications = models.BooleanField(default=True)
+    marketing_notifications = models.BooleanField(default=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
