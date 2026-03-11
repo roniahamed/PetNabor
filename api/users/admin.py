@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, Profile, PetProfile
+from .models import User, Profile
 from django.utils.html import format_html
 
 
@@ -24,10 +24,3 @@ class ProfileAdmin(admin.ModelAdmin):
         return '-'
     profile_picture.short_description = 'Profile Picture'   
 
-    
-@admin.register(PetProfile)
-class PetProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'pet_name', 'pet_type', 'size', 'weight', 'weight_type', 'date_of_birth')
-    search_fields = ('user__email', 'user__username', 'pet_name')
-    ordering = ('user__id',)
-    

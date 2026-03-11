@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     # Local apps
     'api.users',
     'api.notifications',
+    'api.pet',
 ]
 
 MIDDLEWARE = [
