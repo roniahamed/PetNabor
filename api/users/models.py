@@ -29,8 +29,6 @@ class CustomUserManager(BaseUserManager):
         return self.create_user(email=email, password=password, **extra_fields)
 
 
-
-
 class UserTypes(models.TextChoices):
     PATNABOR = 'patnabor', 'Patnabor'
     PATPAL = 'patpal', 'Patpal'
