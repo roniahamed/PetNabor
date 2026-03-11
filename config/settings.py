@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 
 from dotenv import load_dotenv
 import os
@@ -136,3 +137,28 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# REST Framework configuration
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
+# SimpleJWT Configuration
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+}
+
+FIREBASE_CREDENTIALS = os.path.join(BASE_DIR, 'firebase-credentials.json')

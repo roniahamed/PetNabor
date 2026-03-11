@@ -70,3 +70,12 @@ Thumbs.db
 *.bak
 *.tmp
 celerybeat-schedule
+
+
+firebase-credentials.json
+
+./tests/
+
+test/
+./test 
+/test
