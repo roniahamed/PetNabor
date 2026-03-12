@@ -7,3 +7,5 @@ djangorestframework-simplejwt>=5.3,<6.0
 firebase-admin>=6.5,<7.0
 Pillow
 django-cleanup
+celery
+redis
