@@ -13,6 +13,9 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 
+import firebase_admin
+from firebase_admin import auth, credentials
+
 from dotenv import load_dotenv
 import os
 load_dotenv()
@@ -173,3 +176,11 @@ SIMPLE_JWT = {
 }
 
 FIREBASE_CREDENTIALS = os.path.join(BASE_DIR, 'firebase-credentials.json')
+
+
+def initialize_firebase():
+    if not firebase_admin._apps:
+        cred = credentials.Certificate(FIREBASE_CREDENTIALS)
+        firebase_admin.initialize_app(cred)
+        
+initialize_firebase()
