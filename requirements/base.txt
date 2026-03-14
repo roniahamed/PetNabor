@@ -9,3 +9,4 @@ Pillow
 django-cleanup
 celery
 redis
+djangorestframework-gis>=1.1
