@@ -1,6 +1,7 @@
 from django.db import models
 import uuid
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.contrib.gis.db import models as gis_models
 import os
 from django.conf import settings
 
@@ -105,7 +106,7 @@ class Profile(models.Model):
     state = models.CharField(max_length=100, null=True, blank=True)
     zipcode = models.CharField(max_length=20, null=True, blank=True)
 
-    location_point = models.CharField(max_length=255, null=True, blank=True)
+    location_point = gis_models.PointField(srid=4326, null=True, blank=True)
 
     date_of_birth = models.DateField(null=True, blank=True)
     profile_picture = models.ImageField(
