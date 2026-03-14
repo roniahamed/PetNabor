@@ -45,15 +45,34 @@ class FCMDevice(models.Model):
 
 
 class NotificationTypes(models.TextChoices):
-    INFO = "info", _("Info")
-    WARNING = "warning", _("Warning")
-    ORDER = "order", _("Order Update")
-    PROMOTION = "promotion", _("Promotion")
-    STREAK_BONUS = "streak_bonus", _("Streak Bonus")
-    REFERRAL_BONUS = "referral_bonus", _("Referral Bonus")
-    LOGIN = "login", _("Login Notification")
-    SUCCESS = "success", _("Success")
-    ERROR = "error", _("Error")
+    SYSTEM = "system", _("System Update")
+    LOGIN = "login", _("New Login Detected")
+    SECURITY = "security", _("Security Alert")
+
+    FRIEND_REQUEST = "friend_request", _("New Friend Request")
+    FRIEND_ACCEPT = "friend_accept", _("Friend Request Accepted")
+    LIKE = "like", _("New Like on Post")
+    COMMENT = "comment", _("New Comment")
+    MENTION = "mention", _("Mentioned in Post/Comment")
+
+    PET_REMINDER = "pet_reminder", _("Pet Care Reminder") 
+    PET_MATCH = "pet_match", _("Potential Pet Playmate Found") 
+    VET_APPOINTMENT = "vet_appointment", _("Vet Appointment Update")
+
+    MEETUP_INVITE = "meetup_invite", _("Meetup Invitation")
+    MEETUP_UPDATE = "meetup_update", _("Meetup Details Changed")
+    EVENT_REMINDER = "event_reminder", _("Upcoming Pet Event")
+
+    ORDER_STATUS = "order_status", _("Order Progress Update")
+    PRODUCT_INTEREST = "product_interest", _("Interest in Your Product")
+    SERVICE_BOOKING = "service_booking", _("Service Booking Confirmed")
+    REWARD = "reward", _("Reward Available")
+    STREAK_BONUS = "streak_bonus", _("Daily Streak Bonus")
+    REFERRAL_BONUS = "referral_bonus", _("Referral Bonus Earned")
+
+    PROMOTION = "promotion", _("Special Promotion")
+    MARKETING = "marketing", _("Marketing Message")
+    INFO = "info", _("General Information")
 
 
 class Notifications(models.Model):
