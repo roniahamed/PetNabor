@@ -74,6 +74,12 @@ class User(AbstractUser):
     REQUIRED_FIELDS = [
         "username",
     ]
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['user_type', 'is_active']),
+            models.Index(fields=['firebase_uid']),
+        ]
 
     objects = CustomUserManager()
 

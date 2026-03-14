@@ -6,6 +6,7 @@ from .serializers import FirebaseTokenSerializer
 from .services import firebase_login_service
 from rest_framework.generics import RetrieveUpdateDestroyAPIView, RetrieveUpdateAPIView
 from .serializers import UserSerializer, ProfileSerializer
+from .models import Profile
 
 
 class FirebaseLoginView(APIView):
@@ -65,4 +66,10 @@ class ProfileDetailView(RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
-        return self.request.user.profile
+        try:
+            obj, created = Profile.objects.get_or_create(user=self.request.user)
+            return obj
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

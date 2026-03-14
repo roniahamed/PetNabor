@@ -17,7 +17,7 @@ class UpdateLastActiveMiddleware(MiddlewareMixin):
             except Exception:
                 pass
         if request.user.is_authenticated:
-            print(f"Updating last active for user: {request.user.email}")
+            # print(f"Updating last active for user: {request.user.email}")
             request.user.last_active = timezone.now()
             request.user.is_online = True
             request.user.save(update_fields=['last_active', 'is_online'])
