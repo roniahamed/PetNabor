@@ -1,59 +1,399 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
+"""
+Authentication views.
+
+Thin wrappers around service functions. All business logic lives in services.py.
+Consistent JSON response format: {"success": bool, "message": str, "data": {...}}
+"""
+
+import logging
+
 from rest_framework import status
+from rest_framework.generics import RetrieveUpdateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from .serializers import FirebaseTokenSerializer
-from .services import firebase_login_service
-from rest_framework.generics import RetrieveUpdateDestroyAPIView, RetrieveUpdateAPIView
-from .serializers import UserSerializer, ProfileSerializer
-from .models import Profile
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import Profile, User
+from .serializers import (
+    ConfirmPasswordResetSerializer,
+    FirebaseTokenSerializer,
+    LoginSerializer,
+    ProfileSerializer,
+    RequestPasswordResetSerializer,
+    ResendEmailOTPSerializer,
+    ResendOTPSerializer,
+    SignupSerializer,
+    UserSerializer,
+    VerifyEmailOTPSerializer,
+    VerifyPhoneOTPSerializer,
+)
+from .services import (
+    confirm_password_reset,
+    firebase_login_service,
+    login_user,
+    request_password_reset,
+    resend_email_otp,
+    resend_phone_otp,
+    signup_user,
+    verify_email_otp,
+    verify_phone_otp,
+)
+
+logger = logging.getLogger(__name__)
 
 
-class FirebaseLoginView(APIView):
+# ──────────────────────────────────────────────
+# Helper
+# ──────────────────────────────────────────────
+
+
+def _build_user_data(user):
+    """Build a consistent user data dict for API responses."""
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "phone": user.phone,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "user_type": user.user_type,
+        "is_verified": user.is_verified,
+        "is_email_verified": user.is_email_verified,
+        "is_phone_verified": user.is_phone_verified,
+    }
+
+
+# ──────────────────────────────────────────────
+# Auth Views
+# ──────────────────────────────────────────────
+
+
+class SignupView(APIView):
+    """
+    POST /api/users/signup/
+
+    Register a new user with email or phone.
+    Sends OTP via SMS (phone) or email.
+    """
+
     permission_classes = [AllowAny]
-    serializer_class = FirebaseTokenSerializer
+    serializer_class = SignupSerializer
+    throttle_scope = "auth_login"
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        id_token = serializer.validated_data.get("id_token")
-        first_name = serializer.validated_data.get("first_name", "")
-        last_name = serializer.validated_data.get("last_name", "")
-        user_type = serializer.validated_data.get("user_type", "patnabor")
+        data = serializer.validated_data
+        user, verification_type = signup_user(
+            email=data.get("email"),
+            phone=data.get("phone"),
+            password=data.get("password"),
+            first_name=data.get("first_name", ""),
+            last_name=data.get("last_name", ""),
+            user_type=data.get("user_type", "patnabor"),
+            agree_to_terms_and_conditions=data.get("agree_to_terms_and_conditions", False),
+        )
 
-        try:
-            tokens, user = firebase_login_service(
-                id_token, first_name, last_name, user_type
-            )
+        messages = {
+            "phone": "Account created. A verification OTP has been sent to your phone.",
+            "email": "Account created. A verification OTP has been sent to your email.",
+        }
 
-            return Response(
-                {
-                    "message": "Login successful",
+        return Response(
+            {
+                "success": True,
+                "message": messages.get(verification_type, "Account created successfully."),
+                "data": {
+                    "user": _build_user_data(user),
+                    "verification_type": verification_type,
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class LoginView(APIView):
+    """
+    POST /api/users/login/
+
+    Authenticate with email/phone + password.
+    Blocks unverified users.
+    """
+
+    permission_classes = [AllowAny]
+    serializer_class = LoginSerializer
+    throttle_scope = "auth_login"
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        tokens, user = login_user(
+            email_or_phone=serializer.validated_data["email_or_phone"],
+            password=serializer.validated_data["password"],
+        )
+
+        return Response(
+            {
+                "success": True,
+                "message": "Login successful.",
+                "data": {
                     "access_token": tokens["access"],
                     "refresh_token": tokens["refresh"],
-                    "user": {
-                        "id": user.id,
-                        "email": user.email,
-                        "phone": user.phone,
-                        "first_name": user.first_name,
-                        "last_name": user.last_name,
-                        "user_type": user.user_type,
-                    },
+                    "user": _build_user_data(user),
                 },
-                status=status.HTTP_200_OK,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class VerifyPhoneOTPView(APIView):
+    """
+    POST /api/users/verify-phone/
+
+    Verify a 4-digit OTP code for phone verification.
+    """
+
+    permission_classes = [AllowAny]
+    serializer_class = VerifyPhoneOTPSerializer
+    throttle_scope = "otp_verify"
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        phone = serializer.validated_data["phone"]
+        otp_code = serializer.validated_data["otp_code"]
+
+        user = User.objects.filter(phone=phone).first()
+        if not user:
+            return Response(
+                {"success": False, "message": "No account found with this phone number."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-        except ValueError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
+        verify_phone_otp(user, otp_code)
+
+        return Response(
+            {
+                "success": True,
+                "message": "Phone number verified successfully.",
+                "data": {"user": _build_user_data(user)},
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class VerifyEmailOTPView(APIView):
+    """
+    POST /api/users/verify-email/
+
+    Verify a 4-digit OTP code for email verification.
+    """
+
+    permission_classes = [AllowAny]
+    serializer_class = VerifyEmailOTPSerializer
+    throttle_scope = "otp_verify"
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["email"]
+        otp_code = serializer.validated_data["otp_code"]
+
+        user = User.objects.filter(email=email.strip().lower()).first()
+        if not user:
             return Response(
-                {"error": "Something went wrong."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {"success": False, "message": "No account found with this email."},
+                status=status.HTTP_404_NOT_FOUND,
             )
+
+        verify_email_otp(user, otp_code)
+
+        return Response(
+            {
+                "success": True,
+                "message": "Email verified successfully.",
+                "data": {"user": _build_user_data(user)},
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ResendPhoneOTPView(APIView):
+    """
+    POST /api/users/resend-phone-otp/
+
+    Resend OTP to a user's phone number.
+    """
+
+    permission_classes = [AllowAny]
+    serializer_class = ResendOTPSerializer
+    throttle_scope = "otp_send"
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        resend_phone_otp(serializer.validated_data["phone"])
+
+        return Response(
+            {
+                "success": True,
+                "message": "A new OTP has been sent to your phone.",
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ResendEmailOTPView(APIView):
+    """
+    POST /api/users/resend-email-otp/
+
+    Resend OTP to a user's email address.
+    """
+
+    permission_classes = [AllowAny]
+    serializer_class = ResendEmailOTPSerializer
+    throttle_scope = "otp_send"
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        resend_email_otp(serializer.validated_data["email"])
+
+        return Response(
+            {
+                "success": True,
+                "message": "A new OTP has been sent to your email.",
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+# ──────────────────────────────────────────────
+# Password Reset Views
+# ──────────────────────────────────────────────
+
+
+class RequestPasswordResetView(APIView):
+    """
+    POST /api/users/password-reset/request/
+
+    Send a password reset OTP to user's email or phone.
+    """
+
+    permission_classes = [AllowAny]
+    serializer_class = RequestPasswordResetSerializer
+    throttle_scope = "otp_send"
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        delivery_method = request_password_reset(
+            serializer.validated_data["email_or_phone"]
+        )
+
+        messages = {
+            "email": "A password reset OTP has been sent to your email.",
+            "phone": "A password reset OTP has been sent to your phone.",
+        }
+
+        return Response(
+            {
+                "success": True,
+                "message": messages.get(delivery_method, "OTP sent."),
+                "data": {"delivery_method": delivery_method},
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ConfirmPasswordResetView(APIView):
+    """
+    POST /api/users/password-reset/confirm/
+
+    Verify OTP and set a new password.
+    """
+
+    permission_classes = [AllowAny]
+    serializer_class = ConfirmPasswordResetSerializer
+    throttle_scope = "otp_verify"
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        confirm_password_reset(
+            email_or_phone=serializer.validated_data["email_or_phone"],
+            otp_code=serializer.validated_data["otp_code"],
+            new_password=serializer.validated_data["new_password"],
+        )
+
+        return Response(
+            {
+                "success": True,
+                "message": "Password has been reset successfully. You can now log in.",
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+# ──────────────────────────────────────────────
+# Firebase Login
+# ──────────────────────────────────────────────
+
+
+class FirebaseLoginView(APIView):
+    """
+    POST /api/users/login/firebase/
+
+    Login/Register via Firebase ID token.
+    Firebase users are auto-verified.
+    """
+
+    permission_classes = [AllowAny]
+    serializer_class = FirebaseTokenSerializer
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        tokens, user = firebase_login_service(
+            id_token=serializer.validated_data["id_token"],
+            first_name=serializer.validated_data.get("first_name", ""),
+            last_name=serializer.validated_data.get("last_name", ""),
+            user_type=serializer.validated_data.get("user_type", "patnabor"),
+            agree_to_terms_and_conditions=serializer.validated_data.get(
+                "agree_to_terms_and_conditions", False
+            ),
+        )
+
+        return Response(
+            {
+                "success": True,
+                "message": "Login successful.",
+                "data": {
+                    "access_token": tokens["access"],
+                    "refresh_token": tokens["refresh"],
+                    "user": _build_user_data(user),
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+# ──────────────────────────────────────────────
+# User & Profile Views
+# ──────────────────────────────────────────────
 
 
 class UserDetailView(RetrieveUpdateDestroyAPIView):
+    """GET/PUT/PATCH/DELETE /api/users/user/ — Current user's details."""
+
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
@@ -62,14 +402,13 @@ class UserDetailView(RetrieveUpdateDestroyAPIView):
 
 
 class ProfileDetailView(RetrieveUpdateAPIView):
+    """GET/PUT/PATCH /api/users/profile/ — Current user's profile."""
+
     serializer_class = ProfileSerializer
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
-        try:
-            obj, created = Profile.objects.get_or_create(user=self.request.user)
-            return obj
-        except Exception as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        profile, _ = Profile.objects.select_related("user").get_or_create(
+            user=self.request.user
+        )
+        return profile
