@@ -276,3 +276,27 @@ class FriendsAPITestCase(TestCase):
             body="user2 accepted your friend request.",
             notification_type=NotificationTypes.FRIEND_ACCEPT
         )
+
+    def test_public_user_detail(self):
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('user-detail', kwargs={'user_id': self.user3.id})
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['username'], 'user3')
+        # Sensitive data should be missing
+        self.assertNotIn('email', response.data)
+        self.assertNotIn('phone', response.data)
+        # Friendship status should be correctly reported
+        self.assertEqual(response.data['friendship_status'], 'none')
+
+    def test_public_user_detail_blocked(self):
+        # user2 blocks user1
+        UserBlock.objects.create(blocker=self.user2, blocked_user=self.user1)
+        
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('user-detail', kwargs={'user_id': self.user2.id})
+        response = self.client.get(url)
+        
+        # Should be 404 for security/privacy (obfuscating block)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

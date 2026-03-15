@@ -12,8 +12,10 @@ from .serializers import (
     NearbyUserSerializer,
     UserBlockSerializer,
     UserActionSerializer,
-    CreateFriendRequestSerializer
+    CreateFriendRequestSerializer,
+    PublicUserSerializer
 )
+from django.contrib.auth import get_user_model
 from . import services
 from .paginations import FriendRequestPagination, FriendPagination, StandardResultsSetPagination
 from .filters import UserFilter
@@ -215,4 +217,20 @@ class UserSearchView(views.APIView):
             return paginator.get_paginated_response(serializer.data)
 
         serializer = NearbyUserSerializer(results, many=True, context={'request': request})
+        return Response(serializer.data)
+
+
+class PublicUserDetailsView(views.APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        try:
+            target_user = get_user_model().objects.select_related('profile').get(id=user_id, is_active=True)
+        except (get_user_model().DoesNotExist, ValidationError):
+            raise NotFound("User not found")
+
+        if services.is_blocked(request.user, target_user):
+            raise NotFound("User not found")
+
+        serializer = PublicUserSerializer(target_user, context={'request': request})
         return Response(serializer.data)

@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import FriendRequest, Friendship, UserBlock
@@ -88,3 +89,81 @@ class CreateFriendRequestSerializer(serializers.Serializer):
     """Used specifically for creating friend requests via user ID"""
 
     receiver_id = serializers.UUIDField(required=True)
+
+
+class PublicUserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for public user profiles.
+    Hides sensitive data like email/phone and precise address.
+    """
+
+    bio = serializers.CharField(source="profile.bio", read_only=True)
+    city = serializers.CharField(source="profile.city", read_only=True)
+    state = serializers.CharField(source="profile.state", read_only=True)
+    profile_picture = serializers.SerializerMethodField()
+    cover_photo = serializers.SerializerMethodField()
+    friendship_status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "username",
+            "user_type",
+            "bio",
+            "city",
+            "state",
+            "profile_picture",
+            "cover_photo",
+            "friendship_status",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+    def get_profile_picture(self, obj):
+        if hasattr(obj, "profile") and obj.profile.profile_picture:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.profile.profile_picture.url)
+            return obj.profile.profile_picture.url
+        return None
+
+    def get_cover_photo(self, obj):
+        if hasattr(obj, "profile") and obj.profile.cover_photo:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.profile.cover_photo.url)
+            return obj.profile.cover_photo.url
+        return None
+
+    def get_friendship_status(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return None
+
+        current_user = request.user
+        if current_user == obj:
+            return "self"
+
+        # Check existing friendship
+        if Friendship.objects.filter(
+            Q(user1=current_user, user2=obj) | Q(user1=obj, user2=current_user)
+        ).exists():
+            return "friends"
+
+        # Check pending requests
+        pending_out = FriendRequest.objects.filter(
+            sender=current_user, receiver=obj, status="pending"
+        ).exists()
+        if pending_out:
+            return "request_sent"
+
+        pending_in = FriendRequest.objects.filter(
+            sender=obj, receiver=current_user, status="pending"
+        ).exists()
+        if pending_in:
+            return "request_received"
+
+        return "none"
