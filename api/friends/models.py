@@ -19,6 +19,10 @@ class FriendRequest(models.Model):
 
     class Meta:
         unique_together = ('sender', 'receiver')
+        indexes = [
+            models.Index(fields=['sender', 'status']),
+            models.Index(fields=['receiver', 'status']),
+        ]
 
     def __str__(self):
         return f"{self.sender} -> {self.receiver} ({self.status})"
@@ -32,6 +36,10 @@ class Friendship(models.Model):
 
     class Meta:
         unique_together = ('user1', 'user2')
+        indexes = [
+            models.Index(fields=['user1']),
+            models.Index(fields=['user2']),
+        ]
 
     def __str__(self):
         return f"{self.user1} - {self.user2}"
@@ -45,6 +53,10 @@ class UserBlock(models.Model):
 
     class Meta:
         unique_together = ('blocker', 'blocked_user')
+        indexes = [
+            models.Index(fields=['blocker']),
+            models.Index(fields=['blocked_user']),
+        ]
 
     def __str__(self):
         return f"{self.blocker} blocked {self.blocked_user}"
