@@ -1,22 +1,177 @@
-from rest_framework import serializers
+"""
+Serializers for the authentication system.
+
+Clean validation using DRY validators from validators.py.
+"""
+
 from django.contrib.auth import get_user_model
+from rest_framework import serializers
+
 from .models import Profile
+from .validators import (
+    validate_email_format,
+    validate_password_strength,
+    validate_phone_number,
+    validate_signup_identifier,
+)
 
 User = get_user_model()
 
 
-class FirebaseTokenSerializer(serializers.Serializer):
-    id_token = serializers.CharField(required=True, help_text="Firebase ID Token")
+# ──────────────────────────────────────────────
+# Auth Serializers
+# ──────────────────────────────────────────────
 
+
+class SignupSerializer(serializers.Serializer):
+    """Validates signup data. Requires at least email or phone."""
+
+    email = serializers.EmailField(required=False, allow_blank=True)
+    phone = serializers.CharField(required=False, allow_blank=True, max_length=15)
+    password = serializers.CharField(required=True, write_only=True, min_length=8)
     first_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
     last_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
     user_type = serializers.CharField(required=False, default="patnabor")
-    agree_to_terms_and_conditions = serializers.BooleanField(
-        required=False, default=False
+    agree_to_terms_and_conditions = serializers.BooleanField(required=False, default=False)
+
+    def validate_email(self, value):
+        if value:
+            return validate_email_format(value)
+        return value
+
+    def validate_phone(self, value):
+        if value:
+            return validate_phone_number(value)
+        return value
+
+    def validate_password(self, value):
+        return validate_password_strength(value)
+
+    def validate(self, attrs):
+        email = attrs.get("email")
+        phone = attrs.get("phone")
+        validate_signup_identifier(email, phone)
+        return attrs
+
+
+class LoginSerializer(serializers.Serializer):
+    """Validates login credentials. Accepts email or phone + password."""
+
+    email_or_phone = serializers.CharField(
+        required=True,
+        help_text="Email address or phone number.",
     )
+    password = serializers.CharField(required=True, write_only=True)
+
+    def validate_email_or_phone(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Email or phone number is required.")
+        return value.strip()
+
+
+class VerifyPhoneOTPSerializer(serializers.Serializer):
+    """Validates phone OTP verification request."""
+
+    phone = serializers.CharField(required=True, max_length=15)
+    otp_code = serializers.CharField(required=True, min_length=4, max_length=6)
+
+    def validate_phone(self, value):
+        return validate_phone_number(value)
+
+    def validate_otp_code(self, value):
+        if not value or not value.strip().isdigit():
+            raise serializers.ValidationError("OTP code must contain only digits.")
+        return value.strip()
+
+
+class VerifyEmailOTPSerializer(serializers.Serializer):
+    """Validates email OTP verification request."""
+
+    email = serializers.EmailField(required=True)
+    otp_code = serializers.CharField(required=True, min_length=4, max_length=6)
+
+    def validate_email(self, value):
+        return validate_email_format(value)
+
+    def validate_otp_code(self, value):
+        if not value or not value.strip().isdigit():
+            raise serializers.ValidationError("OTP code must contain only digits.")
+        return value.strip()
+
+
+class ResendOTPSerializer(serializers.Serializer):
+    """Validates resend OTP request for phone."""
+
+    phone = serializers.CharField(required=True, max_length=15)
+
+    def validate_phone(self, value):
+        return validate_phone_number(value)
+
+
+class ResendEmailOTPSerializer(serializers.Serializer):
+    """Validates resend OTP request for email."""
+
+    email = serializers.EmailField(required=True)
+
+    def validate_email(self, value):
+        return validate_email_format(value)
+
+
+class RequestPasswordResetSerializer(serializers.Serializer):
+    """Validates password reset request."""
+
+    email_or_phone = serializers.CharField(required=True)
+
+    def validate_email_or_phone(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Email or phone number is required.")
+        return value.strip()
+
+
+class ConfirmPasswordResetSerializer(serializers.Serializer):
+    """Validates password reset confirmation."""
+
+    email_or_phone = serializers.CharField(required=True)
+    otp_code = serializers.CharField(required=True, min_length=4, max_length=6)
+    new_password = serializers.CharField(required=True, write_only=True, min_length=8)
+
+    def validate_email_or_phone(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Email or phone number is required.")
+        return value.strip()
+
+    def validate_otp_code(self, value):
+        if not value or not value.strip().isdigit():
+            raise serializers.ValidationError("OTP code must contain only digits.")
+        return value.strip()
+
+    def validate_new_password(self, value):
+        return validate_password_strength(value)
+
+
+# ──────────────────────────────────────────────
+# Firebase Serializer
+# ──────────────────────────────────────────────
+
+
+class FirebaseTokenSerializer(serializers.Serializer):
+    """Validates Firebase login token request."""
+
+    id_token = serializers.CharField(required=True, help_text="Firebase ID Token")
+    first_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
+    last_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
+    user_type = serializers.CharField(required=False, default="patnabor")
+    agree_to_terms_and_conditions = serializers.BooleanField(required=False, default=False)
+
+
+# ──────────────────────────────────────────────
+# Data Serializers
+# ──────────────────────────────────────────────
 
 
 class UserSerializer(serializers.ModelSerializer):
+    """User model serializer with read-only sensitive fields."""
+
     class Meta:
         model = User
         fields = [
@@ -27,6 +182,8 @@ class UserSerializer(serializers.ModelSerializer):
             "last_name",
             "user_type",
             "is_verified",
+            "is_email_verified",
+            "is_phone_verified",
             "is_active",
             "is_staff",
             "is_superuser",
@@ -42,6 +199,8 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "is_verified",
+            "is_email_verified",
+            "is_phone_verified",
             "is_active",
             "is_staff",
             "is_superuser",
@@ -51,11 +210,12 @@ class UserSerializer(serializers.ModelSerializer):
             "updated_at",
             "firebase_uid",
             "username",
-            "last_seen",
         ]
 
 
 class ProfileSerializer(serializers.ModelSerializer):
+    """Profile model serializer with read-only fields."""
+
     class Meta:
         model = Profile
         fields = [
