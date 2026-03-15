@@ -65,6 +65,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -72,6 +73,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     
     'api.users.middleware.UpdateLastActiveMiddleware',
+    'api.users.middleware.VerificationEnforcementMiddleware',
 ]
 
 CELERY_BROKER_URL = 'redis://redis:6379/0'
@@ -167,6 +169,15 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.ScopedRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'otp_send': '5/hour',
+        'otp_verify': '10/hour',
+        'auth_login': '20/hour',
+    },
+    'EXCEPTION_HANDLER': 'api.users.exception_handler.custom_exception_handler',
 }
 
 # SimpleJWT Configuration
@@ -189,3 +200,45 @@ def initialize_firebase():
         firebase_admin.initialize_app(cred)
         
 initialize_firebase()
+
+
+# ──────────────────────────────────────────────
+# Twilio Configuration (Phone OTP)
+# ──────────────────────────────────────────────
+
+TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID', '')
+TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN', '')
+TWILIO_PHONE_NUMBER = os.getenv('TWILIO_PHONE_NUMBER', '')
+
+
+# ──────────────────────────────────────────────
+# Email Configuration (Gmail SMTP)
+# ──────────────────────────────────────────────
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('EMAIL_HOST_USER', 'noreply@patnabor.com')
+
+
+# ──────────────────────────────────────────────
+# OTP Configuration
+# ──────────────────────────────────────────────
+
+OTP_LENGTH = int(os.getenv('OTP_LENGTH', '4'))
+OTP_EXPIRY_MINUTES = int(os.getenv('OTP_EXPIRY_MINUTES', '5'))
+OTP_MAX_ATTEMPTS = int(os.getenv('OTP_MAX_ATTEMPTS', '5'))
+
+# Email verification token expiry (in hours)
+EMAIL_VERIFICATION_EXPIRY_HOURS = int(os.getenv('EMAIL_VERIFICATION_EXPIRY_HOURS', '24'))
+
+
+# ──────────────────────────────────────────────
+# CORS Configuration
+# ──────────────────────────────────────────────
+
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',') if os.getenv('CORS_ALLOWED_ORIGINS') else []
