@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import FriendRequest, Friendship, UserBlock
-from api.users.serializers import UserSerializer
 
 User = get_user_model()
 
@@ -11,8 +10,21 @@ class NearbyUserSerializer(serializers.Serializer):
     last_name = serializers.CharField(read_only=True)
     username = serializers.CharField(read_only=True)
     user_type = serializers.CharField(read_only=True)
-    distance = serializers.FloatField(read_only=True, required=False)
+    distance = serializers.SerializerMethodField()
     profile_picture = serializers.SerializerMethodField()
+
+    def get_distance(self, obj):
+        distance = getattr(obj, 'distance', None)
+        if distance is None:
+            return None
+        # If it's a GeoDjango Distance object, get miles
+        if hasattr(distance, 'mi'):
+            return float(distance.mi)
+        # If it's already a float or something else convertible
+        try:
+            return float(distance)
+        except (TypeError, ValueError):
+            return None
 
     def get_profile_picture(self, obj):
         if hasattr(obj, 'profile') and obj.profile.profile_picture:
@@ -53,4 +65,13 @@ class UserBlockSerializer(serializers.ModelSerializer):
         model = UserBlock
         fields = ['id', 'blocker', 'blocked_user', 'blocked_user_details', 'created_at']
         read_only_fields = ['id', 'blocker', 'created_at']
+
+
+class UserActionSerializer(serializers.Serializer):
+    """Used for actions requiring just a user_id like unfriend, block, unblock"""
+    user_id = serializers.UUIDField(required=True)
+
+class CreateFriendRequestSerializer(serializers.Serializer):
+    """Used specifically for creating friend requests via user ID"""
+    receiver_id = serializers.UUIDField(required=True)
 
