@@ -59,14 +59,14 @@ class FriendshipSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Friendship
-        fields = ["id", "user1", "user2", "friend_details", "created_at"]
-        read_only_fields = ["id", "user1", "user2", "created_at"]
+        fields = ["id", "sender", "receiver", "friend_details", "created_at"]
+        read_only_fields = ["id", "sender", "receiver", "created_at"]
 
     def get_friend_details(self, obj):
         request = self.context.get("request")
         current_user = request.user if request else None
 
-        friend = obj.user2 if obj.user1 == current_user else obj.user1
+        friend = obj.receiver if obj.sender == current_user else obj.sender
         return NearbyUserSerializer(friend, context={"request": request}).data
 
 
@@ -149,7 +149,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
 
         # Check existing friendship
         if Friendship.objects.filter(
-            Q(user1=current_user, user2=obj) | Q(user1=obj, user2=current_user)
+            Q(sender=current_user, receiver=obj) | Q(sender=obj, receiver=current_user)
         ).exists():
             return "friends"
 

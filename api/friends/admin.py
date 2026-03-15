@@ -11,9 +11,9 @@ class FriendRequestAdmin(admin.ModelAdmin):
 
 @admin.register(Friendship)
 class FriendshipAdmin(admin.ModelAdmin):
-    list_display = ("user1", "user2", "created_at")
+    list_display = ("sender", "receiver", "created_at")
     list_filter = ("created_at",)
-    search_fields = ("user1__username", "user2__username")
+    search_fields = ("sender__username", "receiver__username")
 
 
 @admin.register(UserBlock)

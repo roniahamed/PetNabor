@@ -160,30 +160,42 @@ class FriendListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Friendship.objects.select_related(
-            'user1__profile', 
-            'user2__profile'
-        ).filter(Q(user1=user) | Q(user2=user)).order_by('-created_at')
-        
+        queryset = (
+            Friendship.objects.select_related("sender__profile", "receiver__profile")
+            .filter(Q(sender=user) | Q(receiver=user))
+            .order_by("-created_at")
+        )
+
         # Security: Filter out blocked users from showing up in the list
-        blocked_ids = list(UserBlock.objects.filter(blocker=user).values_list('blocked_user_id', flat=True))
-        blocked_by_ids = list(UserBlock.objects.filter(blocked_user=user).values_list('blocker_id', flat=True))
+        blocked_ids = list(
+            UserBlock.objects.filter(blocker=user).values_list("blocked_user_id", flat=True)
+        )
+        blocked_by_ids = list(
+            UserBlock.objects.filter(blocked_user=user).values_list("blocker_id", flat=True)
+        )
         exclude_ids = set(blocked_ids + blocked_by_ids)
-        
+
         if exclude_ids:
             # Exclude memberships where the other user is in exclude_ids
             queryset = queryset.exclude(
-                Q(user1=user, user2_id__in=exclude_ids) | Q(user2=user, user1_id__in=exclude_ids)
+                Q(sender=user, receiver_id__in=exclude_ids)
+                | Q(receiver=user, sender_id__in=exclude_ids)
             )
-        
-        friend_type = self.request.query_params.get('type')  # 'petpals' or 'petnabors'
+
+        friend_type = self.request.query_params.get("type")  # 'petpals' or 'petnabors'
         if friend_type:
             # We filter based on the type of the friend (the other user)
-            if friend_type == 'petpals':
-                queryset = queryset.filter(Q(user1=user, user2__user_type='patpal') | Q(user2=user, user1__user_type='patpal'))
-            elif friend_type == 'petnabors':
-                queryset = queryset.filter(Q(user1=user, user2__user_type='patnabor') | Q(user2=user, user1__user_type='patnabor'))
-                
+            if friend_type == "petpals":
+                queryset = queryset.filter(
+                    Q(sender=user, receiver__user_type="patpal")
+                    | Q(receiver=user, sender__user_type="patpal")
+                )
+            elif friend_type == "petnabors":
+                queryset = queryset.filter(
+                    Q(sender=user, receiver__user_type="patnabor")
+                    | Q(receiver=user, sender__user_type="patnabor")
+                )
+
         return queryset
 
 

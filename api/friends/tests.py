@@ -95,8 +95,11 @@ class FriendsAPITestCase(TestCase):
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         req.refresh_from_db()
-        self.assertEqual(req.status, 'accepted')
-        self.assertTrue(Friendship.objects.filter(user1=self.user1, user2=self.user2).exists() or Friendship.objects.filter(user1=self.user2, user2=self.user1).exists())
+        self.assertEqual(req.status, "accepted")
+        self.assertTrue(
+            Friendship.objects.filter(sender=self.user1, receiver=self.user2).exists()
+            or Friendship.objects.filter(sender=self.user2, receiver=self.user1).exists()
+        )
 
     def test_reject_friend_request(self):
         req = FriendRequest.objects.create(sender=self.user1, receiver=self.user2, status='pending')
@@ -152,7 +155,7 @@ class FriendsAPITestCase(TestCase):
         self.assertEqual(len(response.data['results']), 1)
 
     def test_remove_friend(self):
-        Friendship.objects.create(user1=self.user1, user2=self.user2)
+        Friendship.objects.create(sender=self.user1, receiver=self.user2)
         self.client.force_authenticate(user=self.user1)
         
         url = reverse('remove-friend')
@@ -160,11 +163,11 @@ class FriendsAPITestCase(TestCase):
         response = self.client.post(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertFalse(Friendship.objects.filter(user1=self.user1, user2=self.user2).exists())
+        self.assertFalse(Friendship.objects.filter(sender=self.user1, receiver=self.user2).exists())
 
     def test_friend_list(self):
-        Friendship.objects.create(user1=self.user1, user2=self.user2)
-        Friendship.objects.create(user1=self.user1, user2=self.user3)
+        Friendship.objects.create(sender=self.user1, receiver=self.user2)
+        Friendship.objects.create(sender=self.user1, receiver=self.user3)
         
         self.client.force_authenticate(user=self.user1)
         url = reverse('list-friends')
@@ -190,8 +193,8 @@ class FriendsAPITestCase(TestCase):
 
     def test_advanced_search_filters(self):
         # Establish friendships first: user1 is friends with user2 and user3
-        Friendship.objects.create(user1=self.user1, user2=self.user2)
-        Friendship.objects.create(user1=self.user1, user2=self.user3)
+        Friendship.objects.create(sender=self.user1, receiver=self.user2)
+        Friendship.objects.create(sender=self.user1, receiver=self.user3)
         
         self.client.force_authenticate(user=self.user1)
         url = reverse('search-users')
