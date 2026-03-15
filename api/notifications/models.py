@@ -78,7 +78,7 @@ class NotificationTypes(models.TextChoices):
 class Notifications(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
-        User, related_name="notifications", on_delete=models.CASCADE, db_index=True
+        User, related_name="notifications", on_delete=models.CASCADE
     )
     title = models.CharField(max_length=255)
     body = models.TextField(blank=True, null=True)
@@ -86,7 +86,7 @@ class Notifications(models.Model):
     notification_type = models.CharField(
         max_length=20, choices=NotificationTypes.choices, default=NotificationTypes.INFO
     )
-    is_read = models.BooleanField(default=False, db_index=True)
+    is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
