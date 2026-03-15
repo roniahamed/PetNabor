@@ -1,15 +1,30 @@
-from django.db import models
+"""
+User, Profile, and OTP Verification models.
+
+Designed for 1M+ users with proper indexing and clean naming conventions.
+"""
+
+import os
 import uuid
+
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.contrib.gis.db import models as gis_models
-import os
-from django.conf import settings
+from django.db import models
+from django.utils import timezone
+
+
+# ──────────────────────────────────────────────
+# Custom User Manager
+# ──────────────────────────────────────────────
 
 
 class CustomUserManager(BaseUserManager):
+    """Custom manager supporting email/phone-based user creation."""
+
     def create_user(self, email=None, phone=None, password=None, **extra_fields):
         if not email and not phone:
-            raise ValueError("The Email or Phone number must be set")
+            raise ValueError("Either email or phone number must be provided.")
 
         email = self.normalize_email(email) if email else None
 
@@ -17,13 +32,18 @@ class CustomUserManager(BaseUserManager):
             extra_fields.pop("username")
 
         user = self.model(email=email, phone=phone, **extra_fields)
-        user.set_password(password)
+        if password:
+            user.set_password(password)
+        else:
+            user.set_unusable_password()
         user.save(using=self._db)
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("is_verified", True)
+        extra_fields.setdefault("is_email_verified", True)
 
         if extra_fields.get("is_staff") is not True:
             raise ValueError("Superuser must have is_staff=True.")
@@ -33,11 +53,27 @@ class CustomUserManager(BaseUserManager):
         return self.create_user(email=email, password=password, **extra_fields)
 
 
+# ──────────────────────────────────────────────
+# Enums
+# ──────────────────────────────────────────────
+
+
 class UserTypes(models.TextChoices):
     PATNABOR = "patnabor", "Patnabor"
     PATPAL = "patpal", "Patpal"
     VENDOR = "vendor", "Vendor"
     ADMIN = "admin", "Admin"
+
+
+class OTPTypes(models.TextChoices):
+    PHONE_SIGNUP = "phone_signup", "Phone Signup"
+    EMAIL_SIGNUP = "email_signup", "Email Signup"
+    PASSWORD_RESET = "password_reset", "Password Reset"
+
+
+# ──────────────────────────────────────────────
+# User Model
+# ──────────────────────────────────────────────
 
 
 class User(AbstractUser):
@@ -55,7 +91,11 @@ class User(AbstractUser):
     agree_to_terms_and_conditions = models.BooleanField(default=False)
     firebase_uid = models.CharField(max_length=255, unique=True, null=True, blank=True)
 
+    # Verification flags
     is_verified = models.BooleanField(default=False)
+    is_email_verified = models.BooleanField(default=False)
+    is_phone_verified = models.BooleanField(default=False)
+
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
@@ -71,28 +111,32 @@ class User(AbstractUser):
     password = models.CharField(max_length=128, null=True, blank=True)
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = [
-        "username",
-    ]
-    
+    REQUIRED_FIELDS = ["username"]
+
     class Meta:
         indexes = [
-            models.Index(fields=['user_type', 'is_active']),
-            models.Index(fields=['firebase_uid']),
+            models.Index(fields=["user_type", "is_active"]),
+            models.Index(fields=["firebase_uid"]),
+            models.Index(fields=["phone"]),
+            models.Index(fields=["email"]),
+            models.Index(fields=["is_verified"]),
         ]
 
     objects = CustomUserManager()
 
     def __str__(self):
-        return self.email if self.email else self.phone
+        return self.email if self.email else self.phone or str(self.id)
 
     @property
     def currently_online(self):
         if self.last_active:
-            from django.utils import timezone
-
             return (timezone.now() - self.last_active).total_seconds() < 300
         return False
+
+
+# ──────────────────────────────────────────────
+# Profile Model
+# ──────────────────────────────────────────────
 
 
 def profile_image_path(instance, filename):
@@ -134,4 +178,54 @@ class Profile(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Profile of {self.user.email}"
+        return f"Profile of {self.user}"
+
+
+# ──────────────────────────────────────────────
+# OTP Verification Model
+# ──────────────────────────────────────────────
+
+
+class OTPVerification(models.Model):
+    """
+    Stores OTP codes for phone and email verification, and password reset.
+
+    OTP codes are hashed before storage for security.
+    Composite indexes ensure fast lookups even at 1M+ scale.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="otp_verifications",
+    )
+    otp_hash = models.CharField(
+        max_length=128,
+        help_text="SHA-256 hash of the OTP code.",
+    )
+    otp_type = models.CharField(
+        max_length=20,
+        choices=OTPTypes.choices,
+        default=OTPTypes.PHONE_SIGNUP,
+    )
+    attempt_count = models.PositiveIntegerField(default=0)
+    is_used = models.BooleanField(default=False)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "otp_type", "is_used"]),
+            models.Index(fields=["expires_at"]),
+        ]
+
+    def __str__(self):
+        return f"OTP for {self.user} ({self.otp_type})"
+
+    @property
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+
+
