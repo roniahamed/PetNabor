@@ -3,8 +3,9 @@ from django.contrib.auth import get_user_model
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.measure import D
 from rest_framework.exceptions import ValidationError, NotFound, PermissionDenied
-
 from .models import FriendRequest, Friendship, UserBlock
+from api.notifications.services import send_notification
+from api.notifications.models import NotificationTypes
 
 User = get_user_model()
 
@@ -46,9 +47,25 @@ def send_friend_request(sender, receiver_id):
         reverse_req.status = 'accepted'
         reverse_req.save()
         Friendship.objects.create(user1=receiver, user2=sender)
+        
+        # Notify the original sender that their request was accepted
+        send_notification(
+            user_id=receiver.id,
+            title="Friend Request Accepted",
+            body=f"{sender.username} accepted your friend request.",
+            notification_type=NotificationTypes.FRIEND_ACCEPT
+        )
         return reverse_req, True  # True means automatically accepted
 
     freq = FriendRequest.objects.create(sender=sender, receiver=receiver, status='pending')
+    
+    # Notify the receiver about the new friend request
+    send_notification(
+        user_id=receiver.id,
+        title="New Friend Request",
+        body=f"{sender.username} sent you a friend request.",
+        notification_type=NotificationTypes.FRIEND_REQUEST
+    )
     return freq, False
 
 
@@ -64,6 +81,14 @@ def accept_friend_request(user, friend_request):
     friend_request.status = 'accepted'
     friend_request.save()
     Friendship.objects.get_or_create(user1=friend_request.sender, user2=friend_request.receiver)
+    
+    # Notify the sender that the request was accepted
+    send_notification(
+        user_id=friend_request.sender_id,
+        title="Friend Request Accepted",
+        body=f"{user.username} accepted your friend request.",
+        notification_type=NotificationTypes.FRIEND_ACCEPT
+    )
     return friend_request
 
 

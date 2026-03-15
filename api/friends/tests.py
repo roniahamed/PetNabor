@@ -1,5 +1,6 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
+from unittest.mock import patch
 from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -240,3 +241,38 @@ class FriendsAPITestCase(TestCase):
         response_sylhet = self.client.get(url + '?radius=all&city=Sylhet')
         self.assertEqual(len(response_sylhet.data['results']), 1)
         self.assertEqual(response_sylhet.data['results'][0]['username'], 'user4')
+
+    @patch('api.friends.services.send_notification')
+    def test_friend_request_notifications(self, mock_notify):
+        from api.notifications.models import NotificationTypes
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('friend-requests-list')
+        data = {'receiver_id': str(self.user2.id)}
+        self.client.post(url, data, format='json')
+        
+        # Check if notification was sent to user2
+        self.assertEqual(mock_notify.call_count, 1)
+        mock_notify.assert_called_with(
+            user_id=self.user2.id,
+            title="New Friend Request",
+            body="user1 sent you a friend request.",
+            notification_type=NotificationTypes.FRIEND_REQUEST
+        )
+
+    @patch('api.friends.services.send_notification')
+    def test_accept_friend_request_notification(self, mock_notify):
+        from api.notifications.models import NotificationTypes
+        req = FriendRequest.objects.create(sender=self.user1, receiver=self.user2, status='pending')
+        
+        self.client.force_authenticate(user=self.user2)
+        url = reverse('friend-requests-accept', kwargs={'pk': req.id})
+        self.client.post(url)
+        
+        # In accept_friend_request, sender gets notified
+        self.assertEqual(mock_notify.call_count, 1)
+        mock_notify.assert_called_with(
+            user_id=self.user1.id,
+            title="Friend Request Accepted",
+            body="user2 accepted your friend request.",
+            notification_type=NotificationTypes.FRIEND_ACCEPT
+        )
