@@ -3,6 +3,9 @@ from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 import uuid
 
+from api.notifications.services import send_notification
+from api.notifications.models import NotificationTypes
+
 User = get_user_model()
 
 
@@ -81,6 +84,14 @@ def firebase_login_service(
             user.save()
 
         tokens = get_tokens_for_user(user)
+        
+        send_notification(
+            user_id=user.id,
+            title="New Login Detected",
+            body="A new login session was established for your account.",
+            data={"type": "login"},
+            notification_type=NotificationTypes.LOGIN
+        )
 
         return tokens, user
     except Exception as e:
