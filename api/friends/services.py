@@ -10,6 +10,15 @@ from api.notifications.models import NotificationTypes
 User = get_user_model()
 
 
+def _invalidate_message_permission(user_a_id, user_b_id):
+    """Lazily import and invalidate the messaging permission cache for a user pair."""
+    try:
+        from api.messaging.services import invalidate_messaging_permission
+        invalidate_messaging_permission(user_a_id, user_b_id)
+    except Exception:
+        pass  # messaging app may not be installed in all test environments
+
+
 def is_blocked(user_a, user_b):
     """Helper method to determine if a block exists in either direction."""
     return UserBlock.objects.filter(
@@ -89,6 +98,9 @@ def accept_friend_request(user, friend_request):
         sender=friend_request.sender, receiver=friend_request.receiver
     )
 
+    # Invalidate messaging permission cache for this new friendship
+    _invalidate_message_permission(user.id, friend_request.sender_id)
+
     # Notify the sender that the request was accepted
     send_notification(
         user_id=friend_request.sender_id,
@@ -135,6 +147,9 @@ def remove_friend(user, friend_id):
     if deleted == 0:
         raise NotFound("Friendship not found")
 
+    # Invalidate messaging permission cache
+    _invalidate_message_permission(user.id, friend.id)
+
     # Also clean up any lingering FriendRequests
     FriendRequest.objects.filter(
         Q(sender=user, receiver=friend) | Q(sender=friend, receiver=user)
@@ -150,6 +165,9 @@ def block_user(blocker, blocked_user_id):
         raise NotFound("User not found")
 
     UserBlock.objects.get_or_create(blocker=blocker, blocked_user=blocked_user)
+
+    # Invalidate messaging permission cache
+    _invalidate_message_permission(blocker.id, blocked_user.id)
 
     # Remove friendship if exists
     Friendship.objects.filter(
@@ -171,6 +189,8 @@ def unblock_user(blocker, blocked_user_id):
     ).delete()
     if deleted == 0:
         raise NotFound("Block record not found")
+    # Invalidate messaging permission cache
+    _invalidate_message_permission(blocker.id, blocked_user_id)
     return True
 
 
