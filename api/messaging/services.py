@@ -23,7 +23,6 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from api.friends.models import Friendship, UserBlock
 
 from .models import ChatThread, Message, MessageTypes, ParticipantRoles, ThreadParticipant, ThreadTypes
-from .serializers import MessageSerializer
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -325,26 +324,57 @@ def send_message(sender, thread_id, text_content=None, message_type=MessageTypes
     try:
         from asgiref.sync import async_to_sync
         from channels.layers import get_channel_layer
-        
+
         channel_layer = get_channel_layer()
-        message_data = MessageSerializer(message).data
-        
-        # Broadcast to all participants in their personal groups
+
+        # Build a plain-dict payload — all UUIDs converted to str so
+        # channels_redis / msgpack can serialize without error.
+        ws_payload = {
+            "id": str(message.id),
+            "thread": str(thread.id),
+            "sender": {
+                "id": str(message.sender.id),
+                "username": message.sender.username,
+                "first_name": message.sender.first_name,
+                "last_name": message.sender.last_name,
+            },
+            "message_type": message.message_type,
+            "text_content": message.text_content,
+            "media_url": message.media_url,
+            "reply_to": None,
+            "is_read": message.is_read,
+            "created_at": message.created_at.isoformat(),
+        }
+
+        if message.reply_to:
+            ws_payload["reply_to"] = {
+                "id": str(message.reply_to.id),
+                "sender": {
+                    "id": str(message.reply_to.sender.id),
+                    "username": message.reply_to.sender.username,
+                    "first_name": message.reply_to.sender.first_name,
+                    "last_name": message.reply_to.sender.last_name,
+                    "avatar": None,  # Simplified for WS
+                },
+                "text_content": message.reply_to.text_content,
+                "media_url": message.reply_to.media_url,
+                "message_type": message.reply_to.message_type,
+            }
+
         all_participant_ids = list(
             ThreadParticipant.objects.filter(thread=thread, left_at__isnull=True)
             .values_list("user_id", flat=True)
         )
-        
+
         for p_id in all_participant_ids:
-            # Invalidate Inbox Cache for participant
-            from django.core.cache import cache
+            # Invalidate inbox cache for this participant
             cache.delete(f"user_inbox_{p_id}_page_1")
-            
+
             async_to_sync(channel_layer.group_send)(
-                f"user_{p_id}",
+                f"user_{str(p_id)}",   # str() prevents UUID serialization error
                 {
                     "type": "chat_message",
-                    "message": message_data,
+                    "message": ws_payload,
                 }
             )
     except Exception:

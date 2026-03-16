@@ -62,7 +62,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # in one group. Instead, we pull participants and notify their personal groups.
         participants = await self.get_thread_participants(thread_id)
         for p_id in participants:
-            if p_id != str(self.user.id):
+            if str(p_id) != str(self.user.id):
                 await self.channel_layer.group_send(
                     f"user_{p_id}",
                     {

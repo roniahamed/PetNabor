@@ -152,16 +152,41 @@ class SendMessageSerializer(serializers.Serializer):
 # ──────────────────────────────────────────────
 
 
+class SimpleParticipantSerializer(serializers.ModelSerializer):
+    """Lightweight participant for GROUP thread member lists."""
+
+    id = serializers.UUIDField(source="user.id")
+    username = serializers.CharField(source="user.username")
+    first_name = serializers.CharField(source="user.first_name")
+    last_name = serializers.CharField(source="user.last_name")
+    is_online = serializers.BooleanField(source="user.is_online")
+    avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ThreadParticipant
+        fields = ["id", "username", "first_name", "last_name", "avatar", "is_online"]
+
+    def get_avatar(self, participant):
+        profile = getattr(participant.user, "profile", None)
+        if profile and profile.profile_picture:
+            request = self.context.get("request")
+            url = profile.profile_picture.url
+            return request.build_absolute_uri(url) if request else url
+        return None
+
+
 class ChatThreadSerializer(serializers.ModelSerializer):
     """
-    Full thread serializer for retrieve/list.
-    Participants come from the prefetched `active_participants` attr set by the service.
-    last_message is the first item from `recent_messages` if present.
+    Simplified thread serializer.
+
+    DIRECT thread → `other_user` shows the other person (not the requester).
+    GROUP  thread → `members` shows a simplified participant list.
+
+    Requires `request` in serializer context to determine current user.
     """
 
-    participants = serializers.SerializerMethodField()
-    last_message = serializers.SerializerMethodField()
-    created_by = ParticipantUserSerializer(read_only=True)
+    other_user = serializers.SerializerMethodField()
+    members = serializers.SerializerMethodField()
 
     class Meta:
         model = ChatThread
@@ -169,33 +194,42 @@ class ChatThreadSerializer(serializers.ModelSerializer):
             "id",
             "thread_type",
             "name",
-            "description",
             "avatar_url",
-            "created_by",
-            "participants",
-            "last_message",
+            "other_user",
+            "members",
             "last_message_text",
             "last_message_timestamp",
             "created_at",
-            "updated_at",
         ]
 
-    def get_participants(self, thread):
-        # Use prefetched attr when available (avoids extra query)
+    def _get_participants(self, thread):
+        """Return prefetched or freshly queried active participants."""
         members = getattr(thread, "active_participants", None)
         if members is None:
-            members = thread.participants.filter(left_at__isnull=True).select_related(
-                "user__profile"
+            members = (
+                thread.participants.filter(left_at__isnull=True)
+                .select_related("user__profile")
             )
-        return ThreadParticipantSerializer(
-            members, many=True, context=self.context
-        ).data
+        return members
 
-    def get_last_message(self, thread):
-        recent = getattr(thread, "recent_messages", None)
-        if recent:
-            return MessageSerializer(recent[0], context=self.context).data
+    def get_other_user(self, thread):
+        """For DIRECT threads: return the participant who is NOT the current user."""
+        if thread.thread_type != ThreadTypes.DIRECT:
+            return None
+        request = self.context.get("request")
+        me_id = request.user.id if request else None
+        for p in self._get_participants(thread):
+            if p.user_id != me_id:
+                return ParticipantUserSerializer(p.user, context=self.context).data
         return None
+
+    def get_members(self, thread):
+        """For GROUP threads: return simplified participant list."""
+        if thread.thread_type != ThreadTypes.GROUP:
+            return None
+        return SimpleParticipantSerializer(
+            self._get_participants(thread), many=True, context=self.context
+        ).data
 
 
 class CreateDirectThreadSerializer(serializers.Serializer):
