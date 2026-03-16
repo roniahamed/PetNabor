@@ -42,7 +42,7 @@ def notify_new_message(self, message_id, sender_id, recipient_ids, text_preview)
             user_ids=recipient_ids,
             title=title,
             body=body,
-            notification_type=NotificationTypes.SYSTEM,
+            notification_type=NotificationTypes.MESSAGE,
             data={
                 "message_id": message_id,
                 "sender_id": sender_id,

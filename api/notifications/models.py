@@ -54,9 +54,12 @@ class NotificationTypes(models.TextChoices):
     LIKE = "like", _("New Like on Post")
     COMMENT = "comment", _("New Comment")
     MENTION = "mention", _("Mentioned in Post/Comment")
+    OTP = "otp", _("OTP")
+    PASSWORD_RESET = "password_reset", _("Password Reset")
+    MESSAGE = "message", _("New Message")
 
-    PET_REMINDER = "pet_reminder", _("Pet Care Reminder") 
-    PET_MATCH = "pet_match", _("Potential Pet Playmate Found") 
+    PET_REMINDER = "pet_reminder", _("Pet Care Reminder")
+    PET_MATCH = "pet_match", _("Potential Pet Playmate Found")
     VET_APPOINTMENT = "vet_appointment", _("Vet Appointment Update")
 
     MEETUP_INVITE = "meetup_invite", _("Meetup Invitation")
