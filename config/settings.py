@@ -43,6 +43,7 @@ CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS').split(',') if os.getenv
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -60,6 +61,7 @@ INSTALLED_APPS = [
     'api.notifications',
     'api.pet',
     'api.friends',
+    'api.messaging',
 ]
 
 MIDDLEWARE = [
@@ -78,6 +80,33 @@ MIDDLEWARE = [
 
 CELERY_BROKER_URL = 'redis://redis:6379/0'
 CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+
+# ──────────────────────────────────────────────
+# Cache (Redis)
+# ──────────────────────────────────────────────
+
+REDIS_URL = os.getenv('REDIS_URL', 'redis://redis:6379/1')
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': REDIS_URL,
+        'OPTIONS': {
+            'db': '1',
+        },
+        'KEY_PREFIX': 'patnabor',
+        'TIMEOUT': 300,  # default 5-minute TTL
+    }
+}
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [os.getenv('REDIS_URL', 'redis://redis:6379/1')],
+        },
+    },
+}
 
 AUTH_USER_MODEL = 'users.User'
 
@@ -100,6 +129,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
 
 
 # Database
@@ -176,6 +206,7 @@ REST_FRAMEWORK = {
         'otp_send': '5/hour',
         'otp_verify': '10/hour',
         'auth_login': '20/hour',
+        'messaging_send': '5000/hour',
     },
     'EXCEPTION_HANDLER': 'api.users.exception_handler.custom_exception_handler',
 }
