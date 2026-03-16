@@ -11,3 +11,7 @@ celery
 redis
 djangorestframework-gis>=1.1
 twilio>=9.0,<10.0
+channels[daphne]>=4.0
+channels-redis>=4.0
+gunicorn>=21.2.0
+uvicorn[standard]>=0.29.0
