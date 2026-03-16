@@ -5,6 +5,7 @@ from django.urls import path, include
 urlpatterns = [
     path('users/', include('api.users.urls')),
     path('notifications/', include('api.notifications.urls')),
-    path('pets/', include('api.pet.urls')),  
+    path('pets/', include('api.pet.urls')),
     path('friends/', include('api.friends.urls')),
+    path('messaging/', include('api.messaging.urls')),
 ]
