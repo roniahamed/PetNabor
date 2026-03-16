@@ -1,0 +1,54 @@
+"""
+Celery tasks for the messaging app.
+
+Sending push notifications asynchronously so message delivery
+is never blocked by downstream push notification latency.
+"""
+
+import logging
+
+from celery import shared_task
+from django.contrib.auth import get_user_model
+
+from api.notifications.models import NotificationTypes
+from api.notifications.services import send_notification
+
+logger = logging.getLogger(__name__)
+User = get_user_model()
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=10)
+def notify_new_message(self, message_id, sender_id, recipient_ids, text_preview):
+    """
+    Send push notifications to all recipients of a new message.
+
+    Args:
+        message_id:    UUID string of the newly created Message.
+        sender_id:     UUID string of the message sender.
+        recipient_ids: List of UUID strings for users to notify.
+        text_preview:  First 100 chars of the message for the notification body.
+    """
+    try:
+        sender = User.objects.filter(id=sender_id).first()
+        if not sender:
+            logger.warning("notify_new_message: sender %s not found", sender_id)
+            return
+
+        sender_display = sender.username or sender.email or "Someone"
+        title = f"New message from {sender_display}"
+        body = text_preview
+
+        send_notification(
+            user_ids=recipient_ids,
+            title=title,
+            body=body,
+            notification_type=NotificationTypes.SYSTEM,
+            data={
+                "message_id": message_id,
+                "sender_id": sender_id,
+                "type": "new_message",
+            },
+        )
+    except Exception as exc:
+        logger.exception("notify_new_message task failed for message %s", message_id)
+        raise self.retry(exc=exc)
