@@ -32,7 +32,9 @@ class SignupSerializer(serializers.Serializer):
     first_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
     last_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
     user_type = serializers.CharField(required=False, default="patnabor")
-    agree_to_terms_and_conditions = serializers.BooleanField(required=False, default=False)
+    agree_to_terms_and_conditions = serializers.BooleanField(
+        required=False, default=False
+    )
 
     def validate_email(self, value):
         if value:
@@ -161,7 +163,9 @@ class FirebaseTokenSerializer(serializers.Serializer):
     first_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
     last_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
     user_type = serializers.CharField(required=False, default="patnabor")
-    agree_to_terms_and_conditions = serializers.BooleanField(required=False, default=False)
+    agree_to_terms_and_conditions = serializers.BooleanField(
+        required=False, default=False
+    )
 
 
 # ──────────────────────────────────────────────
@@ -169,8 +173,41 @@ class FirebaseTokenSerializer(serializers.Serializer):
 # ──────────────────────────────────────────────
 
 
+class Profile_Read(serializers.ModelSerializer):
+    """Profile model serializer with read-only fields."""
+
+    class Meta:
+        model = Profile
+        fields = [
+            "address_street",
+            "city",
+            "state",
+            "zipcode",
+            "location_point",
+            "date_of_birth",
+            "profile_picture",
+            "cover_photo",
+            "bio",
+            "referral_code",
+            "referred_by",
+        ]
+        read_only_fields = [
+            "address_street",
+            "city",
+            "state",
+            "zipcode",
+            "location_point",
+            "date_of_birth",
+            "profile_picture",
+            "cover_photo",
+            "bio",
+            "referral_code",
+            "referred_by",
+        ]
+
+
 class UserSerializer(serializers.ModelSerializer):
-    """User model serializer with read-only sensitive fields."""
+    profile = Profile_Read(read_only=True)
 
     class Meta:
         model = User
@@ -193,6 +230,7 @@ class UserSerializer(serializers.ModelSerializer):
             "is_online",
             "last_active",
             "firebase_uid",
+            "profile",
             "username",
             "updated_at",
         ]
@@ -235,4 +273,11 @@ class ProfileSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "user", "created_at", "updated_at", "referral_code", "referred_by"]
+        read_only_fields = [
+            "id",
+            "user",
+            "created_at",
+            "updated_at",
+            "referral_code",
+            "referred_by",
+        ]
