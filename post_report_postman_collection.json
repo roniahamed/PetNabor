@@ -1,0 +1,748 @@
+{
+	"info": {
+		"_postman_id": "8e8e8e8e-8e8e-4e8e-8e8e-8e8e8e8e8e8e",
+		"name": "Post & Report API",
+		"description": "Comprehensive collection for social posts, comments, reactions, saved posts, and content reporting.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Posts",
+			"item": [
+				{
+					"name": "List Own Posts",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/post/posts/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"posts",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Feed (Friends + Self)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/post/posts/feed/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"posts",
+								"feed",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Post (Multipart)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "content_text",
+									"value": "Hello world #newpost @friend",
+									"type": "text"
+								},
+								{
+									"key": "privacy",
+									"value": "PUBLIC",
+									"type": "text"
+								},
+								{
+									"key": "media",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_urls}}/post/posts/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"posts",
+								""
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.id) {",
+									"    pm.collectionVariables.set(\"post_id\", jsonData.id);",
+									"    console.log(\"Saved post_id: \" + jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Post Detail",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/post/posts/{{post_id}}/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"posts",
+								"{{post_id}}",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Post",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"content_text\": \"Updated post content #edited\",\n    \"privacy\": \"FRIENDS\"\n}"
+						},
+						"url": {
+							"raw": "{{base_urls}}/post/posts/{{post_id}}/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"posts",
+								"{{post_id}}",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Post",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/post/posts/{{post_id}}/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"posts",
+								"{{post_id}}",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Like Post",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reaction_type\": \"LIKE\"\n}"
+						},
+						"url": {
+							"raw": "{{base_urls}}/post/posts/{{post_id}}/like/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"posts",
+								"{{post_id}}",
+								"like",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Unlike Post",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/post/posts/{{post_id}}/like/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"posts",
+								"{{post_id}}",
+								"like",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Save Post",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/post/posts/{{post_id}}/save_post/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"posts",
+								"{{post_id}}",
+								"save_post",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Unsave Post",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/post/posts/{{post_id}}/save_post/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"posts",
+								"{{post_id}}",
+								"save_post",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Comments",
+			"item": [
+				{
+					"name": "List Top-level Comments",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/post/comments/?post_id={{post_id}}",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"comments",
+								""
+							],
+							"query": [
+								{
+									"key": "post_id",
+									"value": "{{post_id}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Comment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"post\": \"{{post_id}}\",\n    \"comment_text\": \"This is a great post!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_urls}}/post/comments/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"comments",
+								""
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.id) {",
+									"    pm.collectionVariables.set(\"comment_id\", jsonData.id);",
+									"    console.log(\"Saved comment_id: \" + jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Comment Detail",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/post/comments/{{comment_id}}/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"comments",
+								"{{comment_id}}",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Comment",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"comment_text\": \"Updated comment text.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_urls}}/post/comments/{{comment_id}}/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"comments",
+								"{{comment_id}}",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Comment",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/post/comments/{{comment_id}}/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"comments",
+								"{{comment_id}}",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Reply to Comment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"post\": \"{{post_id}}\",\n    \"parent_comment\": \"{{comment_id}}\",\n    \"comment_text\": \"I agree!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_urls}}/post/comments/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"comments",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Replies",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/post/comments/{{comment_id}}/replies/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"comments",
+								"{{comment_id}}",
+								"replies",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Saved Posts",
+			"item": [
+				{
+					"name": "List Saved Posts",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/post/saved-posts/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"post",
+								"saved-posts",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Reports",
+			"item": [
+				{
+					"name": "List Reports",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/report/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"report",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Submit Report",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"target_type\": \"POST\",\n    \"target_id\": \"{{post_id}}\",\n    \"reason\": \"Inappropriate content\",\n    \"description\": \"This post violates community standards.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_urls}}/report/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"report",
+								""
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.id) {",
+									"    pm.collectionVariables.set(\"report_id\", jsonData.id);",
+									"    console.log(\"Saved report_id: \" + jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				},
+				{
+					"name": "Report Detail",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/report/{{report_id}}/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"report",
+								"{{report_id}}",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Resolve Report (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/report/{{report_id}}/resolve/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"report",
+								"{{report_id}}",
+								"resolve",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_urls",
+			"value": "http://localhost:8001/api",
+			"type": "string"
+		},
+		{
+			"key": "auth_token",
+			"value": "your_token_here",
+			"type": "string"
+		},
+		{
+			"key": "post_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "comment_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "report_id",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

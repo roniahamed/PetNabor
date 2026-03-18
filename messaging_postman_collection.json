@@ -1,0 +1,376 @@
+{
+	"info": {
+		"_postman_id": "6d8d8d8d-8d8d-4d8d-8d8d-8d8d8d8d8d8d",
+		"name": "Messaging API",
+		"description": "Collection for real-time messaging, thread management, and group chats.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Threads",
+			"item": [
+				{
+					"name": "List Inbox",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/messaging/threads/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"messaging",
+								"threads",
+								""
+							]
+						},
+						"description": "Returns a list of all chat threads (DIRECT and GROUP) for the authenticated user, sorted by last message timestamp."
+					},
+					"response": []
+				},
+				{
+					"name": "Start Direct Chat",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"recipient_id\": \"b8c5e2d1-0000-0000-0000-000000000000\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/messaging/threads/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"messaging",
+								"threads",
+								""
+							]
+						},
+						"description": "Starts a new 1-on-1 direct chat with another user. Returns existing thread if one already exists."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Group Chat",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Weekend Trip\",\n    \"member_ids\": [\n        \"b8c5e2d1-0000-0000-0000-000000000001\",\n        \"b8c5e2d1-0000-0000-0000-000000000002\"\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/messaging/threads/group/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"messaging",
+								"threads",
+								"group",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Thread Detail",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/messaging/threads/{{thread_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"messaging",
+								"threads",
+								"{{thread_id}}",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Clear Thread History",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/messaging/threads/{{thread_id}}/clear-history/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"messaging",
+								"threads",
+								"{{thread_id}}",
+								"clear-history",
+								""
+							]
+						},
+						"description": "Clears the chat history for the REQUESTING USER only. Does not affect other participants."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Messages",
+			"item": [
+				{
+					"name": "List Messages",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/messaging/threads/{{thread_id}}/messages/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"messaging",
+								"threads",
+								"{{thread_id}}",
+								"messages",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Send Message",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"message_type\": \"TEXT\",\n    \"text_content\": \"Hello world!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/messaging/threads/{{thread_id}}/messages/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"messaging",
+								"threads",
+								"{{thread_id}}",
+								"messages",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Send Reply",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"message_type\": \"TEXT\",\n    \"text_content\": \"Replying to your message\",\n    \"reply_to_id\": \"{{message_id}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/messaging/threads/{{thread_id}}/messages/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"messaging",
+								"threads",
+								"{{thread_id}}",
+								"messages",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Message (Everyone)",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/messaging/threads/{{thread_id}}/messages/{{message_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"messaging",
+								"threads",
+								"{{thread_id}}",
+								"messages",
+								"{{message_id}}",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Bulk Delete Messages",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"message_ids\": [\n        \"{{message_id_1}}\",\n        \"{{message_id_2}}\"\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/messaging/threads/{{thread_id}}/messages/bulk-delete/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"messaging",
+								"threads",
+								"{{thread_id}}",
+								"messages",
+								"bulk-delete",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8001/api",
+			"type": "string"
+		},
+		{
+			"key": "auth_token",
+			"value": "your_token_here",
+			"type": "string"
+		},
+		{
+			"key": "thread_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "message_id",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
