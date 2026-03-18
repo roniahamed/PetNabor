@@ -1,0 +1,360 @@
+"""
+Business logic and services for Posts, Media handling, Feed, and Interactions.
+Key improvements:
+- Batch hashtag creation (no N+1 get_or_create loop)
+- Prefetch user_reactions for is_liked (zero extra queries)
+- Merged Friendship query into one Q() lookup
+- LikeService and SaveService split from InteractionService
+- CommentService with full counter management (including nested reply counters)
+"""
+
+import logging
+import re
+from typing import List, Optional, Tuple
+
+from django.conf import settings
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.db import transaction
+from django.db.models import F, Prefetch, Q, QuerySet
+
+from .models import (
+    Hashtag,
+    MediaTypeChoices,
+    Post,
+    PostComment,
+    PostLike,
+    PrivacyChoices,
+    PostMedia,
+    SavedPost,
+)
+from api.users.models import User
+from api.friends.models import Friendship
+
+logger = logging.getLogger(__name__)
+
+
+# ──────────────────────────────────────────────
+# Media Service
+# ──────────────────────────────────────────────
+
+
+class MediaService:
+    """Handles media dispatch only — heavy lifting done by Celery."""
+
+    @staticmethod
+    def create_post_media(post: Post, media_files: List[InMemoryUploadedFile]) -> None:
+        """
+        Save raw files and immediately dispatch background Celery task to process them.
+        Does NOT block the request cycle.
+        """
+        media_instances = []
+        for i, m_file in enumerate(media_files):
+            content_type = getattr(m_file, "content_type", "")
+            is_video = (
+                content_type in settings.POST_ALLOWED_VIDEO_MIME
+                or m_file.name.lower().endswith((".mp4", ".mov"))
+            )
+            m_type = MediaTypeChoices.VIDEO if is_video else MediaTypeChoices.IMAGE
+            media_instances.append(
+                PostMedia(post=post, media_type=m_type, file=m_file, order=i)
+            )
+
+        # Bulk create is one INSERT for N files
+        created_media = PostMedia.objects.bulk_create(media_instances)
+
+        # Dispatch image processing to Celery (non-blocking)
+        image_ids = [
+            str(m.id) for m in created_media if m.media_type == MediaTypeChoices.IMAGE
+        ]
+        if image_ids:
+            from .tasks import process_post_media_task
+
+            process_post_media_task.delay(image_ids)
+            logger.info("Dispatched media processing for PostMedia ids: %s", image_ids)
+
+
+# ──────────────────────────────────────────────
+# Content Parser
+# ──────────────────────────────────────────────
+
+
+class ContentParserService:
+    """Extracts hashtags and @mentions from post text."""
+
+    HASHTAG_REGEX = re.compile(r"#(\w+)")
+    MENTION_REGEX = re.compile(r"@([\w.]+)")
+
+    @staticmethod
+    def parse_content(text: str) -> Tuple[List[str], List[str]]:
+        if not text:
+            return [], []
+        hashtags = list(
+            {t.lower() for t in ContentParserService.HASHTAG_REGEX.findall(text)}
+        )
+        mentions = list(set(ContentParserService.MENTION_REGEX.findall(text)))
+        return hashtags, mentions
+
+
+# ──────────────────────────────────────────────
+# Post Service
+# ──────────────────────────────────────────────
+
+
+class PostService:
+    """Manages creation, retrieval, and soft-deletion of Posts."""
+
+    @staticmethod
+    @transaction.atomic
+    def create_post(
+        user: User, data: dict, files: Optional[List[InMemoryUploadedFile]] = None
+    ) -> Post:
+        content_text = data.get("content_text", "")
+        post = Post.objects.create(
+            author=user,
+            content_text=content_text,
+            location_point=data.get("location_point"),
+            privacy=data.get("privacy", PrivacyChoices.PUBLIC),
+        )
+
+        # ── Hashtags: batch lookup → get_or_create via bulk_create ignore_conflicts ──
+        hashtag_names, mention_usernames = ContentParserService.parse_content(
+            content_text
+        )
+        if hashtag_names:
+            # Insert any new hashtags in a single query, ignore existing
+            Hashtag.objects.bulk_create(
+                [Hashtag(name=tag) for tag in hashtag_names],
+                ignore_conflicts=True,
+            )
+            hashtag_objs = Hashtag.objects.filter(name__in=hashtag_names)
+            post.hashtags.set(hashtag_objs)
+
+        # ── Mentions: validate usernames exist before linking ─────────
+        if mention_usernames:
+            valid_users = User.objects.filter(username__in=mention_usernames)
+            post.mentions.set(valid_users)
+
+        # ── Media ─────────────────────────────────────────────────────
+        if files:
+            MediaService.create_post_media(post, files)
+
+        return post
+
+    @staticmethod
+    def get_user_posts(user: User, request_user: User) -> QuerySet:
+        """Returns posts by `user` visible to `request_user` (excludes soft-deleted)."""
+        qs = Post.objects.filter(author=user, is_deleted=False)
+
+        if user == request_user:
+            pass  # owner sees all own posts
+        else:
+            is_friend = Friendship.objects.filter(
+                Q(sender=user, receiver=request_user)
+                | Q(sender=request_user, receiver=user)
+            ).exists()
+
+            if is_friend:
+                qs = qs.exclude(privacy=PrivacyChoices.PRIVATE)
+            else:
+                qs = qs.filter(privacy=PrivacyChoices.PUBLIC)
+
+        return qs.select_related("author", "author__profile").prefetch_related(
+            "media",
+            "hashtags",
+            Prefetch("mentions", queryset=User.objects.select_related("profile")),
+            Prefetch(
+                "likes",
+                queryset=PostLike.objects.filter(user=request_user),
+                to_attr="user_reactions",
+            ),
+        )
+
+    @staticmethod
+    def soft_delete_post(post: Post, user: User) -> None:
+        """Soft-deletes a post. Raises PermissionError if user is not the author."""
+        if post.author != user:
+            raise PermissionError("You do not have permission to delete this post.")
+        post.is_deleted = True
+        post.save(update_fields=["is_deleted", "updated_at"])
+
+
+# ──────────────────────────────────────────────
+# Feed Service
+# ──────────────────────────────────────────────
+
+
+class FeedService:
+    """Generates the personalised timeline feed."""
+
+    @staticmethod
+    def get_feed(user: User) -> QuerySet:
+        """
+        Returns posts from friends + self, excluding private posts from others.
+        Uses a single merged Friendship query instead of two.
+        """
+        # Single merged query to get all friend IDs
+        raw_pairs = Friendship.objects.filter(
+            Q(sender=user) | Q(receiver=user)
+        ).values_list("sender_id", "receiver_id")
+
+        flat_ids: set = set()
+        for sender_id, receiver_id in raw_pairs:
+            flat_ids.add(sender_id)
+            flat_ids.add(receiver_id)
+        flat_ids.add(user.id)
+
+        qs = Post.objects.filter(
+            author_id__in=flat_ids,
+            is_deleted=False,
+        ).exclude(~Q(author=user) & Q(privacy=PrivacyChoices.PRIVATE))
+
+        return (
+            qs.select_related("author", "author__profile")
+            .prefetch_related(
+                "media",
+                "hashtags",
+                Prefetch("mentions", queryset=User.objects.select_related("profile")),
+                Prefetch(
+                    "likes",
+                    queryset=PostLike.objects.filter(user=user),
+                    to_attr="user_reactions",
+                ),
+            )
+            .order_by("-created_at")
+        )
+
+
+# ──────────────────────────────────────────────
+# Like Service
+# ──────────────────────────────────────────────
+
+
+class LikeService:
+    """Handles all post like/reaction logic atomically."""
+
+    @staticmethod
+    @transaction.atomic
+    def toggle_like(
+        post: Post, user: User, reaction_type: str = "LIKE"
+    ) -> Tuple[Optional[PostLike], bool]:
+        """
+        Toggles a like/reaction on a post.
+        - Same reaction again → unlike (returns None, False)
+        - Different reaction → updates reaction type (returns like, True)
+        - New like → creates and increments counter (returns like, True)
+        All counter updates use F() expressions to avoid race conditions.
+        """
+        like_obj, created = PostLike.objects.get_or_create(
+            post=post,
+            user=user,
+            defaults={"reaction_type": reaction_type},
+        )
+
+        if not created:
+            if like_obj.reaction_type == reaction_type:
+                # Same reaction → unlike
+                like_obj.delete()
+                Post.objects.filter(id=post.id).update(likes_count=F("likes_count") - 1)
+                return None, False
+            else:
+                # Change reaction type
+                like_obj.reaction_type = reaction_type
+                like_obj.save(update_fields=["reaction_type"])
+        else:
+            # New like — increment counter
+            Post.objects.filter(id=post.id).update(likes_count=F("likes_count") + 1)
+            # Fire notification (async — non-blocking)
+            if post.author_id != user.id:
+                try:
+                    from api.notifications.services import send_notification
+                    from api.notifications.models import NotificationTypes
+
+                    send_notification(
+                        title="New Like",
+                        body=f"{user.username} liked your post.",
+                        user_id=post.author_id,
+                        notification_type=NotificationTypes.LIKE,
+                        data={"post_id": str(post.id)},
+                    )
+                except Exception:
+                    logger.exception(
+                        "Failed to send like notification for post %s", post.id
+                    )
+
+        return like_obj, created
+
+
+# ──────────────────────────────────────────────
+# Save Service
+# ──────────────────────────────────────────────
+
+
+class SaveService:
+    """Handles saving/bookmarking of posts."""
+
+    @staticmethod
+    def toggle_save(post: Post, user: User) -> bool:
+        """Returns True if post was saved, False if unsaved."""
+        obj, created = SavedPost.objects.get_or_create(post=post, user=user)
+        if not created:
+            obj.delete()
+        return created
+
+
+# ──────────────────────────────────────────────
+# Comment Service
+# ──────────────────────────────────────────────
+
+
+class CommentService:
+    """Handles creating and deleting comments with full counter integrity."""
+
+    @staticmethod
+    @transaction.atomic
+    def create_comment(user: User, validated_data: dict) -> PostComment:
+        """Creates a comment and increments the correct counters atomically."""
+        comment = PostComment.objects.create(user=user, **validated_data)
+
+        # Always increment post comment count
+        Post.objects.filter(id=comment.post_id).update(
+            comments_count=F("comments_count") + 1
+        )
+
+        # If it's a reply, also increment the parent's replies_count
+        if comment.parent_comment_id:
+            PostComment.objects.filter(id=comment.parent_comment_id).update(
+                replies_count=F("replies_count") + 1
+            )
+
+        return comment
+
+    @staticmethod
+    @transaction.atomic
+    def delete_comment(comment: PostComment) -> None:
+        """Deletes a comment and decrements the correct counters atomically."""
+        post_id = comment.post_id
+        parent_comment_id = comment.parent_comment_id
+
+        comment.delete()
+
+        Post.objects.filter(id=post_id).update(comments_count=F("comments_count") - 1)
+
+        if parent_comment_id:
+            PostComment.objects.filter(id=parent_comment_id).update(
+                replies_count=F("replies_count") - 1
+            )
+
+
+# ──────────────────────────────────────────────
+# Backward-compat alias (avoids breaking any existing imports)
+# ──────────────────────────────────────────────
+
+
+class InteractionService:
+    """
+    Deprecated: Kept for backward compatibility.
+    Use LikeService and SaveService directly in new code.
+    """
+
+    toggle_like = staticmethod(LikeService.toggle_like)
+    toggle_save = staticmethod(SaveService.toggle_save)
