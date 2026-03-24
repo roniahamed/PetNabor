@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     "api.messaging",
     "api.post",
     "api.report",
+    "story",
 ]
 
 MIDDLEWARE = [
@@ -151,6 +152,9 @@ DATABASES = {
         "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
         "HOST": os.getenv("POSTGRES_HOST"),
         "PORT": os.getenv("POSTGRES_PORT"),
+        "TEST": {
+            "NAME": "test_petnabor_db_new",
+        }
     }
 }
 
@@ -322,3 +326,11 @@ POST_ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif", "mp4", "mov"}
 POST_ALLOWED_IMAGE_MIME = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 POST_ALLOWED_VIDEO_MIME = {"video/mp4", "video/quicktime"}
 POST_ALLOWED_MIME_TYPES = POST_ALLOWED_IMAGE_MIME | POST_ALLOWED_VIDEO_MIME
+
+
+# ──────────────────────────────────────────────
+# Story Settings
+# ──────────────────────────────────────────────
+
+# How many hours a story remains visible after posting (default 24 h)
+STORY_EXPIRY_HOURS: int = int(os.getenv("STORY_EXPIRY_HOURS", "24"))
