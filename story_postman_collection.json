@@ -1,0 +1,422 @@
+{
+  "info": {
+    "name": "Story API",
+    "description": "Postman collection for the Story feature. Includes publishing, feed, interactions (views, reactions, replies).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Publish Story",
+      "item": [
+        {
+          "name": "Publish Text Story",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"media_type\": \"TEXT\",\n    \"text_content\": \"Hello, this is my new text story!\",\n    \"bg_color\": \"#FF5733\",\n    \"privacy\": \"PUBLIC\"\n}"
+            },
+            "url": {
+              "raw": "{{base_urls}}/story/stories/",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "story",
+                "stories",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Publish Image Story",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "media_type",
+                  "value": "IMAGE",
+                  "type": "text"
+                },
+                {
+                  "key": "media",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "privacy",
+                  "value": "FRIENDS_ONLY",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_urls}}/story/stories/",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "story",
+                "stories",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Publish Video Story",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "media_type",
+                  "value": "VIDEO",
+                  "type": "text"
+                },
+                {
+                  "key": "media",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "privacy",
+                  "value": "PUBLIC",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_urls}}/story/stories/",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "story",
+                "stories",
+                ""
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Reads & Feeds",
+      "item": [
+        {
+          "name": "Get Story Feed",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_urls}}/story/stories/feed/",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "story",
+                "stories",
+                "feed",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Own Active Stories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_urls}}/story/stories/",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "story",
+                "stories",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Publicly Get User Stories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_urls}}/story/stories/user_stories/?user_id={{user_id}}",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "story",
+                "stories",
+                "user_stories",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Single Story",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_urls}}/story/stories/{{story_id}}/",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "story",
+                "stories",
+                "{{story_id}}",
+                ""
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Management",
+      "item": [
+        {
+          "name": "Delete Story",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_urls}}/story/stories/{{story_id}}/",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "story",
+                "stories",
+                "{{story_id}}",
+                ""
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Interactions",
+      "item": [
+        {
+          "name": "Viewers",
+          "item": [
+            {
+              "name": "Mark Story as Viewed",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_urls}}/story/stories/{{story_id}}/view/",
+                  "host": [
+                    "{{base_urls}}"
+                  ],
+                  "path": [
+                    "story",
+                    "stories",
+                    "{{story_id}}",
+                    "view",
+                    ""
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Story Viewers",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_urls}}/story/stories/{{story_id}}/viewers/",
+                  "host": [
+                    "{{base_urls}}"
+                  ],
+                  "path": [
+                    "story",
+                    "stories",
+                    "{{story_id}}",
+                    "viewers",
+                    ""
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reactions",
+          "item": [
+            {
+              "name": "React to Story",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"reaction_type\": \"LIKE\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_urls}}/story/stories/{{story_id}}/react/",
+                  "host": [
+                    "{{base_urls}}"
+                  ],
+                  "path": [
+                    "story",
+                    "stories",
+                    "{{story_id}}",
+                    "react",
+                    ""
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Remove Reaction",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_urls}}/story/stories/{{story_id}}/react/",
+                  "host": [
+                    "{{base_urls}}"
+                  ],
+                  "path": [
+                    "story",
+                    "stories",
+                    "{{story_id}}",
+                    "react",
+                    ""
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Replies",
+          "item": [
+            {
+              "name": "Reply to Story",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"reply_text\": \"This is an awesome story!\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_urls}}/story/stories/{{story_id}}/reply/",
+                  "host": [
+                    "{{base_urls}}"
+                  ],
+                  "path": [
+                    "story",
+                    "stories",
+                    "{{story_id}}",
+                    "reply",
+                    ""
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Story Replies",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_urls}}/story/stories/{{story_id}}/reply/",
+                  "host": [
+                    "{{base_urls}}"
+                  ],
+                  "path": [
+                    "story",
+                    "stories",
+                    "{{story_id}}",
+                    "reply",
+                    ""
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_urls",
+      "value": "http://localhost:8001/api",
+      "type": "string"
+    },
+    {
+      "key": "story_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
