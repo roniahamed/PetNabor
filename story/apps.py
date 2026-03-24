@@ -2,4 +2,5 @@ from django.apps import AppConfig
 
 
 class StoryConfig(AppConfig):
-    name = 'story'
+    default_auto_field = "django.db.models.UUIDField"
+    name = "story"
