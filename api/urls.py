@@ -9,6 +9,6 @@ urlpatterns = [
     path("messaging/", include("api.messaging.urls")),
     path("post/", include("api.post.urls")),
     path("report/", include("api.report.urls")),
-    path("story/", include("story.urls")),
-    path("blog/", include("blog.urls")),
+    path("story/", include("api.story.urls")),
+    path("blog/", include("api.blog.urls")),
 ]

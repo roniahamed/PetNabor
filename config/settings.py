@@ -71,8 +71,8 @@ INSTALLED_APPS = [
     "api.messaging",
     "api.post",
     "api.report",
-    "story",
-    "blog",
+    "api.story",
+    "api.blog",
 ]
 
 MIDDLEWARE = [
@@ -155,7 +155,7 @@ DATABASES = {
         "PORT": os.getenv("POSTGRES_PORT"),
         "TEST": {
             "NAME": "test_petnabor_db_new",
-        }
+        },
     }
 }
 
