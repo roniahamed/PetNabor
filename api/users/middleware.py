@@ -12,6 +12,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.deprecation import MiddlewareMixin
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.contrib.auth import get_user_model
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,8 @@ class UpdateLastActiveMiddleware(MiddlewareMixin):
             cache_key = f"last_active_ts_{request.user.id}"
             if not cache.get(cache_key):
                 # Throttled write: update only last_active (no is_online field)
-                type(request.user).objects.filter(id=request.user.id).update(
+                User = get_user_model()
+                User.objects.filter(id=request.user.id).update(
                     last_active=timezone.now()
                 )
                 cache.set(cache_key, True, LAST_ACTIVE_THROTTLE_S)
