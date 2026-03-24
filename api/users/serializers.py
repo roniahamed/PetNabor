@@ -252,13 +252,18 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class ProfileSerializer(serializers.ModelSerializer):
-    """Profile model serializer with read-only fields."""
+    """Profile model serializer. Allows updating user first_name and last_name also."""
+
+    first_name = serializers.CharField(source="user.first_name", required=False, allow_blank=True, max_length=150)
+    last_name = serializers.CharField(source="user.last_name", required=False, allow_blank=True, max_length=150)
 
     class Meta:
         model = Profile
         fields = [
             "id",
             "user",
+            "first_name",
+            "last_name",
             "address_street",
             "city",
             "state",
@@ -281,3 +286,18 @@ class ProfileSerializer(serializers.ModelSerializer):
             "referral_code",
             "referred_by",
         ]
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop("user", {})
+        
+        # Update user fields if provided
+        if "first_name" in user_data or "last_name" in user_data:
+            user = instance.user
+            if "first_name" in user_data:
+                user.first_name = user_data["first_name"]
+            if "last_name" in user_data:
+                user.last_name = user_data["last_name"]
+            user.save(update_fields=["first_name", "last_name"])
+
+        # Update profile fields
+        return super().update(instance, validated_data)
