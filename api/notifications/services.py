@@ -92,9 +92,12 @@ def _process_notification_batch(
 ):
     """Celery task to handle the actual creation of DB records and FCM sending."""
     try:
+        # Filter out user_ids that do not exist in the DB to avoid ForeignKeyViolation
+        existing_user_ids = set(User.objects.filter(id__in=user_ids).values_list("id", flat=True))
+
         # Create In-App Notifications
         notifications_to_create = []
-        for uid in user_ids:
+        for uid in existing_user_ids:
             try:
                 notifications_to_create.append(
                     Notifications(

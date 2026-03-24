@@ -7,6 +7,7 @@ VerificationEnforcementMiddleware: Blocks unverified users from protected endpoi
 
 import logging
 
+from django.core.cache import cache
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.deprecation import MiddlewareMixin
@@ -28,9 +29,18 @@ AUTH_WHITELISTED_PATHS = (
     "/admin/",
 )
 
+# Throttle last_active DB writes: at most one write per user every 60 seconds.
+LAST_ACTIVE_THROTTLE_S = 60
+
 
 class UpdateLastActiveMiddleware(MiddlewareMixin):
-    """Update the authenticated user's last_active timestamp on every request."""
+    """
+    Update the authenticated user's last_active timestamp on every request,
+    throttled to one DB write per LAST_ACTIVE_THROTTLE_S seconds per user.
+
+    is_online is NOT stored directly; use user.currently_online property which
+    computes it from last_active (< 5 min ago → online).
+    """
 
     def process_request(self, request):
         if not request.user.is_authenticated:
@@ -45,11 +55,16 @@ class UpdateLastActiveMiddleware(MiddlewareMixin):
                 pass
 
         if request.user.is_authenticated:
-            request.user.last_active = timezone.now()
-            request.user.is_online = True
-            request.user.save(update_fields=["last_active", "is_online"])
+            cache_key = f"last_active_ts_{request.user.id}"
+            if not cache.get(cache_key):
+                # Throttled write: update only last_active (no is_online field)
+                type(request.user).objects.filter(id=request.user.id).update(
+                    last_active=timezone.now()
+                )
+                cache.set(cache_key, True, LAST_ACTIVE_THROTTLE_S)
 
         return None
+
 
 
 class VerificationEnforcementMiddleware(MiddlewareMixin):

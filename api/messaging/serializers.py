@@ -22,10 +22,12 @@ class ParticipantUserSerializer(serializers.ModelSerializer):
     """Lightweight user info for embedding inside thread/message responses."""
 
     avatar = serializers.SerializerMethodField()
+    is_online = serializers.SerializerMethodField()
+    last_seen = serializers.DateTimeField(source="last_active", read_only=True)
 
     class Meta:
         model = User
-        fields = ["id", "username", "first_name", "last_name", "avatar", "is_online"]
+        fields = ["id", "username", "first_name", "last_name", "avatar", "is_online", "last_seen"]
         read_only_fields = [
             "id",
             "username",
@@ -33,6 +35,7 @@ class ParticipantUserSerializer(serializers.ModelSerializer):
             "last_name",
             "avatar",
             "is_online",
+            "last_seen",
         ]
 
     def get_avatar(self, user):
@@ -42,6 +45,10 @@ class ParticipantUserSerializer(serializers.ModelSerializer):
             url = profile.profile_picture.url
             return request.build_absolute_uri(url) if request else url
         return None
+
+    def get_is_online(self, user):
+        """Compute online status from last_active (< 5 min = online)."""
+        return user.currently_online
 
 
 # ──────────────────────────────────────────────
@@ -159,12 +166,13 @@ class SimpleParticipantSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username")
     first_name = serializers.CharField(source="user.first_name")
     last_name = serializers.CharField(source="user.last_name")
-    is_online = serializers.BooleanField(source="user.is_online")
+    is_online = serializers.SerializerMethodField()
+    last_seen = serializers.SerializerMethodField()
     avatar = serializers.SerializerMethodField()
 
     class Meta:
         model = ThreadParticipant
-        fields = ["id", "username", "first_name", "last_name", "avatar", "is_online"]
+        fields = ["id", "username", "first_name", "last_name", "avatar", "is_online", "last_seen"]
 
     def get_avatar(self, participant):
         profile = getattr(participant.user, "profile", None)
@@ -173,6 +181,14 @@ class SimpleParticipantSerializer(serializers.ModelSerializer):
             url = profile.profile_picture.url
             return request.build_absolute_uri(url) if request else url
         return None
+
+    def get_is_online(self, participant):
+        """Compute online status from last_active (< 5 min = online)."""
+        return participant.user.currently_online
+
+    def get_last_seen(self, participant):
+        last_active = participant.user.last_active
+        return last_active.isoformat() if last_active else None
 
 
 class ChatThreadSerializer(serializers.ModelSerializer):

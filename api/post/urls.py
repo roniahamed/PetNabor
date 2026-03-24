@@ -7,7 +7,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     PostViewSet, PostCommentViewSet, 
-    SavedPostViewSet
+    SavedPostViewSet, UserPostListView,
 )
 
 router = DefaultRouter()
@@ -17,4 +17,5 @@ router.register(r'saved-posts', SavedPostViewSet, basename='saved-post')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('user/<uuid:user_id>/posts/', UserPostListView.as_view(), name='user-post-list'),
 ]

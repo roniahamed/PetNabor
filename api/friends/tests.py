@@ -88,14 +88,16 @@ class FriendsAPITestCase(TestCase):
 
     def test_accept_friend_request(self):
         req = FriendRequest.objects.create(sender=self.user1, receiver=self.user2, status='pending')
-        
+        req_id = req.id
+
         self.client.force_authenticate(user=self.user2)
         url = reverse('friend-requests-accept', kwargs={'pk': req.id})
         response = self.client.post(url)
-        
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        req.refresh_from_db()
-        self.assertEqual(req.status, "accepted")
+        # FriendRequest should be deleted after accept
+        self.assertFalse(FriendRequest.objects.filter(id=req_id).exists())
+        # Friendship should be created
         self.assertTrue(
             Friendship.objects.filter(sender=self.user1, receiver=self.user2).exists()
             or Friendship.objects.filter(sender=self.user2, receiver=self.user1).exists()
@@ -252,33 +254,33 @@ class FriendsAPITestCase(TestCase):
         url = reverse('friend-requests-list')
         data = {'receiver_id': str(self.user2.id)}
         self.client.post(url, data, format='json')
-        
-        # Check if notification was sent to user2
+
+        # Check if notification was sent to user2 with deeplink data
         self.assertEqual(mock_notify.call_count, 1)
-        mock_notify.assert_called_with(
-            user_id=self.user2.id,
-            title="New Friend Request",
-            body="user1 sent you a friend request.",
-            notification_type=NotificationTypes.FRIEND_REQUEST
-        )
+        call_kwargs = mock_notify.call_args.kwargs
+        self.assertEqual(call_kwargs['user_id'], self.user2.id)
+        self.assertEqual(call_kwargs['notification_type'], NotificationTypes.FRIEND_REQUEST)
+        self.assertIn('sender_id', call_kwargs.get('data', {}))
+        self.assertIn('request_id', call_kwargs.get('data', {}))
+        self.assertEqual(call_kwargs['data']['sender_id'], str(self.user1.id))
 
     @patch('api.friends.services.send_notification')
     def test_accept_friend_request_notification(self, mock_notify):
         from api.notifications.models import NotificationTypes
         req = FriendRequest.objects.create(sender=self.user1, receiver=self.user2, status='pending')
-        
+
         self.client.force_authenticate(user=self.user2)
         url = reverse('friend-requests-accept', kwargs={'pk': req.id})
         self.client.post(url)
-        
-        # In accept_friend_request, sender gets notified
+
+        # sender (user1) gets notified with deeplink data (accepter_id only, no request_id)
         self.assertEqual(mock_notify.call_count, 1)
-        mock_notify.assert_called_with(
-            user_id=self.user1.id,
-            title="Friend Request Accepted",
-            body="user2 accepted your friend request.",
-            notification_type=NotificationTypes.FRIEND_ACCEPT
-        )
+        call_kwargs = mock_notify.call_args.kwargs
+        self.assertEqual(call_kwargs['user_id'], self.user1.id)
+        self.assertEqual(call_kwargs['notification_type'], NotificationTypes.FRIEND_ACCEPT)
+        self.assertIn('accepter_id', call_kwargs.get('data', {}))
+        self.assertNotIn('request_id', call_kwargs.get('data', {}))
+        self.assertEqual(call_kwargs['data']['accepter_id'], str(self.user2.id))
 
     def test_public_user_detail(self):
         self.client.force_authenticate(user=self.user1)

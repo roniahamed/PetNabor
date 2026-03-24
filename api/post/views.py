@@ -11,13 +11,14 @@ Key improvements:
 
 import logging
 
-from rest_framework import filters, permissions, status, viewsets
+from rest_framework import filters, generics, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import CursorPagination
 from rest_framework.response import Response
 
 
 from django.db.models import Prefetch
+from django.shortcuts import get_object_or_404
 
 from .models import Post, PostComment, PostLike, SavedPost
 from .permissions import IsAuthorOrReadOnly, IsCommentAuthorOrPostAuthor, CanViewPost
@@ -280,3 +281,20 @@ class SavedPostViewSet(viewsets.ReadOnlyModelViewSet):
             )
             .filter(user=self.request.user)
         )
+
+
+class UserPostListView(generics.ListAPIView):
+    """
+    GET /post/user/<uuid:user_id>/posts/
+    Public (authenticated) — returns any user's posts.
+    Privacy is enforced by PostService.get_user_posts (respects blocks, visibility).
+    """
+
+    serializer_class = PostListSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = FeedCursorPagination
+
+    def get_queryset(self):
+        user_id = self.kwargs["user_id"]
+        target_user = get_object_or_404(User, id=user_id, is_active=True)
+        return PostService.get_user_posts(self.request.user, target_user)

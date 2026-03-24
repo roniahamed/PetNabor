@@ -57,28 +57,30 @@ def send_friend_request(sender, receiver_id):
         sender=receiver, receiver=sender, status="pending"
     ).first()
     if reverse_req:
-        # Automatically accept
-        reverse_req.status = "accepted"
-        reverse_req.save()
+        # Automatically accept — create Friendship, then clean up the request
         Friendship.objects.create(sender=receiver, receiver=sender)
 
-        # Notify the original sender that their request was accepted
+        # Notify the original sender (receiver of this new request) that it was accepted.
+        # Use accepter_id so the frontend can deeplink to the accepter's profile.
         send_notification(
             user_id=receiver.id,
             title="Friend Request Accepted",
             body=f"{sender.username} accepted your friend request.",
             notification_type=NotificationTypes.FRIEND_ACCEPT,
+            data={"accepter_id": str(sender.id)},
         )
-        return reverse_req, True  # True means automatically accepted
+        reverse_req.delete()
+        return None, True  # True means automatically accepted
 
     freq = FriendRequest.objects.create(sender=sender, receiver=receiver, status="pending")
 
-    # Notify the receiver about the new friend request
+    # Notify the receiver about the new friend request (include IDs for frontend deeplink)
     send_notification(
         user_id=receiver.id,
         title="New Friend Request",
         body=f"{sender.username} sent you a friend request.",
         notification_type=NotificationTypes.FRIEND_REQUEST,
+        data={"sender_id": str(sender.id), "request_id": str(freq.id)},
     )
     return freq, False
 
@@ -92,23 +94,28 @@ def accept_friend_request(user, friend_request):
     if is_blocked(user, friend_request.sender):
         raise ValidationError("Cannot accept request, user is blocked")
 
-    friend_request.status = "accepted"
-    friend_request.save()
+    sender_id = friend_request.sender_id
+
     Friendship.objects.get_or_create(
         sender=friend_request.sender, receiver=friend_request.receiver
     )
 
-    # Invalidate messaging permission cache for this new friendship
-    _invalidate_message_permission(user.id, friend_request.sender_id)
+    # Clean up the accepted request — data lives in Friendship model now
+    friend_request.delete()
 
-    # Notify the sender that the request was accepted
+    # Invalidate messaging permission cache for this new friendship
+    _invalidate_message_permission(user.id, sender_id)
+
+    # Notify the sender that the request was accepted.
+    # Use accepter_id so the frontend can deeplink to the accepter's profile.
     send_notification(
-        user_id=friend_request.sender_id,
+        user_id=sender_id,
         title="Friend Request Accepted",
         body=f"{user.username} accepted your friend request.",
         notification_type=NotificationTypes.FRIEND_ACCEPT,
+        data={"accepter_id": str(user.id)},
     )
-    return friend_request
+    return True
 
 
 def reject_friend_request(user, friend_request):
