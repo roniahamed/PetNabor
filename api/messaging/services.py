@@ -49,6 +49,11 @@ def invalidate_messaging_permission(user_a_id, user_b_id):
     cache.delete(_permission_cache_key(user_a_id, user_b_id))
 
 
+def invalidate_inbox_cache(user_id):
+    """Invalidate the first page of the user's inbox cache."""
+    cache.delete(f"user_inbox_{user_id}_page_1")
+
+
 # ──────────────────────────────────────────────
 # Permission check
 # ──────────────────────────────────────────────
@@ -121,6 +126,7 @@ def get_or_create_direct_thread(user_a, user_b):
     if existing:
         # Reactivate user_a so they can see/send messages in it again
         ThreadParticipant.objects.filter(thread=existing, user=user_a).update(left_at=None)
+        invalidate_inbox_cache(user_a.id)
         return existing, False
 
     with transaction.atomic():
@@ -132,6 +138,8 @@ def get_or_create_direct_thread(user_a, user_b):
             ThreadParticipant(thread=thread, user=user_a, role=ParticipantRoles.MEMBER),
             ThreadParticipant(thread=thread, user=user_b, role=ParticipantRoles.MEMBER),
         ])
+    invalidate_inbox_cache(user_a.id)
+    invalidate_inbox_cache(user_b.id)
     return thread, True
 
 
@@ -162,6 +170,8 @@ def create_group_thread(creator, name, description=None, avatar_url=None, member
                     ThreadParticipant(thread=thread, user=member, role=ParticipantRoles.MEMBER)
                 )
         ThreadParticipant.objects.bulk_create(participants)
+    for p in participants:
+        invalidate_inbox_cache(p.user_id)
     return thread
 
 
@@ -372,7 +382,7 @@ def send_message(sender, thread_id, text_content=None, message_type=MessageTypes
 
         for p_id in all_participant_ids:
             # Invalidate inbox cache for this participant
-            cache.delete(f"user_inbox_{p_id}_page_1")
+            invalidate_inbox_cache(p_id)
 
             async_to_sync(channel_layer.group_send)(
                 f"user_{str(p_id)}",   # str() prevents UUID serialization error
@@ -449,6 +459,7 @@ def leave_thread(user, thread_id):
     membership.left_at = now
     membership.cleared_history_at = now
     membership.save(update_fields=["left_at", "cleared_history_at"])
+    invalidate_inbox_cache(user.id)
     return True
 
 
@@ -473,5 +484,8 @@ def delete_thread_for_everyone(user, thread_id):
             raise PermissionDenied("Only admins can delete a group thread.")
     
     # Hard delete the thread (and related participants/messages via cascade)
+    participant_ids = list(thread.participants.values_list("user_id", flat=True))
     thread.delete()
+    for pid in participant_ids:
+        invalidate_inbox_cache(pid)
     return True
