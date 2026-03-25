@@ -218,15 +218,22 @@ class ChatThreadSerializer(serializers.ModelSerializer):
             "created_at",
         ]
 
-    def _get_participants(self, thread):
-        """Return prefetched or freshly queried active participants."""
-        members = getattr(thread, "active_participants", None)
+    def _get_all_participants(self, thread):
+        """Return all participants, active or left."""
+        members = getattr(thread, "all_participants", None)
         if members is None:
-            members = (
-                thread.participants.filter(left_at__isnull=True)
-                .select_related("user__profile")
-            )
+            members = thread.participants.select_related("user__profile")
         return members
+
+    def _get_active_participants(self, thread):
+        """Return prefetched or freshly queried active participants."""
+        members = getattr(thread, "all_participants", None)
+        if members is not None:
+            return [m for m in members if m.left_at is None]
+        return (
+            thread.participants.filter(left_at__isnull=True)
+            .select_related("user__profile")
+        )
 
     def get_other_user(self, thread):
         """For DIRECT threads: return the participant who is NOT the current user."""
@@ -234,7 +241,7 @@ class ChatThreadSerializer(serializers.ModelSerializer):
             return None
         request = self.context.get("request")
         me_id = request.user.id if request else None
-        for p in self._get_participants(thread):
+        for p in self._get_all_participants(thread):
             if p.user_id != me_id:
                 return ParticipantUserSerializer(p.user, context=self.context).data
         return None
@@ -244,7 +251,7 @@ class ChatThreadSerializer(serializers.ModelSerializer):
         if thread.thread_type != ThreadTypes.GROUP:
             return None
         return SimpleParticipantSerializer(
-            self._get_participants(thread), many=True, context=self.context
+            self._get_active_participants(thread), many=True, context=self.context
         ).data
 
 

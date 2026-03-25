@@ -119,6 +119,8 @@ def get_or_create_direct_thread(user_a, user_b):
         .first()
     )
     if existing:
+        # Reactivate user_a so they can see/send messages in it again
+        ThreadParticipant.objects.filter(thread=existing, user=user_a).update(left_at=None)
         return existing, False
 
     with transaction.atomic():
@@ -206,10 +208,8 @@ def get_threads_for_user(user):
             latest_messages_prefetch,
             Prefetch(
                 "participants",
-                queryset=ThreadParticipant.objects.filter(
-                    left_at__isnull=True
-                ).select_related("user__profile"),
-                to_attr="active_participants",
+                queryset=ThreadParticipant.objects.select_related("user__profile"),
+                to_attr="all_participants",
             ),
         )
         .order_by("-last_message_timestamp")
@@ -302,6 +302,10 @@ def send_message(sender, thread_id, text_content=None, message_type=MessageTypes
         last_message_text=preview,
         last_message_timestamp=message.created_at,
     )
+
+    # For DIRECT threads, reactivate any participant who left so they receive the thread
+    if thread.thread_type == ThreadTypes.DIRECT:
+        ThreadParticipant.objects.filter(thread=thread, left_at__isnull=False).update(left_at=None)
 
     # Async push notification (FCM)
     try:
