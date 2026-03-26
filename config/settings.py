@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     "api.report",
     "api.story",
     "api.blog",
+    "api.meeting",
 ]
 
 MIDDLEWARE = [
