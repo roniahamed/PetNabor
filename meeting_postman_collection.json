@@ -1,0 +1,362 @@
+{
+	"info": {
+		"_postman_id": "9d2b8b1a-e87f-4f2b-9d4f-9e5c54c0b433",
+		"name": "PatNabor Meeting API",
+		"description": "API endpoints for the Meeting App including requests, upcoming/previous filters, and feedback.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.success && jsonData.data) {",
+									"    pm.collectionVariables.set(\"access_token\", jsonData.data.access_token);",
+									"    pm.collectionVariables.set(\"refresh_token\", jsonData.data.refresh_token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email_or_phone\": \"user1@example.com\",\n    \"password\": \"password123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_urls}}/users/login/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"users",
+								"login",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Meetings",
+			"item": [
+				{
+					"name": "Request Meeting",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set(\"meeting_id\", jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"receiver_id\": \"{{friend_user_id}}\",\n    \"visitor_name\": \"John Doe\",\n    \"visitor_phone\": \"+1234567890\",\n    \"visit_date\": \"2026-04-10\",\n    \"visit_time\": \"14:30:00\",\n    \"reason\": \"Meet & Greet\",\n    \"address_street\": \"123 Pet Lane\",\n    \"city\": \"Petville\",\n    \"state\": \"CA\",\n    \"zipcode\": \"90210\",\n    \"message\": \"I would love to meet your dog!\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_urls}}/meetings/requests/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"meetings",
+								"requests",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Accept Meeting",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/meetings/requests/{{meeting_id}}/accept/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"meetings",
+								"requests",
+								"{{meeting_id}}",
+								"accept",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Complete Meeting",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/meetings/requests/{{meeting_id}}/complete/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"meetings",
+								"requests",
+								"{{meeting_id}}",
+								"complete",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Meeting",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/meetings/requests/{{meeting_id}}/cancel/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"meetings",
+								"requests",
+								"{{meeting_id}}",
+								"cancel",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Upcoming Meetings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/meetings/requests/upcoming/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"meetings",
+								"requests",
+								"upcoming",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Previous Meetings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/meetings/requests/previous/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"meetings",
+								"requests",
+								"previous",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Feedback",
+			"item": [
+				{
+					"name": "Leave Feedback",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"meeting\": \"{{meeting_id}}\",\n    \"reviewee\": \"{{friend_user_id}}\",\n    \"rating\": 5,\n    \"feedback_text\": \"Wonderful meeting!\",\n    \"is_public\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_urls}}/meetings/feedback/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"meetings",
+								"feedback",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Feedbacks",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/meetings/feedback/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"meetings",
+								"feedback",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "View User Public Feedbacks",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/meetings/feedback/user/{{friend_user_id}}/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"meetings",
+								"feedback",
+								"user",
+								"{{friend_user_id}}",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_urls",
+			"value": "http://localhost:8001/api",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refresh_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "meeting_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "friend_user_id",
+			"value": "UUID-OF-FRIEND-HERE",
+			"type": "string"
+		}
+	]
+}
