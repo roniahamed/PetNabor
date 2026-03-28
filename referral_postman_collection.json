@@ -193,6 +193,70 @@
 					"response": []
 				},
 				{
+					"name": "Verify Referral Code",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"{{my_referral_code}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_urls}}/referral/verify/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"referral",
+								"verify",
+								""
+							]
+						},
+						"description": "Verify if a given referral code is valid before proceeding."
+					},
+					"response": []
+				},
+				{
+					"name": "Redeem Referral Code",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"{{my_referral_code}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_urls}}/referral/redeem/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"referral",
+								"redeem",
+								""
+							]
+						},
+						"description": "Redeem a referral code after signup. Note: you cannot redeem your own code, and you can only redeem once."
+					},
+					"response": []
+				},
+				{
 					"name": "Transaction History",
 					"request": {
 						"method": "GET",

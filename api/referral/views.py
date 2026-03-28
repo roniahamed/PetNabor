@@ -131,7 +131,11 @@ class ReferralVerifyView(APIView):
 
     def post(self, request):
         serializer = ReferralCodeVerifySerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            errors = getattr(serializer, "errors", {})
+            first_error = next(iter(errors.values()))[0] if errors else "Invalid referral code."
+            return Response({"success": False, "message": str(first_error)}, status=status.HTTP_400_BAD_REQUEST)
+            
         profile = serializer.validated_data["code"]
         
         name = f"{profile.user.first_name} {profile.user.last_name}".strip()
@@ -153,7 +157,11 @@ class ReferralRedeemView(APIView):
 
     def post(self, request):
         serializer = ReferralCodeRedeemSerializer(data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            errors = getattr(serializer, "errors", {})
+            first_error = next(iter(errors.values()))[0] if errors else "Invalid referral code."
+            return Response({"success": False, "message": str(first_error)}, status=status.HTTP_400_BAD_REQUEST)
+            
         referrer_profile = serializer.validated_data["code"]
         
         profile = request.user.profile
