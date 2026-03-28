@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     "api.story",
     "api.blog",
     "api.meeting",
+    "api.referral",
 ]
 
 MIDDLEWARE = [
