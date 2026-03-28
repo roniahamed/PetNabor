@@ -3,7 +3,7 @@ Admin configuration for the Post feature — PetNabor.
 """
 
 from django.contrib import admin
-from django.utils.html import format_html
+from django.utils.html import format_html, mark_safe
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin, TabularInline
 from unfold.decorators import display
@@ -32,7 +32,7 @@ class PostMediaInline(TabularInline):
                 file.url,
             )
         if obj.media_type == "VIDEO":
-            return format_html("<span style='font-size:24px'>🎬</span>")
+            return mark_safe("<span style='font-size:24px'>🎬</span>")
         return "—"
 
 

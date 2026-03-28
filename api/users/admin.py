@@ -5,7 +5,7 @@ Uses django-unfold's UnfoldModelAdmin for a premium admin UI.
 """
 
 from django.contrib import admin
-from django.utils.html import format_html
+from django.utils.html import format_html, mark_safe
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
 from unfold.decorators import display
@@ -160,7 +160,7 @@ class ProfileAdmin(UnfoldModelAdmin):
                 '<img src="{}" width="40" height="40" style="border-radius:50%;object-fit:cover;" />',
                 obj.profile_picture.url,
             )
-        return format_html(
+        return mark_safe(
             '<span class="material-symbols-outlined" style="font-size:32px;color:#9ca3af;">account_circle</span>'
         )
 

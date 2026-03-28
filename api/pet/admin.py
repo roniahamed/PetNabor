@@ -3,7 +3,7 @@ Admin configuration for the PetProfile — PetNabor.
 """
 
 from django.contrib import admin
-from django.utils.html import format_html
+from django.utils.html import format_html, mark_safe
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
 from unfold.decorators import display
@@ -65,7 +65,7 @@ class PetProfileAdmin(UnfoldModelAdmin):
                 '<img src="{}" width="48" height="48" style="border-radius:8px;object-fit:cover;" />',
                 obj.image.url,
             )
-        return format_html("<span style='font-size:28px'>🐾</span>")
+        return mark_safe("<span style='font-size:28px'>🐾</span>")
 
     @display(description=_("Weight"), ordering="weight")
     def display_weight(self, obj):
