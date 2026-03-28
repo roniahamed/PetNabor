@@ -408,7 +408,12 @@ class ProfileDetailView(RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
+        from api.users.signals import _unique_referral_code
         profile, _ = Profile.objects.select_related("user").get_or_create(
             user=self.request.user
         )
+        # Backfill referral code for existing profiles that don't have one
+        if not profile.referral_code:
+            profile.referral_code = _unique_referral_code()
+            profile.save(update_fields=["referral_code"])
         return profile
