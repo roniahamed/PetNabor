@@ -1,55 +1,127 @@
+"""
+Admin configuration for Blog — PetNabor.
+"""
+
 from django.contrib import admin
-from .models import BlogCategory, Blog, BlogLike, BlogComment, BlogViewTracker
+from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
+from unfold.admin import ModelAdmin as UnfoldModelAdmin
+from unfold.decorators import display
+
+from .models import Blog, BlogCategory, BlogComment, BlogLike, BlogViewTracker
+
 
 @admin.register(BlogCategory)
-class BlogCategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'slug', 'created_at')
-    search_fields = ('name',)
-    prepopulated_fields = {'slug': ('name',)}
+class BlogCategoryAdmin(UnfoldModelAdmin):
+    list_display = ("name", "slug", "created_at")
+    search_fields = ("name",)
+    prepopulated_fields = {"slug": ("name",)}
+    ordering = ("name",)
 
 
 @admin.register(Blog)
-class BlogAdmin(admin.ModelAdmin):
-    list_display = ('title', 'author', 'category', 'is_published', 'created_at', 'views_count', 'likes_count')
-    list_filter = ('is_published', 'is_deleted', 'category', 'created_at')
-    search_fields = ('title', 'author__username', 'author__email', 'tags')
-    raw_id_fields = ('author',)
-    
-    fieldsets = (
-        ('Basic Info', {
-            'fields': ('author', 'category', 'title', 'slug', 'content_body', 'cover_image')
-        }),
-        ('SEO & Metadata', {
-            'fields': ('meta_title', 'meta_description', 'tags')
-        }),
-        ('Status', {
-            'fields': ('is_published', 'published_at', 'is_deleted')
-        }),
-        ('Counters (Read-Only)', {
-            'fields': ('views_count', 'likes_count', 'comments_count', 'shares_count'),
-            'classes': ('collapse',),
-        }),
+class BlogAdmin(UnfoldModelAdmin):
+    list_display = (
+        "title",
+        "author",
+        "category",
+        "display_published",
+        "views_count",
+        "likes_count",
+        "display_deleted",
+        "created_at",
     )
-    readonly_fields = ('views_count', 'likes_count', 'comments_count', 'shares_count')
-    prepopulated_fields = {'slug': ('title',)}
+    list_filter = ("is_published", "is_deleted", "category")
+    search_fields = ("title", "author__username", "author__email")
+    raw_id_fields = ("author",)
+    date_hierarchy = "created_at"
+    ordering = ("-created_at",)
+
+    fieldsets = (
+        (
+            _("Content"),
+            {
+                "fields": ("author", "category", "title", "slug", "content_body", "cover_image"),
+            },
+        ),
+        (
+            _("SEO & Metadata"),
+            {
+                "fields": ("meta_title", "meta_description", "tags"),
+            },
+        ),
+        (
+            _("Status"),
+            {
+                "fields": ("is_published", "published_at", "is_deleted"),
+            },
+        ),
+        (
+            _("Counters"),
+            {
+                "classes": ("collapse",),
+                "fields": ("views_count", "likes_count", "comments_count", "shares_count"),
+            },
+        ),
+    )
+    readonly_fields = ("id", "views_count", "likes_count", "comments_count", "shares_count")
+    prepopulated_fields = {"slug": ("title",)}
+
+    actions = ["publish_blogs", "unpublish_blogs", "soft_delete_blogs"]
+
+    @admin.action(description="📢 Publish selected blogs")
+    def publish_blogs(self, request, queryset):
+        from django.utils import timezone
+        count = queryset.update(is_published=True, published_at=timezone.now())
+        self.message_user(request, f"{count} blog(s) published.")
+
+    @admin.action(description="📦 Unpublish selected blogs")
+    def unpublish_blogs(self, request, queryset):
+        count = queryset.update(is_published=False)
+        self.message_user(request, f"{count} blog(s) unpublished.")
+
+    @admin.action(description="🗑️ Soft-delete selected blogs")
+    def soft_delete_blogs(self, request, queryset):
+        count = queryset.update(is_deleted=True, is_published=False)
+        self.message_user(request, f"{count} blog(s) soft-deleted.")
+
+    @display(description=_("Published"), label={True: "success", False: "warning"}, boolean=True)
+    def display_published(self, obj):
+        return obj.is_published
+
+    @display(description=_("Deleted"), label={True: "danger", False: "success"}, boolean=True)
+    def display_deleted(self, obj):
+        return obj.is_deleted
 
 
 @admin.register(BlogLike)
-class BlogLikeAdmin(admin.ModelAdmin):
-    list_display = ('blog', 'user', 'created_at')
-    raw_id_fields = ('blog', 'user')
+class BlogLikeAdmin(UnfoldModelAdmin):
+    list_display = ("blog", "user", "created_at")
+    raw_id_fields = ("blog", "user")
+    search_fields = ("user__email", "blog__title")
+    readonly_fields = ("id", "created_at")
 
 
 @admin.register(BlogComment)
-class BlogCommentAdmin(admin.ModelAdmin):
-    list_display = ('id', 'blog', 'user', 'is_edited', 'is_deleted', 'created_at')
-    list_filter = ('is_edited', 'is_deleted', 'created_at')
-    raw_id_fields = ('blog', 'user', 'parent_comment')
-    search_fields = ('comment_text', 'user__username', 'blog__title')
+class BlogCommentAdmin(UnfoldModelAdmin):
+    list_display = ("user", "blog", "display_edited", "display_deleted", "created_at")
+    list_filter = ("is_edited", "is_deleted")
+    raw_id_fields = ("blog", "user", "parent_comment")
+    search_fields = ("comment_text", "user__username", "blog__title")
+    readonly_fields = ("id", "replies_count", "created_at", "updated_at")
+
+    @display(description=_("Edited"), label={True: "warning", False: "success"}, boolean=True)
+    def display_edited(self, obj):
+        return obj.is_edited
+
+    @display(description=_("Deleted"), label={True: "danger", False: "success"}, boolean=True)
+    def display_deleted(self, obj):
+        return obj.is_deleted
 
 
 @admin.register(BlogViewTracker)
-class BlogViewTrackerAdmin(admin.ModelAdmin):
-    list_display = ('blog', 'user', 'ip_address', 'created_at')
-    raw_id_fields = ('blog', 'user')
-    search_fields = ('ip_address', 'blog__title')
+class BlogViewTrackerAdmin(UnfoldModelAdmin):
+    list_display = ("blog", "user", "ip_address", "created_at")
+    raw_id_fields = ("blog", "user")
+    search_fields = ("ip_address", "blog__title")
+    readonly_fields = ("id", "created_at")

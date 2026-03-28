@@ -14,7 +14,7 @@ from pathlib import Path
 from datetime import timedelta
 
 import firebase_admin
-from firebase_admin import auth, credentials
+from firebase_admin import credentials
 
 from dotenv import load_dotenv
 import os
@@ -53,6 +53,9 @@ CSRF_TRUSTED_ORIGINS = (
 
 INSTALLED_APPS = [
     "daphne",
+    # django-unfold must come BEFORE django.contrib.admin
+    "unfold",
+    "unfold.contrib.filters",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -128,7 +131,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [os.path.join(BASE_DIR, "templates")],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -200,6 +203,218 @@ STATIC_URL = "static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+# ──────────────────────────────────────────────
+# django-unfold Admin Configuration
+# ──────────────────────────────────────────────
+
+UNFOLD = {
+    "SITE_TITLE": "PetNabor Admin",
+    "SITE_HEADER": "PetNabor",
+    "SITE_SUBHEADER": "Social Media Dashboard",
+    "SITE_URL": "/",
+    "SITE_SYMBOL": "pets",          # Google Material Symbol
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": False,
+    "ENVIRONMENT": "api.users.admin_utils.environment_callback",
+    "DASHBOARD_CALLBACK": "api.users.admin_utils.dashboard_callback",
+    "BORDER_RADIUS": "8px",
+    "COLORS": {
+        "font": {
+            "subtle-light": "107 114 128",
+            "subtle-dark": "156 163 175",
+            "default-light": "17 24 39",
+            "default-dark": "243 244 246",
+        },
+        "primary": {
+            "50": "250 245 255",
+            "100": "243 232 255",
+            "200": "233 213 255",
+            "300": "216 180 254",
+            "400": "192 132 252",
+            "500": "168 85 247",
+            "600": "147 51 234",
+            "700": "126 34 206",
+            "800": "107 33 168",
+            "900": "88 28 135",
+            "950": "59 7 100",
+        },
+    },
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": False,
+        "navigation": [
+            {
+                "title": "Dashboard",
+                "separator": False,
+                "items": [
+                    {
+                        "title": "Overview",
+                        "icon": "dashboard",
+                        "link": "/admin/",
+                    },
+                ],
+            },
+            {
+                "title": "User Management",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Users",
+                        "icon": "people",
+                        "link": "/admin/users/user/",
+                        "badge": "api.users.admin_utils.user_count_badge",
+                    },
+                    {
+                        "title": "Profiles",
+                        "icon": "manage_accounts",
+                        "link": "/admin/users/profile/",
+                    },
+                    {
+                        "title": "OTP Verifications",
+                        "icon": "verified",
+                        "link": "/admin/users/otpverification/",
+                    },
+                ],
+            },
+            {
+                "title": "Content",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Posts",
+                        "icon": "article",
+                        "link": "/admin/post/post/",
+                    },
+                    {
+                        "title": "Stories",
+                        "icon": "auto_stories",
+                        "link": "/admin/story/story/",
+                    },
+                    {
+                        "title": "Blogs",
+                        "icon": "rss_feed",
+                        "link": "/admin/blog/blog/",
+                    },
+                    {
+                        "title": "Hashtags",
+                        "icon": "tag",
+                        "link": "/admin/post/hashtag/",
+                    },
+                ],
+            },
+            {
+                "title": "Pets",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Pet Profiles",
+                        "icon": "pets",
+                        "link": "/admin/pet/petprofile/",
+                    },
+                ],
+            },
+            {
+                "title": "Social",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Friend Requests",
+                        "icon": "person_add",
+                        "link": "/admin/friends/friendrequest/",
+                    },
+                    {
+                        "title": "Friendships",
+                        "icon": "group",
+                        "link": "/admin/friends/friendship/",
+                    },
+                    {
+                        "title": "User Blocks",
+                        "icon": "block",
+                        "link": "/admin/friends/userblock/",
+                    },
+                    {
+                        "title": "Meetings",
+                        "icon": "event",
+                        "link": "/admin/meeting/meeting/",
+                    },
+                ],
+            },
+            {
+                "title": "Moderation",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Reports",
+                        "icon": "flag",
+                        "link": "/admin/report/report/",
+                        "badge": "api.users.admin_utils.pending_reports_badge",
+                    },
+                ],
+            },
+            {
+                "title": "Messaging",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Chat Threads",
+                        "icon": "forum",
+                        "link": "/admin/messaging/chatthread/",
+                    },
+                    {
+                        "title": "Messages",
+                        "icon": "chat",
+                        "link": "/admin/messaging/message/",
+                    },
+                ],
+            },
+            {
+                "title": "Notifications",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Sent Notifications",
+                        "icon": "notifications",
+                        "link": "/admin/notifications/notifications/",
+                    },
+                    {
+                        "title": "FCM Devices",
+                        "icon": "devices",
+                        "link": "/admin/notifications/fcmdevice/",
+                    },
+                    {
+                        "title": "Notification Settings",
+                        "icon": "tune",
+                        "link": "/admin/notifications/notificationsettings/",
+                    },
+                ],
+            },
+            {
+                "title": "Referral System",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Settings",
+                        "icon": "settings",
+                        "link": "/admin/referral/referralsettings/",
+                    },
+                    {
+                        "title": "Wallets",
+                        "icon": "wallet",
+                        "link": "/admin/referral/referralwallet/",
+                    },
+                    {
+                        "title": "Transactions",
+                        "icon": "receipt_long",
+                        "link": "/admin/referral/referraltransaction/",
+                    },
+                ],
+            },
+        ],
+    },
+    "TABS": [],
+}
 
 
 # Media
