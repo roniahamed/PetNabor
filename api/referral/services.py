@@ -47,6 +47,13 @@ def award_referral_points(new_user):
     if not referrer:
         return
 
+    # Guard: Check if signup bonus was already awarded for this user
+    if ReferralTransaction.objects.filter(
+        wallet__user=new_user, 
+        transaction_type=TransactionType.SIGNUP_BONUS
+    ).exists():
+        return
+
     cfg = ReferralSettings.get_instance()
 
     # Credit the referrer

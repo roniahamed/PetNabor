@@ -36,6 +36,7 @@ class SignupSerializer(serializers.Serializer):
     agree_to_terms_and_conditions = serializers.BooleanField(
         required=False, default=False
     )
+    referred_by_code = serializers.CharField(required=False, allow_blank=True, max_length=50)
 
     def validate_email(self, value):
         if value:
@@ -166,6 +167,9 @@ class FirebaseTokenSerializer(serializers.Serializer):
     user_type = serializers.CharField(required=False, default="patnabor")
     agree_to_terms_and_conditions = serializers.BooleanField(
         required=False, default=False
+    )
+    referred_by_code = serializers.CharField(
+        required=False, allow_blank=True, max_length=50
     )
 
 

@@ -31,7 +31,7 @@ from .exceptions import (
     OTPExpired,
     OTPMaxAttemptsExceeded,
 )
-from .models import OTPTypes, OTPVerification
+from .models import OTPTypes, OTPVerification, Profile
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +200,7 @@ def signup_user(
     last_name="",
     user_type="patnabor",
     agree_to_terms_and_conditions=False,
+    referred_by_code=None,
 ):
     """
     Register a new user with email or phone.
@@ -257,6 +258,16 @@ def signup_user(
         )
     except IntegrityError:
         raise AccountAlreadyExists()
+
+    # Link referrer if code exists
+    if referred_by_code:
+        referrer_profile = Profile.objects.filter(referral_code=referred_by_code.upper()).first()
+        if referrer_profile:
+            # Profile is created via signal on User creation
+            user_profile = getattr(user, "profile", None)
+            if user_profile:
+                user_profile.referred_by = referrer_profile.user
+                user_profile.save(update_fields=["referred_by"])
 
     # Send verification OTP based on registration method
     verification_type = None
@@ -409,6 +420,7 @@ def firebase_login_service(
     last_name="",
     user_type="patnabor",
     agree_to_terms_and_conditions=False,
+    referred_by_code=None,
 ):
     """
     Authenticate via Firebase ID token.
@@ -480,6 +492,15 @@ def firebase_login_service(
         )
         user.set_unusable_password()
         user.save()
+
+        # Link referrer if code exists (for new users only)
+        if referred_by_code:
+            referrer_profile = Profile.objects.filter(referral_code=referred_by_code.upper()).first()
+            if referrer_profile:
+                user_profile = getattr(user, "profile", None)
+                if user_profile:
+                    user_profile.referred_by = referrer_profile.user
+                    user_profile.save(update_fields=["referred_by"])
 
     tokens = get_tokens_for_user(user)
 

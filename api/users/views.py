@@ -92,6 +92,7 @@ class SignupView(APIView):
             last_name=data.get("last_name", ""),
             user_type=data.get("user_type", "patnabor"),
             agree_to_terms_and_conditions=data.get("agree_to_terms_and_conditions", False),
+            referred_by_code=data.get("referred_by_code"),
         )
 
         messages = {
@@ -370,6 +371,7 @@ class FirebaseLoginView(APIView):
             agree_to_terms_and_conditions=serializer.validated_data.get(
                 "agree_to_terms_and_conditions", False
             ),
+            referred_by_code=serializer.validated_data.get("referred_by_code"),
         )
 
         return Response(

@@ -1,0 +1,272 @@
+{
+	"info": {
+		"_postman_id": "referral-app-id",
+		"name": "PatNabor Referral API",
+		"description": "API endpoints for the Referral and Point System.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Auth & Profile",
+			"item": [
+				{
+					"name": "Signup",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"password\": \"Password123!\",\n    \"first_name\": \"Referral\",\n    \"last_name\": \"User\",\n    \"agree_to_terms_and_conditions\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_urls}}/users/signup/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"users",
+								"signup",
+								""
+							]
+						},
+						"description": "Signup a new user. To test referral, ensure you are unverified or use a new email/phone."
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.access) {",
+									"        pm.environment.set(\"access_token\", jsonData.access);",
+									"    }",
+									"    if (jsonData.refresh) {",
+									"        pm.environment.set(\"refresh_token\", jsonData.refresh);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email_or_phone\": \"newuser@example.com\",\n    \"password\": \"Password123!\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_urls}}/users/login/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"users",
+								"login",
+								""
+							]
+						},
+						"description": "Login to get JWT tokens. Success script will auto-update 'access_token' and 'refresh_token' environment variables."
+					},
+					"response": []
+				},
+				{
+					"name": "My Profile (Auto-generate Referral Code)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.referral_code) {",
+									"        pm.environment.set(\"my_referral_code\", jsonData.referral_code);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/users/profile/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"users",
+								"profile",
+								""
+							]
+						},
+						"description": "Get current user profile. This will automatically generate a referral code if missing."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Referral System",
+			"item": [
+				{
+					"name": "My Referral Stats",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/referral/my/",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"referral",
+								"my",
+								""
+							]
+						},
+						"description": "Returns current user's referral code, balance, total earned, and joined count."
+					},
+					"response": []
+				},
+				{
+					"name": "Referral Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/referral/dashboard/?q=",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"referral",
+								"dashboard",
+								""
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "",
+									"description": "Optional search query for members"
+								}
+							]
+						},
+						"description": "Returns full dashboard data including member list."
+					},
+					"response": []
+				},
+				{
+					"name": "Transaction History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_urls}}/referral/transactions/?page=1",
+							"host": [
+								"{{base_urls}}"
+							],
+							"path": [
+								"referral",
+								"transactions",
+								""
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Paginated history of points earned and withdrawals."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_urls",
+			"value": "http://localhost:8001/api",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "YOUR_ACCESS_TOKEN",
+			"type": "string"
+		},
+		{
+			"key": "refresh_token",
+			"value": "YOUR_REFRESH_TOKEN",
+			"type": "string"
+		},
+		{
+			"key": "my_referral_code",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
