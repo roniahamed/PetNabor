@@ -76,7 +76,7 @@ def dashboard_callback(request, context: dict) -> dict:
 
     # ── KPI totals ────────────────────────────────────────────────────────────
     total_users = User.objects.filter(is_active=True).count()
-    new_today = User.objects.filter(created_at__gte=today_start).count()
+    active_today = User.objects.filter(last_active__gte=today_start).count()
     new_this_week = User.objects.filter(created_at__gte=week_ago).count()
 
     try:
@@ -97,34 +97,13 @@ def dashboard_callback(request, context: dict) -> dict:
         from api.report.models import Report
 
         pending_reports = Report.objects.filter(is_resolved=False).count()
-        total_reports = Report.objects.count()
+        recent_reports = Report.objects.order_by("-created_at")[:10]
+        flagged_posts = Report.objects.filter(target_type="post").order_by("-created_at")[:10]
     except Exception:
         pending_reports = 0
-        total_reports = 0
+        recent_reports = []
+        flagged_posts = []
 
-    try:
-        from api.story.models import Story
-
-        active_stories = Story.objects.filter(expires_at__gt=now).count()
-    except Exception:
-        active_stories = 0
-
-    try:
-        from api.blog.models import Blog
-
-        total_blogs = Blog.objects.filter(is_published=True, is_deleted=False).count()
-    except Exception:
-        total_blogs = 0
-
-    try:
-        from api.referral.models import ReferralWallet
-        from django.db.models import Sum
-
-        total_referral_points = (
-            ReferralWallet.objects.aggregate(total=Sum("balance"))["total"] or 0
-        )
-    except Exception:
-        total_referral_points = 0
 
     # ── User registrations — last 30 days (for line chart) ────────────────────
     registration_qs = (
@@ -175,7 +154,7 @@ def dashboard_callback(request, context: dict) -> dict:
         fr_labels, fr_data = [], []
 
     # ── Recent new users (activity feed) ──────────────────────────────────────
-    recent_users = User.objects.order_by("-created_at").select_related("profile")[:8]
+    recent_users = User.objects.order_by("-created_at").select_related("profile")[:10]
 
     # ── Build context ──────────────────────────────────────────────────────────
     context.update(
@@ -187,64 +166,37 @@ def dashboard_callback(request, context: dict) -> dict:
                     "metric": f"{total_users:,}",
                     "icon": "people",
                     "color": "purple",
-                    "change": f"+{new_this_week} this week",
-                    "positive": True,
                 },
                 {
-                    "title": "New Today",
-                    "metric": f"{new_today:,}",
+                    "title": "Active Today",
+                    "metric": f"{active_today:,}",
+                    "icon": "person_play",
+                    "color": "green",
+                },
+                {
+                    "title": "New this Week",
+                    "metric": f"{new_this_week:,}",
                     "icon": "person_add",
                     "color": "blue",
-                    "change": f"+{new_this_week} this week",
-                    "positive": True,
                 },
                 {
                     "title": "Total Posts",
                     "metric": f"{total_posts:,}",
                     "icon": "article",
-                    "color": "green",
-                    "change": "Active posts",
-                    "positive": True,
+                    "color": "pink",
                 },
                 {
-                    "title": "Pet Profiles",
+                    "title": "Total Pets",
                     "metric": f"{total_pets:,}",
                     "icon": "pets",
                     "color": "orange",
-                    "change": "Registered pets",
-                    "positive": True,
-                },
-                {
-                    "title": "Active Stories",
-                    "metric": f"{active_stories:,}",
-                    "icon": "auto_stories",
-                    "color": "pink",
-                    "change": "Live now",
-                    "positive": True,
-                },
-                {
-                    "title": "Published Blogs",
-                    "metric": f"{total_blogs:,}",
-                    "icon": "rss_feed",
-                    "color": "teal",
-                    "change": "Published articles",
-                    "positive": True,
                 },
                 {
                     "title": "Pending Reports",
                     "metric": f"{pending_reports:,}",
                     "icon": "flag",
                     "color": "red",
-                    "change": f"{total_reports} total reports",
                     "positive": False,
-                },
-                {
-                    "title": "Referral Points",
-                    "metric": f"{total_referral_points:,.0f}",
-                    "icon": "wallet",
-                    "color": "yellow",
-                    "change": "Total distributed",
-                    "positive": True,
                 },
             ],
             # Charts data (consumed by the dashboard template)
@@ -266,6 +218,8 @@ def dashboard_callback(request, context: dict) -> dict:
             },
             # Activity feed
             "recent_users": recent_users,
+            "recent_reports": recent_reports,
+            "flagged_posts": flagged_posts,
         }
     )
     return context
