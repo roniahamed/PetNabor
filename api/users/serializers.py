@@ -5,6 +5,7 @@ Clean validation using DRY validators from validators.py.
 """
 
 from django.contrib.auth import get_user_model
+from django.contrib.gis.geos import Point
 from rest_framework import serializers
 
 from .models import Profile
@@ -172,7 +173,6 @@ class FirebaseTokenSerializer(serializers.Serializer):
 # Data Serializers
 # ──────────────────────────────────────────────
 
-
 class Profile_Read(serializers.ModelSerializer):
     """Profile model serializer with read-only fields."""
 
@@ -191,19 +191,17 @@ class Profile_Read(serializers.ModelSerializer):
             "referral_code",
             "referred_by",
         ]
-        read_only_fields = [
-            "address_street",
-            "city",
-            "state",
-            "zipcode",
-            "location_point",
-            "date_of_birth",
-            "profile_picture",
-            "cover_photo",
-            "bio",
-            "referral_code",
-            "referred_by",
-        ]
+        read_only_fields = fields
+
+    def to_representation(self, instance):
+        """
+        Custom representation to return location_point as [lng, lat].
+        """
+        ret = super().to_representation(instance)
+        if hasattr(instance, "location_point") and instance.location_point:
+            # Return as [longitude, latitude]
+            ret["location_point"] = [instance.location_point.x, instance.location_point.y]
+        return ret
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -286,6 +284,34 @@ class ProfileSerializer(serializers.ModelSerializer):
             "referral_code",
             "referred_by",
         ]
+
+    def validate_location_point(self, value):
+        """
+        Custom validation for location_point to handle list format [lng, lat].
+        """
+        if isinstance(value, (list, tuple)):
+            if len(value) != 2:
+                raise serializers.ValidationError(
+                    "location_point must be a list or tuple of [longitude, latitude]."
+                )
+            try:
+                # GeoDjango Point expects (x, y) which is (longitude, latitude)
+                return Point(float(value[0]), float(value[1]), srid=4326)
+            except (TypeError, ValueError):
+                raise serializers.ValidationError(
+                    "Invalid coordinates. Must be numeric."
+                )
+        return value
+
+    def to_representation(self, instance):
+        """
+        Custom representation to return location_point as [lng, lat].
+        """
+        ret = super().to_representation(instance)
+        if instance.location_point:
+            # Return as [longitude, latitude]
+            ret["location_point"] = [instance.location_point.x, instance.location_point.y]
+        return ret
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {})
