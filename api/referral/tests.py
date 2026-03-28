@@ -1,6 +1,7 @@
 from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -9,6 +10,7 @@ from .models import ReferralSettings, ReferralTransaction, ReferralWallet, Trans
 
 User = get_user_model()
 
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
 class ReferralSystemTests(APITestCase):
     def setUp(self):
         # Create global settings
@@ -128,3 +130,65 @@ class ReferralSystemTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(response.data["results"][0]["transaction_type"], TransactionType.REFERRAL_COMMISSION)
+
+    def test_signup_with_invalid_referral_code_ignores_code(self):
+        """Test that signup succeeds but ignores an invalid referral code."""
+        signup_url = reverse("signup")
+        data = {
+            "email": "user_invalid@example.com",
+            "password": "Password123!",
+            "first_name": "User",
+            "last_name": "Invalid",
+            "agree_to_terms_and_conditions": True,
+            "referred_by_code": "INVALID123"
+        }
+        
+        response = self.client.post(signup_url, data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        user = User.objects.get(email="user_invalid@example.com")
+        self.assertIsNone(user.profile.referred_by)
+
+    def test_verify_referral_code(self):
+        """Test verifying a referral code."""
+        verify_url = reverse("referral-verify")
+        
+        # Valid code
+        response = self.client.post(verify_url, {"code": self.referral_code_a})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["valid"])
+        self.assertIn("referrer_name", response.data)
+        
+        # Invalid code
+        response = self.client.post(verify_url, {"code": "INVALID"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_redeem_referral_code(self):
+        """Test redeeming a referral code after signup."""
+        # User B signs up WITHOUT a referral code
+        user_b = User.objects.create_user(
+            email="user_b@example.com", 
+            password="Password123!",
+            username="userb",
+            is_verified=True
+        )
+        
+        self.client.force_authenticate(user=user_b)
+        redeem_url = reverse("referral-redeem")
+        
+        # Redeem valid code
+        response = self.client.post(redeem_url, {"code": self.referral_code_a})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        user_b.profile.refresh_from_db()
+        self.assertEqual(user_b.profile.referred_by, self.user_a)
+        
+        # Verify points awarded
+        wallet_a = ReferralWallet.objects.get(user=self.user_a)
+        wallet_b = ReferralWallet.objects.get(user=user_b)
+        self.assertEqual(wallet_a.balance, Decimal("10.00"))
+        self.assertEqual(wallet_b.balance, Decimal("5.00"))
+        
+        # Try redeeming again (should fail)
+        response = self.client.post(redeem_url, {"code": self.referral_code_a})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

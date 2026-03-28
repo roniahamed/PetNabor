@@ -12,7 +12,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import ReferralSettings, ReferralTransaction, TransactionStatus
-from .serializers import ReferralMemberSerializer, ReferralTransactionSerializer
+from .serializers import (
+    ReferralMemberSerializer, 
+    ReferralTransactionSerializer,
+    ReferralCodeVerifySerializer,
+    ReferralCodeRedeemSerializer,
+)
 from .services import get_or_create_wallet
 
 User = get_user_model()
@@ -115,3 +120,51 @@ class ReferralTransactionListView(APIView):
         page = paginator.paginate_queryset(qs, request)
         serializer = ReferralTransactionSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
+
+
+class ReferralVerifyView(APIView):
+    """
+    POST /api/referral/verify/
+    Verify if a referral code is valid.
+    """
+    permission_classes = []
+
+    def post(self, request):
+        serializer = ReferralCodeVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        profile = serializer.validated_data["code"]
+        
+        name = f"{profile.user.first_name} {profile.user.last_name}".strip()
+        if not name:
+            name = profile.user.email.split("@")[0] if profile.user.email else "User"
+
+        return Response({
+            "valid": True,
+            "referrer_name": name,
+        })
+
+
+class ReferralRedeemView(APIView):
+    """
+    POST /api/referral/redeem/
+    Redeem a code manually for a logged-in user who hasn't redeemed one yet.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ReferralCodeRedeemSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        referrer_profile = serializer.validated_data["code"]
+        
+        profile = request.user.profile
+        profile.referred_by = referrer_profile.user
+        profile.save(update_fields=["referred_by"])
+
+        # Awarding of points usually triggered by signal, but we can explicitly call the task just in case
+        # However, the signal on_profile_saved will be fired automatically when referred_by is set,
+        # which calls award_referral_points_task.delay(request.user.id). 
+        # So we don't need to double-trigger here.
+
+        return Response({
+            "message": "Referral code redeemed successfully.",
+        })

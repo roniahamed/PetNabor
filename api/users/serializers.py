@@ -36,11 +36,21 @@ class SignupSerializer(serializers.Serializer):
     agree_to_terms_and_conditions = serializers.BooleanField(
         required=False, default=False
     )
-    referred_by_code = serializers.CharField(required=False, allow_blank=True, max_length=50)
+    referred_by_code = serializers.CharField(
+        required=False, allow_blank=True, max_length=50
+    )
 
     def validate_email(self, value):
         if value:
             return validate_email_format(value)
+        return value
+
+    def validate_referred_by_code(self, value):
+        if value:
+            from .models import Profile
+
+            if not Profile.objects.filter(referral_code=value.upper()).exists():
+                return ""
         return value
 
     def validate_phone(self, value):
@@ -172,10 +182,19 @@ class FirebaseTokenSerializer(serializers.Serializer):
         required=False, allow_blank=True, max_length=50
     )
 
+    def validate_referred_by_code(self, value):
+        if value:
+            from .models import Profile
+
+            if not Profile.objects.filter(referral_code=value.upper()).exists():
+                return ""
+        return value
+
 
 # ──────────────────────────────────────────────
 # Data Serializers
 # ──────────────────────────────────────────────
+
 
 class Profile_Read(serializers.ModelSerializer):
     """Profile model serializer with read-only fields."""
@@ -204,7 +223,10 @@ class Profile_Read(serializers.ModelSerializer):
         ret = super().to_representation(instance)
         if hasattr(instance, "location_point") and instance.location_point:
             # Return as [longitude, latitude]
-            ret["location_point"] = [instance.location_point.x, instance.location_point.y]
+            ret["location_point"] = [
+                instance.location_point.x,
+                instance.location_point.y,
+            ]
         return ret
 
 
@@ -256,8 +278,12 @@ class UserSerializer(serializers.ModelSerializer):
 class ProfileSerializer(serializers.ModelSerializer):
     """Profile model serializer. Allows updating user first_name and last_name also."""
 
-    first_name = serializers.CharField(source="user.first_name", required=False, allow_blank=True, max_length=150)
-    last_name = serializers.CharField(source="user.last_name", required=False, allow_blank=True, max_length=150)
+    first_name = serializers.CharField(
+        source="user.first_name", required=False, allow_blank=True, max_length=150
+    )
+    last_name = serializers.CharField(
+        source="user.last_name", required=False, allow_blank=True, max_length=150
+    )
 
     class Meta:
         model = Profile
@@ -314,12 +340,15 @@ class ProfileSerializer(serializers.ModelSerializer):
         ret = super().to_representation(instance)
         if instance.location_point:
             # Return as [longitude, latitude]
-            ret["location_point"] = [instance.location_point.x, instance.location_point.y]
+            ret["location_point"] = [
+                instance.location_point.x,
+                instance.location_point.y,
+            ]
         return ret
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {})
-        
+
         # Update user fields if provided
         if "first_name" in user_data or "last_name" in user_data:
             user = instance.user

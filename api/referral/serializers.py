@@ -4,6 +4,7 @@ Referral serializers.
 from rest_framework import serializers
 
 from .models import ReferralTransaction, ReferralWallet
+from api.users.models import Profile
 
 
 class ReferralTransactionSerializer(serializers.ModelSerializer):
@@ -65,3 +66,33 @@ class ReferralDashboardSerializer(serializers.Serializer):
     joined_count = serializers.IntegerField()
     balance = serializers.DecimalField(max_digits=12, decimal_places=2)
     members = ReferralMemberSerializer(many=True)
+
+class ReferralCodeVerifySerializer(serializers.Serializer):
+    """Verify if a referral code is valid."""
+    code = serializers.CharField()
+
+    def validate_code(self, value):
+        
+        profile = Profile.objects.filter(referral_code=value.upper()).first()
+        if not profile:
+            raise serializers.ValidationError("Invalid referral code.")
+        return profile
+
+class ReferralCodeRedeemSerializer(serializers.Serializer):
+    """Redeem a referral code for the current user."""
+    code = serializers.CharField()
+
+    def validate_code(self, value):
+        from api.users.models import Profile
+        profile = Profile.objects.filter(referral_code=value.upper()).first()
+        if not profile:
+            raise serializers.ValidationError("Invalid referral code.")
+        
+        request = self.context.get("request")
+        if request and hasattr(request, "user"):
+            if getattr(request.user.profile, "referred_by", None):
+                raise serializers.ValidationError("You have already redeemed a referral code.")
+            if request.user == profile.user:
+                raise serializers.ValidationError("You cannot use your own referral code.")
+                
+        return profile
