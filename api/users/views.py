@@ -7,11 +7,12 @@ Consistent JSON response format: {"success": bool, "message": str, "data": {...}
 
 import logging
 
-from rest_framework import status
+from rest_framework import status, serializers
 from rest_framework.generics import RetrieveUpdateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 from .models import Profile, User
 from .serializers import (
@@ -79,6 +80,23 @@ class SignupView(APIView):
     serializer_class = SignupSerializer
     throttle_scope = "auth_login"
 
+    @extend_schema(
+        request=SignupSerializer,
+        responses={201: inline_serializer(
+            name='SignupResponse',
+            fields={
+                'success': serializers.BooleanField(),
+                'message': serializers.CharField(),
+                'data': inline_serializer(
+                    name='SignupData',
+                    fields={
+                        'user': serializers.DictField(),
+                        'verification_type': serializers.CharField()
+                    }
+                )
+            }
+        )}
+    )
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -125,6 +143,24 @@ class LoginView(APIView):
     serializer_class = LoginSerializer
     throttle_scope = "auth_login"
 
+    @extend_schema(
+        request=LoginSerializer,
+        responses={200: inline_serializer(
+            name='LoginResponse',
+            fields={
+                'success': serializers.BooleanField(),
+                'message': serializers.CharField(),
+                'data': inline_serializer(
+                    name='LoginData',
+                    fields={
+                        'access_token': serializers.CharField(),
+                        'refresh_token': serializers.CharField(),
+                        'user': serializers.DictField()
+                    }
+                )
+            }
+        )}
+    )
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -159,6 +195,20 @@ class VerifyPhoneOTPView(APIView):
     serializer_class = VerifyPhoneOTPSerializer
     throttle_scope = "otp_verify"
 
+    @extend_schema(
+        request=VerifyPhoneOTPSerializer,
+        responses={200: inline_serializer(
+            name='VerifyPhoneResponse',
+            fields={
+                'success': serializers.BooleanField(),
+                'message': serializers.CharField(),
+                'data': inline_serializer(
+                    name='VerifyPhoneData',
+                    fields={'user': serializers.DictField()}
+                )
+            }
+        )}
+    )
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -196,6 +246,20 @@ class VerifyEmailOTPView(APIView):
     serializer_class = VerifyEmailOTPSerializer
     throttle_scope = "otp_verify"
 
+    @extend_schema(
+        request=VerifyEmailOTPSerializer,
+        responses={200: inline_serializer(
+            name='VerifyEmailResponse',
+            fields={
+                'success': serializers.BooleanField(),
+                'message': serializers.CharField(),
+                'data': inline_serializer(
+                    name='VerifyEmailData',
+                    fields={'user': serializers.DictField()}
+                )
+            }
+        )}
+    )
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -233,6 +297,16 @@ class ResendPhoneOTPView(APIView):
     serializer_class = ResendOTPSerializer
     throttle_scope = "otp_send"
 
+    @extend_schema(
+        request=ResendOTPSerializer,
+        responses={200: inline_serializer(
+            name='ResendPhoneOTPResponse',
+            fields={
+                'success': serializers.BooleanField(),
+                'message': serializers.CharField(),
+            }
+        )}
+    )
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -259,6 +333,16 @@ class ResendEmailOTPView(APIView):
     serializer_class = ResendEmailOTPSerializer
     throttle_scope = "otp_send"
 
+    @extend_schema(
+        request=ResendEmailOTPSerializer,
+        responses={200: inline_serializer(
+            name='ResendEmailOTPResponse',
+            fields={
+                'success': serializers.BooleanField(),
+                'message': serializers.CharField(),
+            }
+        )}
+    )
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -290,6 +374,20 @@ class RequestPasswordResetView(APIView):
     serializer_class = RequestPasswordResetSerializer
     throttle_scope = "otp_send"
 
+    @extend_schema(
+        request=RequestPasswordResetSerializer,
+        responses={200: inline_serializer(
+            name='RequestPasswordResetResponse',
+            fields={
+                'success': serializers.BooleanField(),
+                'message': serializers.CharField(),
+                'data': inline_serializer(
+                    name='PasswordResetDeliveryData',
+                    fields={'delivery_method': serializers.CharField()}
+                )
+            }
+        )}
+    )
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -324,6 +422,16 @@ class ConfirmPasswordResetView(APIView):
     serializer_class = ConfirmPasswordResetSerializer
     throttle_scope = "otp_verify"
 
+    @extend_schema(
+        request=ConfirmPasswordResetSerializer,
+        responses={200: inline_serializer(
+            name='ConfirmPasswordResetResponse',
+            fields={
+                'success': serializers.BooleanField(),
+                'message': serializers.CharField(),
+            }
+        )}
+    )
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -359,6 +467,24 @@ class FirebaseLoginView(APIView):
     permission_classes = [AllowAny]
     serializer_class = FirebaseTokenSerializer
 
+    @extend_schema(
+        request=FirebaseTokenSerializer,
+        responses={200: inline_serializer(
+            name='FirebaseLoginResponse',
+            fields={
+                'success': serializers.BooleanField(),
+                'message': serializers.CharField(),
+                'data': inline_serializer(
+                    name='FirebaseLoginData',
+                    fields={
+                        'access_token': serializers.CharField(),
+                        'refresh_token': serializers.CharField(),
+                        'user': serializers.DictField()
+                    }
+                )
+            }
+        )}
+    )
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)

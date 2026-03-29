@@ -5,11 +5,12 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.db.models import Q, Sum
-from rest_framework import status
+from rest_framework import status, serializers
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter, OpenApiTypes
 
 from .models import ReferralSettings, ReferralTransaction, TransactionStatus
 from .serializers import (
@@ -41,6 +42,19 @@ class ReferralMyView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses={200: inline_serializer(
+            name='ReferralMyResponse',
+            fields={
+                'referral_code': serializers.CharField(),
+                'referrer_points': serializers.IntegerField(),
+                'referee_points': serializers.IntegerField(),
+                'balance': serializers.DecimalField(max_digits=12, decimal_places=2),
+                'total_earned': serializers.DecimalField(max_digits=12, decimal_places=2),
+                'joined_count': serializers.IntegerField(),
+            }
+        )}
+    )
     def get(self, request):
         user = request.user
         try:
@@ -68,6 +82,21 @@ class ReferralDashboardView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter('q', OpenApiTypes.STR, description='Search by name or email'),
+        ],
+        responses={200: inline_serializer(
+            name='ReferralDashboardResponse',
+            fields={
+                'referral_code': serializers.CharField(),
+                'balance': serializers.DecimalField(max_digits=12, decimal_places=2),
+                'total_earned': serializers.DecimalField(max_digits=12, decimal_places=2),
+                'joined_count': serializers.IntegerField(),
+                'members': ReferralMemberSerializer(many=True),
+            }
+        )}
+    )
     def get(self, request):
         user = request.user
         try:
@@ -113,6 +142,9 @@ class ReferralTransactionListView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses=ReferralTransactionSerializer(many=True),
+    )
     def get(self, request):
         wallet = get_or_create_wallet(request.user)
         qs = ReferralTransaction.objects.filter(wallet=wallet).order_by("-created_at")
@@ -129,6 +161,16 @@ class ReferralVerifyView(APIView):
     """
     permission_classes = []
 
+    @extend_schema(
+        request=ReferralCodeVerifySerializer,
+        responses={200: inline_serializer(
+            name='ReferralVerifyResponse',
+            fields={
+                'valid': serializers.BooleanField(),
+                'referrer_name': serializers.CharField(),
+            }
+        )}
+    )
     def post(self, request):
         serializer = ReferralCodeVerifySerializer(data=request.data)
         if not serializer.is_valid():
@@ -155,6 +197,15 @@ class ReferralRedeemView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=ReferralCodeRedeemSerializer,
+        responses={200: inline_serializer(
+            name='ReferralRedeemResponse',
+            fields={
+                'message': serializers.CharField(),
+            }
+        )}
+    )
     def post(self, request):
         serializer = ReferralCodeRedeemSerializer(data=request.data, context={"request": request})
         if not serializer.is_valid():

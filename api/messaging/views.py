@@ -7,10 +7,11 @@ Views handle HTTP plumbing only: auth, serialization, response codes.
 
 import logging
 
-from rest_framework import status, views
+from rest_framework import status, views, serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
+from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter, OpenApiTypes
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -44,6 +45,9 @@ class ThreadListCreateView(views.APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses=ChatThreadSerializer(many=True)
+    )
     def get(self, request):
         # Cache key for first page of inbox
         cache_key = f"user_inbox_{request.user.id}_page_1"
@@ -70,6 +74,10 @@ class ThreadListCreateView(views.APIView):
         serializer = ChatThreadSerializer(threads, many=True, context={"request": request})
         return Response(serializer.data)
 
+    @extend_schema(
+        request=CreateDirectThreadSerializer,
+        responses=ChatThreadSerializer
+    )
     def post(self, request):
         """Start a DIRECT conversation with another user."""
         input_serializer = CreateDirectThreadSerializer(data=request.data)
@@ -106,6 +114,10 @@ class GroupThreadCreateView(views.APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=CreateGroupThreadSerializer,
+        responses=ChatThreadSerializer
+    )
     def post(self, request):
         input_serializer = CreateGroupThreadSerializer(data=request.data)
         input_serializer.is_valid(raise_exception=True)
@@ -127,11 +139,26 @@ class ThreadDetailView(views.APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses=ChatThreadSerializer
+    )
     def get(self, request, thread_id):
         thread, _ = services.get_thread_for_participant(request.user, thread_id)
         serializer = ChatThreadSerializer(thread, context={"request": request})
         return Response(serializer.data)
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter('everyone', OpenApiTypes.BOOL, description='Delete thread for everyone (Admin only)')
+        ],
+        responses={
+            204: None,
+            200: inline_serializer(
+                name="LeaveThreadResponse",
+                fields={"success": serializers.BooleanField(), "message": serializers.CharField()}
+            )
+        }
+    )
     def delete(self, request, thread_id):
         """
         DELETE /messaging/threads/<id>/
@@ -166,6 +193,9 @@ class MessageListCreateView(views.APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "messaging_send"
 
+    @extend_schema(
+        responses=MessageSerializer(many=True)
+    )
     def get(self, request, thread_id):
         messages = services.get_messages_in_thread(request.user, thread_id)
 
@@ -184,6 +214,10 @@ class MessageListCreateView(views.APIView):
         serializer = MessageSerializer(messages, many=True, context={"request": request})
         return Response(serializer.data)
 
+    @extend_schema(
+        request=SendMessageSerializer,
+        responses=MessageSerializer
+    )
     def post(self, request, thread_id):
         input_serializer = SendMessageSerializer(data=request.data)
         input_serializer.is_valid(raise_exception=True)
@@ -206,6 +240,7 @@ class MessageDetailView(views.APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(responses={204: None})
     def delete(self, request, thread_id, message_id):
         services.delete_message_for_everyone(request.user, thread_id, message_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -216,6 +251,13 @@ class BulkDeleteMessagesView(views.APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=BulkDeleteMessagesSerializer,
+        responses={200: inline_serializer(
+            name="BulkDeleteResponse",
+            fields={"success": serializers.BooleanField(), "deleted_count": serializers.IntegerField()}
+        )}
+    )
     def post(self, request, thread_id):
         input_serializer = BulkDeleteMessagesSerializer(data=request.data)
         input_serializer.is_valid(raise_exception=True)
@@ -230,6 +272,12 @@ class ClearThreadHistoryView(views.APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses={200: inline_serializer(
+            name="ClearHistoryResponse",
+            fields={"success": serializers.BooleanField(), "message": serializers.CharField()}
+        )}
+    )
     def post(self, request, thread_id):
         services.clear_thread_history(request.user, thread_id)
         return Response({"success": True, "message": "History cleared."})

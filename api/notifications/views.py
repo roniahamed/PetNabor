@@ -3,8 +3,9 @@ from rest_framework.permissions import IsAuthenticated
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, viewsets
+from rest_framework import status, viewsets, serializers
 from rest_framework.decorators import action
+from drf_spectacular.utils import extend_schema, inline_serializer
 from .paginations import NotificationPagination
 
 from .serializers import (
@@ -29,11 +30,18 @@ class NotificationSettingsView(RetrieveUpdateAPIView):
 class FCMDeviceView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses=FCMDeviceSerializer(many=True)
+    )
     def get(self, request):
         devices = FCMDevice.objects.filter(user=request.user)
         serializer = FCMDeviceSerializer(devices, many=True)
         return Response(serializer.data)
 
+    @extend_schema(
+        request=FCMDeviceSerializer,
+        responses=FCMDeviceSerializer
+    )
     def post(self, request):
         serializer = FCMDeviceSerializer(data=request.data)
 
@@ -53,6 +61,13 @@ class FCMDeviceView(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(
+        request=inline_serializer(
+            name="FCMDeviceDelete",
+            fields={"registration_id": serializers.CharField()}
+        ),
+        responses={204: None}
+    )
     def delete(self, request):
         registration_id = request.data.get("registration_id")
         if not registration_id:
@@ -83,11 +98,25 @@ class NotificationViewSet(viewsets.ModelViewSet):
             "-created_at"
         )
 
+    @extend_schema(
+        request=None,
+        responses={200: inline_serializer(
+            name="MarkAllReadResponse",
+            fields={"status": serializers.CharField()}
+        )}
+    )
     @action(detail=False, methods=["post"])
     def mark_all_read(self, request):
         self.get_queryset().filter(is_read=False).update(is_read=True)
         return Response({"status": "all notifications marked as read"})
 
+    @extend_schema(
+        request=None,
+        responses={200: inline_serializer(
+            name="MarkReadResponse",
+            fields={"status": serializers.CharField()}
+        )}
+    )
     @action(detail=True, methods=["post"])
     def mark_read(self, request, pk=None):
         notification = self.get_object()

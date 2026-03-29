@@ -1,7 +1,8 @@
-from rest_framework import viewsets, status, generics, views
+from rest_framework import viewsets, status, generics, views, serializers
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
+from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter, OpenApiTypes
 from rest_framework.exceptions import ValidationError, NotFound, PermissionDenied
 from django.db.models import Q
 
@@ -23,6 +24,13 @@ from .filters import UserFilter
 class UnfriendView(views.APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=UserActionSerializer,
+        responses={200: inline_serializer(
+            name="UnfriendResponse",
+            fields={"status": serializers.CharField()}
+        )}
+    )
     def post(self, request):
         serializer = UserActionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -116,6 +124,9 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
 class BlockUserView(views.APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses=UserBlockSerializer(many=True),
+    )
     def get(self, request):
         blocks = UserBlock.objects.filter(blocker=request.user).order_by('-created_at')
         
@@ -128,6 +139,13 @@ class BlockUserView(views.APIView):
         serializer = UserBlockSerializer(blocks, many=True, context={'request': request})
         return Response(serializer.data)
 
+    @extend_schema(
+        request=UserActionSerializer,
+        responses={200: inline_serializer(
+            name="BlockUserResponse",
+            fields={"status": serializers.CharField()}
+        )}
+    )
     def post(self, request):
         serializer = UserActionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -140,6 +158,13 @@ class BlockUserView(views.APIView):
             err_msg = str(e.detail[0]) if isinstance(e.detail, list) else str(e.detail)
             return Response({'error': err_msg}, status=status.HTTP_404_NOT_FOUND)
 
+    @extend_schema(
+        request=UserActionSerializer,
+        responses={200: inline_serializer(
+            name="UnblockUserResponse",
+            fields={"status": serializers.CharField()}
+        )}
+    )
     def delete(self, request):
         serializer = UserActionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -202,6 +227,17 @@ class FriendListView(generics.ListAPIView):
 class UserSearchView(views.APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("q", OpenApiTypes.STR, description="Search query"),
+            OpenApiParameter("type", OpenApiTypes.STR, description="User type (e.g. patpal, patnabor)"),
+            OpenApiParameter("radius", OpenApiTypes.INT, description="Search radius in miles"),
+            OpenApiParameter("include_friends", OpenApiTypes.BOOL, description="Include existing friends"),
+            OpenApiParameter("city", OpenApiTypes.STR, description="City name"),
+            OpenApiParameter("state", OpenApiTypes.STR, description="State code"),
+        ],
+        responses=NearbyUserSerializer(many=True),
+    )
     def get(self, request):
         user_filter = UserFilter(request)
         
@@ -235,6 +271,9 @@ class UserSearchView(views.APIView):
 class PublicUserDetailsView(views.APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses=PublicUserSerializer,
+    )
     def get(self, request, user_id):
         try:
             target_user = get_user_model().objects.select_related('profile').get(id=user_id, is_active=True)

@@ -452,11 +452,14 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Interactive API documentation for the PetNabor application.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
-    # "SWAGGER_UI_SETTINGS": {
-    #     "deepLinking": True,
-    #     "persistAuthorization": True,
-    #     "displayOperationId": True,
-    # },
+    "SCHEMA_PATH_PREFIX": r"/api/",
+    "SCHEMA_PATH_PREFIX_TRIM": True,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SWAGGER_UI_SETTINGS": {
+        "deepLinking": True,
+        "persistAuthorization": True,
+        "displayOperationId": True,
+    },
 }
 
 # SimpleJWT Configuration
