@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     # Third-party apps
     "rest_framework",
     "corsheaders",
+    "drf_spectacular",
     # Local apps
     "api.users",
     "api.notifications",
@@ -428,6 +429,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.ScopedRateThrottle",
@@ -442,6 +444,19 @@ REST_FRAMEWORK = {
         "post_save": "60/minute",
     },
     "EXCEPTION_HANDLER": "api.users.exception_handler.custom_exception_handler",
+}
+
+# Swagger / OpenAPI settings
+SPECTACULAR_SETTINGS = {
+    "TITLE": "PetNabor API",
+    "DESCRIPTION": "Interactive API documentation for the PetNabor application.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    # "SWAGGER_UI_SETTINGS": {
+    #     "deepLinking": True,
+    #     "persistAuthorization": True,
+    #     "displayOperationId": True,
+    # },
 }
 
 # SimpleJWT Configuration
