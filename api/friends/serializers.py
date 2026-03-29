@@ -167,3 +167,21 @@ class PublicUserSerializer(serializers.ModelSerializer):
             return "request_received"
 
         return "none"
+
+
+class SuggestedUserSerializer(PublicUserSerializer):
+    """
+    Serializer for suggested friends.
+    Includes an additional mutual_friends_count field and score.
+    """
+    mutual_friends_count = serializers.IntegerField(read_only=True)
+    score = serializers.FloatField(read_only=True)
+
+    class Meta(PublicUserSerializer.Meta):
+        fields = PublicUserSerializer.Meta.fields + ["mutual_friends_count", "score"]
+
+    def get_friendship_status(self, obj):
+        # We explicitly exclude existing friends and pending requests in the suggestion 
+        # algorithm, so it's always 'none'. This avoids 3 N+1 queries per user.
+        return "none"
+

@@ -271,3 +271,92 @@ def get_nearby_users(
     else:
         # Global search result
         return users_query.select_related("profile")[:100]
+
+
+def get_suggested_friends(current_user, limit=20):
+    from django.db.models import Count, IntegerField, F, FloatField, ExpressionWrapper
+
+    user_point = None
+    if hasattr(current_user, "profile") and current_user.profile.location_point:
+        user_point = current_user.profile.location_point
+
+    # 1. Gather exclusions via DB Subqueries to avoid loading ANY lists into Python memory
+    blocked_ids = UserBlock.objects.filter(blocker=current_user).values("blocked_user_id")
+    blocked_by_ids = UserBlock.objects.filter(blocked_user=current_user).values("blocker_id")
+    pending_sent = FriendRequest.objects.filter(sender=current_user, status="pending").values("receiver_id")
+    pending_received = FriendRequest.objects.filter(receiver=current_user, status="pending").values("sender_id")
+    
+    # friend_ids need Python map because Friendship model stores users dynamically as sender/receiver
+    friendships = Friendship.objects.filter(Q(sender=current_user) | Q(receiver=current_user))
+    friend_ids = [f.receiver_id if f.sender_id == current_user.id else f.sender_id for f in friendships]
+
+    # 2. Base Queryset (select_related fixes N+1 query)
+    users_query = User.objects.select_related("profile").filter(
+        is_active=True
+    ).exclude(
+        Q(id__in=blocked_ids) |
+        Q(id__in=blocked_by_ids) |
+        Q(id__in=pending_sent) |
+        Q(id__in=pending_received) |
+        Q(id__in=friend_ids) |
+        Q(id=current_user.id)
+    )
+
+    # 3. Annotate count in DB (memory efficient)
+    users_query = users_query.annotate(
+        mutual_friends_initiated=Count(
+            "friendships_initiated",
+            filter=Q(friendships_initiated__receiver_id__in=friend_ids),
+            distinct=True
+        ),
+        mutual_friends_received=Count(
+            "friendships_received",
+            filter=Q(friendships_received__sender_id__in=friend_ids),
+            distinct=True
+        )
+    ).annotate(
+        mutual_friends_count=ExpressionWrapper(
+            F("mutual_friends_initiated") + F("mutual_friends_received"),
+            output_field=IntegerField()
+        )
+    )
+
+    # 4. Sorting exclusively in DB instead of Python so we can safely yield
+    if user_point:
+        users_query = users_query.annotate(
+            distance=Distance("profile__location_point", user_point)
+        ).order_by("-mutual_friends_count", "distance")
+    else:
+        users_query = users_query.order_by("-mutual_friends_count")
+
+    # 5. Native generator & DB batch yielding to drastically minimize memory footprint
+    def suggestion_generator():
+        count = 0
+        # .iterator(chunk_size) yields directly from DB batches, preventing evaluation into massive lists
+        chunk_size = limit if limit else 50
+        for user in users_query.iterator(chunk_size=chunk_size):
+            if count >= limit:
+                break
+            
+            # Dynamically calc final scoring representation for UI purposes
+            score = user.mutual_friends_count * 10.0  
+            dist_mi = getattr(user, "distance", None)
+            if dist_mi is not None:
+                val_mi = getattr(dist_mi, "mi", dist_mi)
+                try:
+                    val_mi = float(val_mi)
+                    if val_mi <= 10:
+                        score += 20.0
+                    elif val_mi <= 50:
+                        score += 10.0
+                    elif val_mi <= 100:
+                        score += 5.0
+                except (TypeError, ValueError):
+                    pass
+            user.score = score
+            
+            yield user
+            count += 1
+            
+    return suggestion_generator()
+

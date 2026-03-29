@@ -14,7 +14,8 @@ from .serializers import (
     UserBlockSerializer,
     UserActionSerializer,
     CreateFriendRequestSerializer,
-    PublicUserSerializer
+    PublicUserSerializer,
+    SuggestedUserSerializer
 )
 from django.contrib.auth import get_user_model
 from . import services
@@ -284,4 +285,33 @@ class PublicUserDetailsView(views.APIView):
             raise NotFound("User not found")
 
         serializer = PublicUserSerializer(target_user, context={'request': request})
+        return Response(serializer.data)
+
+
+class SuggestedFriendsView(views.APIView):
+    """
+    API view to retrieve suggested friends for the current user.
+    Suggestions are calculated considering mutual friends and distance.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("limit", OpenApiTypes.INT, description="Number of suggestions to return (default 20)", required=False),
+        ],
+        responses=SuggestedUserSerializer(many=True),
+        tags=["friends"]
+    )
+    def get(self, request):
+        limit = request.query_params.get("limit", 20)
+        try:
+            limit = int(limit)
+        except ValueError:
+            limit = 20
+
+        suggestions = services.get_suggested_friends(request.user, limit=limit)
+        
+        # We can reuse the StandardResultsSetPagination if we want, or just return the list 
+        # since it's already limited by the algorithm.
+        serializer = SuggestedUserSerializer(suggestions, many=True, context={'request': request})
         return Response(serializer.data)
