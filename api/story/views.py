@@ -21,10 +21,11 @@ Endpoint map (all under /story/stories/):
 
 import logging
 
-from rest_framework import permissions, status, viewsets
+from rest_framework import permissions, status, viewsets, serializers
 from rest_framework.decorators import action
 from rest_framework.pagination import CursorPagination
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter, OpenApiTypes
 
 
 from .permissions import CanViewStory, IsStoryAuthor
@@ -132,6 +133,7 @@ class StoryViewSet(viewsets.ModelViewSet):
 
     # ── Feed ──────────────────────────────────────────────────────────────
 
+    @extend_schema(responses=StoryListSerializer(many=True))
     @action(detail=False, methods=["get"])
     def feed(self, request):
         """GET /stories/feed/ — stories from friends + self, unseen-first."""
@@ -145,6 +147,12 @@ class StoryViewSet(viewsets.ModelViewSet):
 
     # ── Public user stories ───────────────────────────────────────────────
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter('user_id', OpenApiTypes.UUID, description='UUID of the user whose stories to fetch', required=True)
+        ],
+        responses=StoryListSerializer(many=True)
+    )
     @action(detail=False, methods=["get"], url_path="user_stories")
     def user_stories(self, request):
         """
@@ -178,6 +186,19 @@ class StoryViewSet(viewsets.ModelViewSet):
 
     # ── View / Viewers ────────────────────────────────────────────────────
 
+    @extend_schema(
+        request=None,
+        responses={
+            200: inline_serializer(
+                name="StoryViewResponse",
+                fields={
+                    "status": serializers.CharField(),
+                    "views_count": serializers.IntegerField(),
+                    "detail": serializers.CharField(required=False)
+                }
+            )
+        }
+    )
     @action(detail=True, methods=["post"])
     def view(self, request, pk=None):
         """POST /stories/{id}/view/ — mark story as viewed by the requester."""
@@ -198,6 +219,7 @@ class StoryViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+    @extend_schema(responses=StoryViewSerializer(many=True))
     @action(detail=True, methods=["get"])
     def viewers(self, request, pk=None):
         """GET /stories/{id}/viewers/ — viewers list; only the author may call this."""
@@ -217,6 +239,16 @@ class StoryViewSet(viewsets.ModelViewSet):
 
     # ── React ─────────────────────────────────────────────────────────────
 
+    @extend_schema(
+        methods=["POST"],
+        request=StoryReactionCreateSerializer,
+        responses={200: StoryReactionSerializer, 201: StoryReactionSerializer}
+    )
+    @extend_schema(
+        methods=["DELETE"],
+        request=None,
+        responses={200: inline_serializer('StoryReactionRemoved', {'status': serializers.CharField()})}
+    )
     @action(detail=True, methods=["post", "delete"])
     def react(self, request, pk=None):
         """
@@ -248,6 +280,15 @@ class StoryViewSet(viewsets.ModelViewSet):
 
     # ── Reply ─────────────────────────────────────────────────────────────
 
+    @extend_schema(
+        methods=["GET"],
+        responses=StoryReplySerializer(many=True)
+    )
+    @extend_schema(
+        methods=["POST"],
+        request=inline_serializer('StoryReplyRequest', {'reply_text': serializers.CharField()}),
+        responses={201: StoryReplySerializer}
+    )
     @action(detail=True, methods=["post", "get"])
     def reply(self, request, pk=None):
         """

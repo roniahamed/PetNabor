@@ -1,7 +1,8 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound
+from drf_spectacular.utils import extend_schema, inline_serializer
 from django.db.models import Q
 from django.utils import timezone
 from django.contrib.auth import get_user_model
@@ -39,6 +40,7 @@ class MeetingViewSet(viewsets.ModelViewSet):
 
         serializer.save(sender=sender)
 
+    @extend_schema(responses=MeetingSerializer(many=True))
     @action(detail=False, methods=['get'])
     def upcoming(self, request):
         today = timezone.localdate()
@@ -53,6 +55,7 @@ class MeetingViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(meetings, many=True)
         return Response(serializer.data)
 
+    @extend_schema(responses=MeetingSerializer(many=True))
     @action(detail=False, methods=['get'])
     def previous(self, request):
         today = timezone.localdate()
@@ -66,6 +69,10 @@ class MeetingViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(meetings, many=True)
         return Response(serializer.data)
 
+    @extend_schema(
+        request=None,
+        responses={200: inline_serializer('MeetingAcceptResponse', {'status': serializers.CharField()})}
+    )
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
         meeting = self.get_object()
@@ -80,6 +87,10 @@ class MeetingViewSet(viewsets.ModelViewSet):
         meeting.save()
         return Response({'status': 'Meeting accepted'})
 
+    @extend_schema(
+        request=None,
+        responses={200: inline_serializer('MeetingCancelResponse', {'status': serializers.CharField()})}
+    )
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
         meeting = self.get_object()
@@ -91,6 +102,10 @@ class MeetingViewSet(viewsets.ModelViewSet):
         meeting.save()
         return Response({'status': 'Meeting cancelled'})
 
+    @extend_schema(
+        request=None,
+        responses={200: inline_serializer('MeetingCompleteResponse', {'status': serializers.CharField()})}
+    )
     @action(detail=True, methods=['post'])
     def complete(self, request, pk=None):
         meeting = self.get_object()
@@ -136,6 +151,7 @@ class MeetingFeedbackViewSet(viewsets.ModelViewSet):
 
         serializer.save(reviewer=reviewer)
 
+    @extend_schema(responses=MeetingFeedbackSerializer(many=True))
     @action(detail=False, methods=['get'], url_path='user/(?P<user_id>[^/.]+)')
     def user_feedbacks(self, request, user_id=None):
         """
