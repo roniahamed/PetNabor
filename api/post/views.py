@@ -143,7 +143,11 @@ class PostViewSet(viewsets.ModelViewSet):
     @extend_schema(responses=PostListSerializer(many=True))
     @action(detail=False, methods=["get"])
     def feed(self, request):
-        """Main timeline feed — friends + self, sorted by recency."""
+        """
+        Public discovery feed.
+        Returns ALL public posts from every user, plus FRIENDS_ONLY posts from friends.
+        All posts sorted newest-first. Blocked users (both directions) are excluded.
+        """
         qs = FeedService.get_feed(request.user)
         page = self.paginate_queryset(qs)
         if page is not None:

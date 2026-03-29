@@ -184,29 +184,63 @@ class PostService:
 
 
 class FeedService:
-    """Generates the personalised timeline feed."""
+    """Generates the public discovery feed with friend/self prioritisation."""
 
     @staticmethod
     def get_feed(user: User) -> QuerySet:
         """
-        Returns posts from friends + self, excluding private posts from others.
-        Uses a single merged Friendship query instead of two.
+        Public discovery feed — shows ALL public posts from every user.
+
+        Visibility rules:
+          • PUBLIC posts  → visible to everyone
+          • FRIENDS_ONLY  → visible to friends + self only
+          • PRIVATE       → visible to author only (never in feed)
+
+        Ordering:
+          1. Friends + self posts come first  (is_priority = True)
+          2. Within each bucket, sorted by -created_at (newest first)
+
+        Blocked users are excluded in both directions.
         """
-        # Single merged query to get all friend IDs
+        from api.friends.models import UserBlock  # local import to avoid circular
+
+        # ── 1. Collect friend IDs (single DB round-trip) ──────────────────
         raw_pairs = Friendship.objects.filter(
             Q(sender=user) | Q(receiver=user)
         ).values_list("sender_id", "receiver_id")
 
-        flat_ids: set = set()
+        friend_ids: set = set()
         for sender_id, receiver_id in raw_pairs:
-            flat_ids.add(sender_id)
-            flat_ids.add(receiver_id)
-        flat_ids.add(user.id)
+            friend_ids.add(sender_id)
+            friend_ids.add(receiver_id)
+        friend_ids.discard(user.id)  # keep separate for clarity
+
+        priority_ids = friend_ids | {user.id}  # friends + self
+
+        # ── 2. Collect blocked user IDs (both directions) ──────────────────
+        flat_blocked: set = set()
+        for pair in UserBlock.objects.filter(
+            Q(blocker=user) | Q(blocked_user=user)
+        ).values_list("blocker_id", "blocked_user_id"):
+            flat_blocked.update(pair)
+        flat_blocked.discard(user.id)  # never exclude self
+
+        # ── 3. Build visibility filter ─────────────────────────────────────
+        # Show:
+        #   a) PUBLIC posts from anyone (except blocked)
+        #   b) FRIENDS_ONLY posts from friends + self
+        #   c) Own PRIVATE posts (so self always sees everything)
+        visibility_filter = (
+            Q(privacy=PrivacyChoices.PUBLIC)                          # (a)
+            | Q(author_id__in=priority_ids,
+                privacy=PrivacyChoices.FRIENDS_ONLY)                  # (b)
+            | Q(author=user, privacy=PrivacyChoices.PRIVATE)          # (c)
+        )
 
         qs = Post.objects.filter(
-            author_id__in=flat_ids,
+            visibility_filter,
             is_deleted=False,
-        ).exclude(~Q(author=user) & Q(privacy=PrivacyChoices.PRIVATE))
+        ).exclude(author_id__in=flat_blocked)
 
         return (
             qs.select_related("author", "author__profile")
