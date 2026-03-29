@@ -2,10 +2,11 @@ import logging
 from django.db.models import F
 from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
 from django.core.cache import cache
-from rest_framework import viewsets, permissions, status, filters
+from rest_framework import viewsets, permissions, status, filters, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 from .models import Blog, BlogComment
 from .serializers import (
@@ -98,6 +99,16 @@ class BlogViewSet(viewsets.ModelViewSet):
         cache.set(cache_key, response.data, 60 * 5)  # 5 minutes
         return response
 
+    @extend_schema(
+        responses={200: inline_serializer(
+            name="PopularBlogResponse",
+            fields={
+                "next": serializers.URLField(allow_null=True, required=False),
+                "previous": serializers.URLField(allow_null=True, required=False),
+                "results": BlogListSerializer(many=True)
+            }
+        )}
+    )
     @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
     def popular(self, request):
         """
@@ -174,6 +185,16 @@ class BlogViewSet(viewsets.ModelViewSet):
     # Action Endpoints
     # ──────────────────────────────────────────────
 
+    @extend_schema(
+        request=None,
+        responses={200: inline_serializer(
+            name="BlogLikeResponse",
+            fields={
+                "is_liked": serializers.BooleanField(),
+                "likes_count": serializers.IntegerField()
+            }
+        )}
+    )
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated], throttle_classes=[ScopedRateThrottle])
     def like(self, request, slug=None):
         """Toggle like for this blog."""
@@ -188,6 +209,22 @@ class BlogViewSet(viewsets.ModelViewSet):
             "likes_count": blog.likes_count
         })
 
+    @extend_schema(
+        methods=['GET'],
+        responses=BlogCommentSerializer(many=True)
+    )
+    @extend_schema(
+        methods=['POST'],
+        request=inline_serializer(
+            name="BlogCommentCreate",
+            fields={
+                "comment_text": serializers.CharField(),
+                "parent_id": serializers.UUIDField(required=False),
+                "media_file": serializers.FileField(required=False)
+            }
+        ),
+        responses={201: BlogCommentSerializer}
+    )
     @action(detail=True, methods=['get', 'post'], permission_classes=[permissions.IsAuthenticatedOrReadOnly])
     def comments(self, request, slug=None):
         """
@@ -234,6 +271,13 @@ class BlogViewSet(viewsets.ModelViewSet):
             except ValueError as e:
                 return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(
+        request=None,
+        responses={200: inline_serializer(
+            name="BlogShareResponse",
+            fields={"detail": serializers.CharField()}
+        )}
+    )
     @action(detail=True, methods=['post'], permission_classes=[permissions.AllowAny])
     def share(self, request, slug=None):
         """Increments share count. Just a simple metric tracker."""

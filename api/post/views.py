@@ -11,10 +11,11 @@ Key improvements:
 
 import logging
 
-from rest_framework import filters, generics, permissions, status, viewsets
+from rest_framework import filters, generics, permissions, status, viewsets, serializers
 from rest_framework.decorators import action
 from rest_framework.pagination import CursorPagination
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 
 from django.db.models import Prefetch
@@ -139,6 +140,7 @@ class PostViewSet(viewsets.ModelViewSet):
 
     # ── Feed ──────────────────────────────────────────────────────────
 
+    @extend_schema(responses=PostListSerializer(many=True))
     @action(detail=False, methods=["get"])
     def feed(self, request):
         """Main timeline feed — friends + self, sorted by recency."""
@@ -154,6 +156,23 @@ class PostViewSet(viewsets.ModelViewSet):
 
     # ── Like ──────────────────────────────────────────────────────────
 
+    @extend_schema(
+        request=inline_serializer(
+            name="PostReactionRequest",
+            fields={"reaction_type": serializers.CharField(required=False, default="LIKE")}
+        ),
+        responses={
+            200: inline_serializer(
+                name="PostReactionResponse",
+                fields={
+                    "status": serializers.CharField(),
+                    "likes_count": serializers.IntegerField(),
+                    "id": serializers.UUIDField(required=False),
+                    # and other fields from PostLikeSerializer
+                }
+            )
+        }
+    )
     @action(detail=True, methods=["post", "delete"])
     def like(self, request, pk=None):
         """
@@ -190,6 +209,15 @@ class PostViewSet(viewsets.ModelViewSet):
 
     # ── Save ──────────────────────────────────────────────────────────
 
+    @extend_schema(
+        request=None,
+        responses={
+            200: inline_serializer(
+                name="PostSaveResponse",
+                fields={"status": serializers.CharField()}
+            )
+        }
+    )
     @action(detail=True, methods=["post", "delete"])
     def save_post(self, request, pk=None):
         """POST → save; DELETE → unsave."""
@@ -240,6 +268,7 @@ class PostCommentViewSet(viewsets.ModelViewSet):
         """Permission class handles ownership check — just call the service."""
         CommentService.delete_comment(instance)
 
+    @extend_schema(responses=PostCommentSerializer(many=True))
     @action(detail=True, methods=["get"])
     def replies(self, request, pk=None):
         """Paginated replies for a specific parent comment — select_related added."""

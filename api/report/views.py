@@ -7,9 +7,10 @@ Improvements:
 - select_related('reporter') on all querysets
 """
 
-from rest_framework import viewsets, permissions, mixins, status
+from rest_framework import viewsets, permissions, mixins, status, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 from .models import Report
 from .serializers import ReportSerializer
@@ -40,6 +41,19 @@ class ReportViewSet(
     def perform_create(self, serializer):
         serializer.save(reporter=self.request.user)
 
+    @extend_schema(
+        request=None,
+        responses={
+            200: inline_serializer(
+                name="ReportResolveResponse",
+                fields={"detail": serializers.CharField()}
+            ),
+            400: inline_serializer(
+                name="ReportResolveErrorResponse",
+                fields={"detail": serializers.CharField()}
+            )
+        }
+    )
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
     def resolve(self, request, pk=None):
         """Admin-only action to mark a report as resolved."""

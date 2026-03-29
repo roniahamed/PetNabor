@@ -460,6 +460,10 @@ SPECTACULAR_SETTINGS = {
         "persistAuthorization": True,
         "displayOperationId": True,
     },
+    "ENUM_NAME_OVERRIDES": {
+        "PrivacyEnum": "api.post.models.Post.Privacy",
+        "MediaTypeEnum": "api.post.models.PostMedia.MediaType"
+    },
 }
 
 # SimpleJWT Configuration

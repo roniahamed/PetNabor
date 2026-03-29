@@ -46,6 +46,7 @@ class ThreadListCreateView(views.APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        operation_id='messaging_thread_list',
         responses=ChatThreadSerializer(many=True)
     )
     def get(self, request):
@@ -140,6 +141,7 @@ class ThreadDetailView(views.APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        operation_id='messaging_thread_retrieve',
         responses=ChatThreadSerializer
     )
     def get(self, request, thread_id):
