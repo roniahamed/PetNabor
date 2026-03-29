@@ -175,10 +175,29 @@ class SuggestedUserSerializer(PublicUserSerializer):
     Includes an additional mutual_friends_count field and score.
     """
     mutual_friends_count = serializers.IntegerField(read_only=True)
-    score = serializers.FloatField(read_only=True)
+    score = serializers.SerializerMethodField()
 
     class Meta(PublicUserSerializer.Meta):
         fields = PublicUserSerializer.Meta.fields + ["mutual_friends_count", "score"]
+
+    def get_score(self, obj):
+        mutual_count = getattr(obj, "mutual_friends_count", 0)
+        score = mutual_count * 10.0
+        
+        dist_mi = getattr(obj, "distance", None)
+        if dist_mi is not None:
+            val_mi = getattr(dist_mi, "mi", dist_mi)
+            try:
+                val_mi = float(val_mi)
+                if val_mi <= 10:
+                    score += 20.0
+                elif val_mi <= 50:
+                    score += 10.0
+                elif val_mi <= 100:
+                    score += 5.0
+            except (TypeError, ValueError):
+                pass
+        return score
 
     def get_friendship_status(self, obj):
         # We explicitly exclude existing friends and pending requests in the suggestion 

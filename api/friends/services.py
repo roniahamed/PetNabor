@@ -321,7 +321,7 @@ def get_suggested_friends(current_user, limit=20):
         )
     )
 
-    # 4. Sorting exclusively in DB instead of Python so we can safely yield
+    # 4. Sorting exclusively in DB instead of Python so we can safely yield/paginate
     if user_point:
         users_query = users_query.annotate(
             distance=Distance("profile__location_point", user_point)
@@ -329,34 +329,7 @@ def get_suggested_friends(current_user, limit=20):
     else:
         users_query = users_query.order_by("-mutual_friends_count")
 
-    # 5. Native generator & DB batch yielding to drastically minimize memory footprint
-    def suggestion_generator():
-        count = 0
-        # .iterator(chunk_size) yields directly from DB batches, preventing evaluation into massive lists
-        chunk_size = limit if limit else 50
-        for user in users_query.iterator(chunk_size=chunk_size):
-            if count >= limit:
-                break
-            
-            # Dynamically calc final scoring representation for UI purposes
-            score = user.mutual_friends_count * 10.0  
-            dist_mi = getattr(user, "distance", None)
-            if dist_mi is not None:
-                val_mi = getattr(dist_mi, "mi", dist_mi)
-                try:
-                    val_mi = float(val_mi)
-                    if val_mi <= 10:
-                        score += 20.0
-                    elif val_mi <= 50:
-                        score += 10.0
-                    elif val_mi <= 100:
-                        score += 5.0
-                except (TypeError, ValueError):
-                    pass
-            user.score = score
-            
-            yield user
-            count += 1
-            
-    return suggestion_generator()
+    # Return the raw QuerySet for the View to lazily evaluate via Pagination!
+    # By returning this, the DB handles chunk sizes, counting, and slicing effortlessly.
+    return users_query
 

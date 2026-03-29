@@ -317,12 +317,13 @@ class FriendsAPITestCase(TestCase):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data.get('results', response.data)
         # suggestions should exclude user1 (self), user2 (friend), user4 (blocked).
         # only user3 should be suggested.
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['username'], 'user3')
-        self.assertEqual(response.data[0]['mutual_friends_count'], 0)
-        self.assertEqual(response.data[0]['friendship_status'], 'none')
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['username'], 'user3')
+        self.assertEqual(results[0]['mutual_friends_count'], 0)
+        self.assertEqual(results[0]['friendship_status'], 'none')
 
     def test_suggested_friends_scoring(self):
         # Create a 5th user
@@ -347,14 +348,15 @@ class FriendsAPITestCase(TestCase):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data.get('results', response.data)
         # suggestions should exclude user1 (self), user2, user4 (friends).
         # user3 and user5 are suggested.
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(len(results), 2)
         
         # user3 should be ranked first because of 2 mutual friends (score = 2 * 10 = 20 + distance bonus).
-        self.assertEqual(response.data[0]['username'], 'user3')
-        self.assertEqual(response.data[0]['mutual_friends_count'], 2)
+        self.assertEqual(results[0]['username'], 'user3')
+        self.assertEqual(results[0]['mutual_friends_count'], 2)
         
-        self.assertEqual(response.data[1]['username'], 'user5')
-        self.assertEqual(response.data[1]['mutual_friends_count'], 0)
+        self.assertEqual(results[1]['username'], 'user5')
+        self.assertEqual(results[1]['mutual_friends_count'], 0)
 

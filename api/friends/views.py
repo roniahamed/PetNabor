@@ -296,9 +296,6 @@ class SuggestedFriendsView(views.APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        parameters=[
-            OpenApiParameter("limit", OpenApiTypes.INT, description="Number of suggestions to return (default 20)", required=False),
-        ],
         responses=SuggestedUserSerializer(many=True),
         tags=["friends"]
     )
@@ -309,9 +306,18 @@ class SuggestedFriendsView(views.APIView):
         except ValueError:
             limit = 20
 
-        suggestions = services.get_suggested_friends(request.user, limit=limit)
+        # Retrieve the un-evaluated QuerySet from the service
+        suggestions_queryset = services.get_suggested_friends(request.user, limit=limit)
         
-        # We can reuse the StandardResultsSetPagination if we want, or just return the list 
-        # since it's already limited by the algorithm.
-        serializer = SuggestedUserSerializer(suggestions, many=True, context={'request': request})
+        paginator = StandardResultsSetPagination()
+        # Ensure we can optionally override page size dynamically for 'limit' param if StandardResultsSetPagination supports it
+        paginator.page_size = limit
+        
+        page = paginator.paginate_queryset(suggestions_queryset, request)
+        if page is not None:
+            serializer = SuggestedUserSerializer(page, many=True, context={'request': request})
+            return paginator.get_paginated_response(serializer.data)
+
+        # Fallback if pagination fails or is disabled
+        serializer = SuggestedUserSerializer(suggestions_queryset[:limit], many=True, context={'request': request})
         return Response(serializer.data)
