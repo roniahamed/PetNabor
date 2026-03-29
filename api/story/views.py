@@ -57,7 +57,7 @@ logger = logging.getLogger(__name__)
 class StoryCursorPagination(CursorPagination):
     """Cursor-based pagination for story feeds — prevents deep-pagination abuse."""
 
-    page_size = 20
+    page_size = 12
     max_page_size = 50
     ordering = "-created_at"
 
