@@ -1,290 +1,298 @@
 {% extends "admin/base.html" %}
-{% load i18n %}
+{% load i18n unfold %}
+
+{% block title %}
+    PetNabor Social Command Center | {{ site_title|default:_('Django site admin') }}
+{% endblock %}
+
+{% block header %}
+    {# Kill the default header #}
+{% endblock %}
 
 {% block content %}
-<!-- KPI Cards Grid -->
-<div class="flex flex-wrap gap-4 mb-6">
-  {% for card in kpi_cards %}
-  <div class="flex-1 min-w-[200px] bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 flex flex-col gap-2">
-    <div class="flex items-center justify-between">
-      <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ card.title }}</span>
-      <span class="material-symbols-outlined text-2xl
-        {% if card.color == 'purple' %}text-purple-500
-        {% elif card.color == 'blue' %}text-blue-500
-        {% elif card.color == 'green' %}text-green-500
-        {% elif card.color == 'orange' %}text-orange-500
-        {% elif card.color == 'pink' %}text-pink-500
-        {% elif card.color == 'teal' %}text-teal-500
-        {% elif card.color == 'red' %}text-red-500
-        {% elif card.color == 'yellow' %}text-yellow-500
-        {% endif %}
-      ">{{ card.icon }}</span>
-    </div>
-    <div class="text-3xl font-bold text-gray-900 dark:text-white">{{ card.metric }}</div>
-    <div class="text-xs {% if card.positive %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
-      {{ card.change }}
-    </div>
-  </div>
-  {% endfor %}
-</div>
-
-<!-- Charts Row -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-
-  <!-- User Registrations Line Chart -->
-  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
-      <span class="material-symbols-outlined text-lg text-purple-500">trending_up</span>
-      New User Registrations (Last 30 Days)
-    </h3>
-    <canvas id="registrationChart" height="220"></canvas>
-  </div>
-
-  <!-- User Type Donut Chart -->
-  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
-      <span class="material-symbols-outlined text-lg text-blue-500">donut_small</span>
-      User Type Distribution
-    </h3>
-    <canvas id="userTypeChart" height="220"></canvas>
-  </div>
-
-  <!-- Pet Types Bar Chart -->
-  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
-      <span class="material-symbols-outlined text-lg text-orange-500">pets</span>
-      Top Pet Types
-    </h3>
-    <canvas id="petTypeChart" height="220"></canvas>
-  </div>
-
-  <!-- Friend Requests Status Chart -->
-  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
-      <span class="material-symbols-outlined text-lg text-green-500">person_add</span>
-      Friend Request Status
-    </h3>
-    <canvas id="friendRequestChart" height="220"></canvas>
-  </div>
-
-</div>
-
-<!-- Activity Feeds Row -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-
-  <!-- Recently Joined Users -->
-  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 flex flex-col max-h-96">
-    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
-      <span class="material-symbols-outlined text-lg text-blue-500">person_add</span>
-      10 New Users
-    </h3>
-    <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-      <div class="flex flex-col gap-3">
-        {% for user in recent_users %}
-        <div class="flex justify-between items-center border-b border-gray-50 dark:border-gray-700 pb-3 last:border-0 last:pb-0">
-          <div>
-            <div class="font-medium text-sm text-gray-900 dark:text-white">{{ user.email|default:user.phone|default:"Unknown" }}</div>
-            <div class="text-xs text-gray-500 dark:text-gray-400">
-              <span class="font-semibold text-{% if user.user_type == 'admin' %}red{% elif user.user_type == 'vendor' %}orange{% else %}purple{% endif %}-500">{{ user.user_type|title }}</span>
-              • {{ user.created_at|date:"M d, g:i a" }}
-            </div>
-          </div>
-          <a href="/admin/users/user/{{ user.id }}/change/" class="text-blue-600 dark:text-blue-400 text-xs font-semibold hover:underline bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">View</a>
-        </div>
-        {% empty %}
-        <div class="text-sm text-gray-400 text-center py-4">No users found.</div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-
-  <!-- Recent Reports -->
-  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 flex flex-col max-h-96">
-    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
-      <span class="material-symbols-outlined text-lg text-orange-500">warning</span>
-      10 Recent Reports
-    </h3>
-    <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-      <div class="flex flex-col gap-3">
-        {% for report in recent_reports %}
-        <div class="flex justify-between items-center border-b border-gray-50 dark:border-gray-700 pb-3 last:border-0 last:pb-0">
-          <div>
-            <div class="font-medium text-sm text-gray-900 dark:text-white">{{ report.reason|truncatechars:30 }}</div>
-            <div class="text-xs text-gray-500 dark:text-gray-400">
-              Target: <span class="uppercase">{{ report.target_type }}</span> • {{ report.created_at|date:"M d, g:i a" }}
-            </div>
-          </div>
-          <a href="/admin/report/report/{{ report.id }}/change/" class="text-orange-600 dark:text-orange-400 text-xs font-semibold hover:underline bg-orange-50 dark:bg-orange-900/20 px-2 py-1 rounded">Review</a>
-        </div>
-        {% empty %}
-        <div class="text-sm text-gray-400 text-center py-4">No reports found.</div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-
-  <!-- Flagged Posts -->
-  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 flex flex-col max-h-96">
-    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
-      <span class="material-symbols-outlined text-lg text-red-500">flag</span>
-      10 Flagged Posts
-    </h3>
-    <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-      <div class="flex flex-col gap-3">
-        {% for report in flagged_posts %}
-        <div class="flex justify-between items-center border-b border-gray-50 dark:border-gray-700 pb-3 last:border-0 last:pb-0">
-          <div>
-            <div class="font-medium text-sm text-gray-900 dark:text-white">Post ID: {{ report.target_id|stringformat:"s"|slice:":8" }}...</div>
-            <div class="text-xs text-gray-500 dark:text-gray-400">
-              Reason: {{ report.reason|truncatechars:20 }} • {{ report.created_at|date:"M d" }}
-            </div>
-          </div>
-          <a href="/admin/report/report/{{ report.id }}/change/" class="text-red-600 dark:text-red-400 text-xs font-semibold hover:underline bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">Review</a>
-        </div>
-        {% empty %}
-        <div class="text-sm text-gray-400 text-center py-4">No flagged posts found.</div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-
-</div>
-
 <style>
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap');
+  
+  :root {
+    --primary: #6366f1;
+    --accent: #ec4899;
+    --glass: rgba(255, 255, 255, 0.7);
+    --border: rgba(255, 255, 255, 0.4);
   }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
+  .dark {
+    --glass: rgba(17, 24, 39, 0.8);
+    --border: rgba(55, 65, 81, 0.5);
   }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: #e5e7eb;
-    border-radius: 4px;
+  
+  body, html { font-family: 'Outfit', sans-serif !important; }
+  
+  /* Full Width & Hide Default Header */
+  #main { background: #f8fafc !important; }
+  .dark #main { background: #0f172a !important; }
+  #content { max-width: 100% !important; padding: 0 !important; }
+  
+  .premium-header {
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 2rem 3rem;
   }
-  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: #374151;
+  
+  .glass-card-v3 {
+    background: var(--glass);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--border);
+    border-radius: 2rem;
+    padding: 2rem;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 10px 30px -5px rgba(0,0,0,0.05);
   }
+  .glass-card-v3:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 25px 50px -12px rgba(99, 102, 241, 0.2);
+    border-color: var(--primary);
+  }
+
+  .stat-val { font-size: 2.5rem; font-weight: 900; line-height: 1; margin-top: 0.5rem; }
+  .stat-label { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; }
+  
+  .ping-dot {
+    width: 8px; height: 8px; background: #10b981; border-radius: 50%; position: relative;
+  }
+  .ping-dot::after {
+    content: ''; position: absolute; width: 100%; height: 100%; top: 0; left: 0; background: #10b981; border-radius: 50%; animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(3); opacity: 0; } }
 </style>
 
-<!-- Chart.js CDN + initialization -->
+<!-- Premium Custom Header (Injected into Content to be SURE it shows) -->
+<div class="premium-header mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6 overflow-hidden">
+  <div class="flex items-center gap-6">
+    <div class="w-16 h-16 rounded-3xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center shadow-2xl shadow-indigo-500/40">
+      <span class="material-symbols-outlined text-white text-3xl">insights</span>
+    </div>
+    <div>
+      <h1 class="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">Social <span class="text-indigo-600">Insights</span></h1>
+      <div class="flex items-center gap-3 mt-1">
+        <span class="ping-dot"></span>
+        <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">PetNabor Live Monitoring</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="flex items-center gap-8 bg-white/40 dark:bg-gray-800/40 px-6 py-4 rounded-3xl border border-white/40 shadow-sm">
+    <div class="text-right">
+      <p class="text-[10px] font-black text-gray-400 uppercase">Current Session</p>
+      <p class="text-sm font-bold text-gray-700 dark:text-gray-300">{{ user.email }}</p>
+    </div>
+    <div class="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 font-black">
+      {{ user.email|slice:":2"|upper }}
+    </div>
+  </div>
+</div>
+
+<div class="px-12 pb-12">
+    <!-- KPI Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-8 mb-12">
+      {% for card in kpi_cards %}
+      <div class="glass-card-v3 relative overflow-hidden group">
+        <div class="absolute -right-4 -top-4 w-20 h-20 bg-indigo-500/5 group-hover:bg-indigo-500/10 rounded-full transition-all blur-xl"></div>
+        <div class="flex items-center justify-between mb-4">
+          <span class="material-symbols-outlined text-2xl
+            {% if card.color == 'purple' %}text-indigo-500
+            {% elif card.color == 'blue' %}text-blue-500
+            {% elif card.color == 'green' %}text-emerald-500
+            {% elif card.color == 'orange' %}text-orange-500
+            {% elif card.color == 'pink' %}text-pink-500
+            {% elif card.color == 'teal' %}text-teal-500
+            {% elif card.color == 'red' %}text-rose-500
+            {% endif %}
+          ">{{ card.icon }}</span>
+          {% if card.change %}
+            <span class="text-[10px] font-black {% if card.positive %}text-emerald-500{% else %}text-rose-500{% endif %}">{{ card.change }}</span>
+          {% endif %}
+        </div>
+        <p class="stat-label">{{ card.title }}</p>
+        <p class="stat-val text-gray-900 dark:text-white">{{ card.metric }}</p>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Analytics Section -->
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-10">
+      
+      <!-- Charts Side -->
+      <div class="xl:col-span-8 flex flex-col gap-10">
+        <div class="glass-card-v3">
+          <div class="flex items-center justify-between mb-8">
+            <h3 class="text-xl font-black text-gray-900 dark:text-white">Growth Velocity</h3>
+            <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">Last 30 Days</span>
+          </div>
+          <div class="h-[350px]">
+            <canvas id="registrationChart"></canvas>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+          <div class="glass-card-v3">
+            <h3 class="text-lg font-black text-gray-900 dark:text-white mb-8">Persona Distribution</h3>
+            <div class="h-[280px]">
+              <canvas id="userTypeChart"></canvas>
+            </div>
+          </div>
+          <div class="glass-card-v3">
+            <h3 class="text-lg font-black text-gray-900 dark:text-white mb-8">Top Pet Trends</h3>
+            <div class="h-[280px]">
+              <canvas id="petTypeChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feed Side -->
+      <div class="xl:col-span-4 flex flex-col gap-10">
+        <div class="glass-card-v3 flex flex-col min-h-[500px]">
+          <h3 class="text-xl font-black text-gray-900 dark:text-white mb-8 flex items-center gap-3">
+            <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+            Recently Joined
+          </h3>
+          <div class="flex-1 overflow-y-auto pr-2" style="scrollbar-width: thin; scrollbar-color: #6366f1 transparent;">
+            {% for user in recent_users %}
+            <div class="flex items-center gap-4 mb-6 hover:translate-x-2 transition-transform cursor-pointer group">
+              <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10 flex items-center justify-center text-indigo-500 font-black text-lg">
+                {{ user.email|slice:":1"|upper }}
+              </div>
+              <div>
+                <p class="text-sm font-black text-gray-900 dark:text-white group-hover:text-indigo-500 transition-colors">{{ user.email|default:user.phone }}</p>
+                <p class="text-[10px] font-bold text-gray-400 uppercase">{{ user.user_type }} • {{ user.created_at|date:"M d, g:i a" }}</p>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Safety Card -->
+        <div class="glass-card-v3 border-t-8 border-rose-500">
+          <h3 class="text-xl font-black text-gray-900 dark:text-white mb-6">Security Queue</h3>
+          <div class="space-y-4">
+            {% for report in recent_reports|slice:":3" %}
+            <div class="p-5 rounded-3xl bg-rose-500/5 border border-rose-500/10">
+              <p class="text-[10px] font-black text-rose-500 uppercase mb-1">{{ report.reason|truncatechars:25 }}</p>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-gray-800 dark:text-gray-200">Issue #{{ report.id }}</span>
+                <a href="/admin/report/report/{{ report.id }}/change/" class="text-[10px] font-black px-4 py-2 bg-rose-500 text-white rounded-full hover:scale-105 transition-transform">Resolve</a>
+              </div>
+            </div>
+            {% empty %}
+            <p class="text-xs text-gray-400 italic text-center py-10">No pending security issues.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 (function () {
   const isDark = document.documentElement.classList.contains('dark');
-  const textColor = isDark ? '#9ca3af' : '#6b7280';
-  const gridColor = isDark ? '#374151' : '#f3f4f6';
+  const textColor = isDark ? '#64748b' : '#94a3b8';
 
-  const PALETTE = [
-    '#a855f7','#3b82f6','#22c55e','#f97316',
-    '#ec4899','#14b8a6','#ef4444','#eab308'
-  ];
-
-  // Shared defaults
-  Chart.defaults.font.family = 'Inter, ui-sans-serif, system-ui';
+  Chart.defaults.font.family = "'Outfit', sans-serif";
   Chart.defaults.color = textColor;
 
-  // ── Registration line chart ──────────────────────────────────────
-  const regLabels = {{ registration_chart.labels|safe }};
-  const regData   = {{ registration_chart.data|safe }};
+  function setGradient(ctx, color) {
+    const g = ctx.createLinearGradient(0, 0, 0, 400);
+    g.addColorStop(0, `${color}44`);
+    g.addColorStop(1, `${color}00`);
+    return g;
+  }
 
-  new Chart(document.getElementById('registrationChart'), {
-    type: 'line',
-    data: {
-      labels: regLabels,
-      datasets: [{
-        label: 'New Users',
-        data: regData,
-        borderColor: '#a855f7',
-        backgroundColor: 'rgba(168 ,85,247,0.12)',
-        borderWidth: 2.5,
-        pointRadius: 3,
-        pointBackgroundColor: '#a855f7',
-        fill: true,
-        tension: 0.4,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { color: gridColor }, ticks: { maxTicksLimit: 7 } },
-        y: { grid: { color: gridColor }, beginAtZero: true, ticks: { stepSize: 1 } }
+  // Growth
+  const regCtx = document.getElementById('registrationChart')?.getContext('2d');
+  if (regCtx) {
+    new Chart(regCtx, {
+      type: 'line',
+      data: {
+        labels: {{ registration_chart.labels|safe|default:"[]" }},
+        datasets: [{
+          data: {{ registration_chart.data|safe|default:"[]" }},
+          borderColor: '#6366f1',
+          borderWidth: 5,
+          backgroundColor: setGradient(regCtx, '#6366f1'),
+          fill: true,
+          tension: 0.4,
+          pointRadius: 0,
+          pointHoverRadius: 10,
+          pointHoverBackgroundColor: '#6366f1',
+          pointHoverBorderColor: '#fff',
+          pointHoverBorderWidth: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, border: { display: false } },
+          y: { grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }, border: { display: false }, beginAtZero: true }
+        }
       }
-    }
-  });
+    });
+  }
 
-  // ── User type doughnut chart ─────────────────────────────────────
-  const utLabels = {{ user_type_chart.labels|safe }};
-  const utData   = {{ user_type_chart.data|safe }};
-
-  new Chart(document.getElementById('userTypeChart'), {
-    type: 'doughnut',
-    data: {
-      labels: utLabels,
-      datasets: [{
-        data: utData,
-        backgroundColor: PALETTE,
-        borderWidth: 0,
-        hoverOffset: 8,
-      }]
-    },
-    options: {
-      responsive: true,
-      cutout: '65%',
-      plugins: {
-        legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true } }
+  // Persona
+  const utCtx = document.getElementById('userTypeChart')?.getContext('2d');
+  if (utCtx) {
+    new Chart(utCtx, {
+      type: 'doughnut',
+      data: {
+        labels: {{ user_type_chart.labels|safe|default:"[]" }},
+        datasets: [{
+          data: {{ user_type_chart.data|safe|default:"[]" }},
+          backgroundColor: ['#6366f1', '#ec4899', '#f59e0b', '#10b981'],
+          borderWidth: 0,
+          borderRadius: 20,
+          spacing: 10
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '85%',
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 30, usePointStyle: true, boxWidth: 6, font: { weight: '800' } } }
+        }
       }
-    }
-  });
+    });
+  }
 
-  // ── Pet types bar chart ──────────────────────────────────────────
-  const ptLabels = {{ pet_type_chart.labels|safe }};
-  const ptData   = {{ pet_type_chart.data|safe }};
-
-  new Chart(document.getElementById('petTypeChart'), {
-    type: 'bar',
-    data: {
-      labels: ptLabels,
-      datasets: [{
-        label: 'Count',
-        data: ptData,
-        backgroundColor: PALETTE,
-        borderRadius: 6,
-        borderSkipped: false,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { display: false } },
-        y: { grid: { color: gridColor }, beginAtZero: true, ticks: { stepSize: 1 } }
+  // Pets
+  const ptCtx = document.getElementById('petTypeChart')?.getContext('2d');
+  if (ptCtx) {
+    new Chart(ptCtx, {
+      type: 'bar',
+      data: {
+        labels: {{ pet_type_chart.labels|safe|default:"[]" }},
+        datasets: [{
+          data: {{ pet_type_chart.data|safe|default:"[]" }},
+          backgroundColor: '#6366f1',
+          borderRadius: 15,
+          barThickness: 20
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, border: { display: false } },
+          y: { grid: { display: false }, border: { display: false }, beginAtZero: true }
+        }
       }
-    }
-  });
-
-  // ── Friend request status pie chart ─────────────────────────────
-  const frLabels = {{ friend_request_chart.labels|safe }};
-  const frData   = {{ friend_request_chart.data|safe }};
-
-  new Chart(document.getElementById('friendRequestChart'), {
-    type: 'pie',
-    data: {
-      labels: frLabels,
-      datasets: [{
-        data: frData,
-        backgroundColor: ['#22c55e','#a855f7','#ef4444'],
-        borderWidth: 0,
-        hoverOffset: 6,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true } }
-      }
-    }
-  });
+    });
+  }
 })();
 </script>
 {% endblock %}
