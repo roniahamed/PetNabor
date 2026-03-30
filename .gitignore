@@ -83,3 +83,6 @@ test/
 
 Friend request ui by figma
 ./Friend request ui by figma
+
+# TLS certificates (Let's Encrypt)
+certbot/conf/
