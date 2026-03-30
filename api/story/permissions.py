@@ -9,6 +9,7 @@ from django.db.models import Q
 from rest_framework import permissions
 
 from api.friends.models import Friendship
+from api.friends.services import is_blocked
 from .models import StoryPrivacyChoices
 
 
@@ -28,13 +29,10 @@ class IsStoryAuthor(permissions.BasePermission):
 
 class CanViewStory(permissions.BasePermission):
     """
-    Enforces Story.privacy levels:
+    Enforces Story.privacy levels AND bidirectional block:
+    - If either user has blocked the other → deny.
     - PUBLIC       → any authenticated user can view.
     - FRIENDS_ONLY → only the author and mutual friends can view.
-
-    The friendship check hits the DB once via a single Q() query;
-    result is NOT cached here — call sites should avoid calling this
-    in a loop without prefetching.
     """
 
     message = "This story is not available to you."
@@ -43,6 +41,10 @@ class CanViewStory(permissions.BasePermission):
         # Author always sees their own story (even expired, for delete)
         if obj.author == request.user:
             return True
+
+        # Block check: deny access if blocked in either direction
+        if is_blocked(request.user, obj.author):
+            return False
 
         if obj.privacy == StoryPrivacyChoices.PUBLIC:
             return True

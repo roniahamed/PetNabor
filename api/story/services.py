@@ -87,6 +87,7 @@ class StoryService:
         """
         Returns target_user's active stories visible to requesting_user.
         - Author sees all their own active stories.
+        - If blocked in either direction, returns empty queryset.
         - Friends see PUBLIC + FRIENDS_ONLY stories.
         - Strangers see only PUBLIC stories.
         """
@@ -96,6 +97,11 @@ class StoryService:
             # Owner sees all their own stories
             pass
         else:
+            # Block check: if blocked in either direction, no stories visible
+            from api.friends.services import is_blocked as _is_blocked
+            if _is_blocked(requesting_user, target_user):
+                return Story.objects.none()
+
             is_friend = Friendship.objects.filter(
                 Q(sender=target_user, receiver=requesting_user)
                 | Q(sender=requesting_user, receiver=target_user)
@@ -130,6 +136,8 @@ class StoryFeedService:
 
     @staticmethod
     def get_story_feed(user: User) -> QuerySet:
+        from api.friends.models import UserBlock
+
         friend_pair_ids = Friendship.objects.filter(
             Q(sender=user) | Q(receiver=user)
         ).values_list("sender_id", "receiver_id")
@@ -140,11 +148,19 @@ class StoryFeedService:
             visible_author_ids.add(sender_id)
             visible_author_ids.add(receiver_id)
 
-        # Base: active stories from visible authors, excluding their FRIENDS_ONLY
-        # stories unless they are actual friends (self always included)
+        # Collect blocked user IDs (both directions) to exclude
+        flat_blocked: set = set()
+        for pair in UserBlock.objects.filter(
+            Q(blocker=user) | Q(blocked_user=user)
+        ).values_list("blocker_id", "blocked_user_id"):
+            flat_blocked.update(pair)
+        flat_blocked.discard(user.id)  # never exclude self
+
+        # Base: active stories from visible authors, excluding blocked users
         qs = (
             StoryService.get_active_queryset()
             .filter(author_id__in=visible_author_ids)
+            .exclude(author_id__in=flat_blocked)
             .exclude(
                 # Exclude FRIENDS_ONLY stories from people who are NOT friends
                 # (self is already excluded above via author_id check)

@@ -5,6 +5,7 @@ Keeping permission logic isolated here removes manual checks from views/services
 from rest_framework import permissions
 from django.db.models import Q
 from api.friends.models import Friendship
+from api.friends.services import is_blocked
 from .models import PrivacyChoices
 
 
@@ -60,25 +61,30 @@ class IsReporterOrAdmin(permissions.BasePermission):
         return obj.reporter == request.user
 class CanViewPost(permissions.BasePermission):
     """
-    Respects Post.privacy levels:
+    Respects Post.privacy levels AND bidirectional block:
+    - If either user has blocked the other → deny.
     - PUBLIC: Everyone can see.
     - FRIENDS_ONLY: Author and their friends can see.
     - PRIVATE: Only author can see.
     """
     def has_object_permission(self, request, view, obj):
         if not hasattr(obj, 'author'):
-            return True # Not a post or has no author
-            
+            return True  # Not a post or has no author
+
         if obj.author == request.user:
-            return True
-            
+            return True  # Owner always sees their own post
+
+        # Block check: deny access if blocked in either direction
+        if is_blocked(request.user, obj.author):
+            return False
+
         if obj.privacy == PrivacyChoices.PUBLIC:
             return True
-            
+
         if obj.privacy == PrivacyChoices.FRIENDS_ONLY:
             return Friendship.objects.filter(
                 Q(sender=obj.author, receiver=request.user) |
                 Q(sender=request.user, receiver=obj.author)
             ).exists()
-            
+
         return False

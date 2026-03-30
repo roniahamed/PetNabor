@@ -148,6 +148,11 @@ class PostService:
         if user == request_user:
             pass  # owner sees all own posts
         else:
+            # If blocked in either direction, no posts visible
+            from api.friends.services import is_blocked as _is_blocked
+            if _is_blocked(request_user, user):
+                return Post.objects.none()
+
             is_friend = Friendship.objects.filter(
                 Q(sender=user, receiver=request_user)
                 | Q(sender=request_user, receiver=user)
