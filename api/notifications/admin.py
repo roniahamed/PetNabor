@@ -70,8 +70,14 @@ class NotificationSettingsAdmin(UnfoldModelAdmin):
                 "fields": ("marketing_notifications",),
             },
         ),
+         (
+            _("Timestamps"),
+            {
+                "classes": ("collapse",),
+                "fields": ("created_at", "updated_at"),
+            },
+        ),
     )
-
     @display(description=_("Push"), label={True: "success", False: "danger"}, boolean=True)
     def display_push(self, obj):
         return obj.push_notifications
