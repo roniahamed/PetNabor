@@ -8,7 +8,8 @@ from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import F
 import logging
-from .models import Blog, BlogViewTracker
+from api.media_utils import compress_image_to_webp
+from .models import Blog, BlogComment, BlogViewTracker
 
 logger = logging.getLogger(__name__)
 
@@ -103,4 +104,32 @@ def process_blog_cover_task(self, blog_id: str):
         logger.error(f"Blog {blog_id} not found for media processing.")
     except Exception as exc:
         logger.exception(f"Failed to process cover for blog {blog_id}: {exc}")
+        raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=10)
+def process_blog_comment_media_task(self, comment_id: str):
+    """Compress blog comment media asynchronously and remove replaced old file."""
+    try:
+        comment = BlogComment.objects.get(id=comment_id)
+    except BlogComment.DoesNotExist:
+        logger.error("BlogComment %s not found for media processing.", comment_id)
+        return
+
+    if not comment.media_file:
+        return
+
+    old_name = comment.media_file.name
+    compressed = compress_image_to_webp(comment.media_file)
+    if not compressed:
+        return
+
+    try:
+        comment.media_file.save(compressed.name, compressed, save=False)
+        comment.save(update_fields=["media_file"])
+
+        if old_name and old_name != comment.media_file.name:
+            comment.media_file.storage.delete(old_name)
+    except Exception as exc:
+        logger.exception("Failed to process blog comment media for %s: %s", comment_id, exc)
         raise self.retry(exc=exc)

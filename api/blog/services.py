@@ -89,6 +89,11 @@ class BlogService:
                 media_file=media
             )
 
+            if comment.media_file:
+                from .tasks import process_blog_comment_media_task
+
+                process_blog_comment_media_task.delay(str(comment.id))
+
             # Update blog comment count
             Blog.objects.filter(id=blog.id).update(comments_count=F('comments_count') + 1)
             
