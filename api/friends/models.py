@@ -1,3 +1,6 @@
+"""
+Models for managing friend requests, friendships, and user blocks.
+"""
 from django.db import models
 from django.conf import settings
 import uuid

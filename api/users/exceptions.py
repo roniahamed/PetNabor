@@ -1,8 +1,7 @@
 """
-Custom exception classes for the authentication system.
+Custom API exceptions for the users app.
 
-All exceptions return clean JSON responses with appropriate HTTP status codes.
-No 500 errors are ever exposed to clients.
+All exceptions return clean JSON with appropriate HTTP status codes.
 """
 
 from rest_framework.exceptions import APIException

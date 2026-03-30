@@ -1,3 +1,6 @@
+"""
+Views for managing notification settings, FCM devices, and user notifications.
+"""
 from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
 

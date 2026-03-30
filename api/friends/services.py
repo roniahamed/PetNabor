@@ -1,3 +1,6 @@
+"""
+Business logic for friendships, friend requests, and user blocks.
+"""
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 from django.contrib.gis.db.models.functions import Distance

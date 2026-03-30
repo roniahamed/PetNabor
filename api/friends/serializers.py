@@ -1,3 +1,6 @@
+"""
+Serializers for friend requests, friendships, user blocks, and public profiles.
+"""
 from django.db.models import Q
 from rest_framework import serializers
 from django.contrib.auth import get_user_model

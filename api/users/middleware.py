@@ -1,8 +1,5 @@
 """
-Authentication middleware.
-
-UpdateLastActiveMiddleware: Tracks user activity timestamps.
-VerificationEnforcementMiddleware: Blocks unverified users from protected endpoints.
+Authentication and activity tracking middleware.
 """
 
 import logging
@@ -30,17 +27,14 @@ AUTH_WHITELISTED_PATHS = (
     "/admin/",
 )
 
-# Throttle last_active DB writes: at most one write per user every 60 seconds.
+# Throttle last_active DB writes (seconds)
 LAST_ACTIVE_THROTTLE_S = 60
 
 
 class UpdateLastActiveMiddleware(MiddlewareMixin):
     """
-    Update the authenticated user's last_active timestamp on every request,
-    throttled to one DB write per LAST_ACTIVE_THROTTLE_S seconds per user.
-
-    is_online is NOT stored directly; use user.currently_online property which
-    computes it from last_active (< 5 min ago → online).
+    Update the authenticated user's last_active timestamp on every request.
+    Throttled per user to one DB write per LAST_ACTIVE_THROTTLE_S.
     """
 
     def process_request(self, request):
@@ -58,7 +52,6 @@ class UpdateLastActiveMiddleware(MiddlewareMixin):
         if request.user.is_authenticated:
             cache_key = f"last_active_ts_{request.user.id}"
             if not cache.get(cache_key):
-                # Throttled write: update only last_active (no is_online field)
                 User = get_user_model()
                 User.objects.filter(id=request.user.id).update(
                     last_active=timezone.now()
@@ -68,26 +61,20 @@ class UpdateLastActiveMiddleware(MiddlewareMixin):
         return None
 
 
-
 class VerificationEnforcementMiddleware(MiddlewareMixin):
     """
     Block unverified users from accessing protected API endpoints.
-
-    Returns 403 Forbidden with a clean JSON response for unverified users.
-    Auth-related endpoints are whitelisted so users can complete verification.
+    Allows whitelisted paths for verification completion.
     """
 
     def process_request(self, request):
-        # Skip whitelisted paths
         path = request.path
         if any(path.startswith(whitelisted) for whitelisted in AUTH_WHITELISTED_PATHS):
             return None
 
-        # Skip non-authenticated requests (DRF will handle permission denial)
         if not request.user.is_authenticated:
             return None
 
-        # Block unverified users
         if not request.user.is_verified:
             return JsonResponse(
                 {

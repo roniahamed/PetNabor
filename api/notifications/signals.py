@@ -1,3 +1,6 @@
+"""
+Django signals for the notifications app.
+"""
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 from api.notifications.models import NotificationSettings

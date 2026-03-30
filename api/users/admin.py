@@ -13,7 +13,6 @@ from unfold.decorators import display
 from .models import OTPVerification, Profile, User
 
 
-# ──────────────────────────────────────────────
 # Inline
 # ──────────────────────────────────────────────
 
@@ -142,10 +141,6 @@ class UserAdmin(UnfoldModelAdmin):
         return obj.is_online
 
 
-# ──────────────────────────────────────────────
-# Profile Admin
-# ──────────────────────────────────────────────
-
 @admin.register(Profile)
 class ProfileAdmin(UnfoldModelAdmin):
     list_display = ("user", "city", "state", "referral_code", "display_avatar")
@@ -164,10 +159,6 @@ class ProfileAdmin(UnfoldModelAdmin):
             '<span class="material-symbols-outlined" style="font-size:32px;color:#9ca3af;">account_circle</span>'
         )
 
-
-# ──────────────────────────────────────────────
-# OTP Verification Admin
-# ──────────────────────────────────────────────
 
 @admin.register(OTPVerification)
 class OTPVerificationAdmin(UnfoldModelAdmin):

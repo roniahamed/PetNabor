@@ -19,10 +19,6 @@ from .validators import (
 User = get_user_model()
 
 
-# ──────────────────────────────────────────────
-# Auth Serializers
-# ──────────────────────────────────────────────
-
 
 class SignupSerializer(serializers.Serializer):
     """Validates signup data. Requires at least email or phone."""
@@ -163,10 +159,6 @@ class ConfirmPasswordResetSerializer(serializers.Serializer):
         return validate_password_strength(value)
 
 
-# ──────────────────────────────────────────────
-# Firebase Serializer
-# ──────────────────────────────────────────────
-
 
 class FirebaseTokenSerializer(serializers.Serializer):
     """Validates Firebase login token request."""
@@ -190,10 +182,6 @@ class FirebaseTokenSerializer(serializers.Serializer):
                 return ""
         return value
 
-
-# ──────────────────────────────────────────────
-# Data Serializers
-# ──────────────────────────────────────────────
 
 
 class Profile_Read(serializers.ModelSerializer):

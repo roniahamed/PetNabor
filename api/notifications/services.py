@@ -1,3 +1,8 @@
+"""
+Services for sending push and in-app notifications.
+
+Handles batching and asynchronous processing via Celery.
+"""
 from celery import shared_task
 from firebase_admin import messaging, exceptions
 from django.contrib.auth import get_user_model

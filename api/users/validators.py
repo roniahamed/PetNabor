@@ -1,7 +1,5 @@
 """
-Reusable validation utilities for the authentication system.
-
-DRY validators shared across serializers and services.
+Validation utilities for the users app.
 """
 
 import re

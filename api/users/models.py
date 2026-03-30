@@ -14,11 +14,6 @@ from django.db import models
 from django.utils import timezone
 
 
-# ──────────────────────────────────────────────
-# Custom User Manager
-# ──────────────────────────────────────────────
-
-
 class CustomUserManager(BaseUserManager):
     """Custom manager supporting email/phone-based user creation."""
 
@@ -53,11 +48,6 @@ class CustomUserManager(BaseUserManager):
         return self.create_user(email=email, password=password, **extra_fields)
 
 
-# ──────────────────────────────────────────────
-# Enums
-# ──────────────────────────────────────────────
-
-
 class UserTypes(models.TextChoices):
     PATNABOR = "patnabor", "Patnabor"
     PATPAL = "patpal", "Patpal"
@@ -69,11 +59,6 @@ class OTPTypes(models.TextChoices):
     PHONE_SIGNUP = "phone_signup", "Phone Signup"
     EMAIL_SIGNUP = "email_signup", "Email Signup"
     PASSWORD_RESET = "password_reset", "Password Reset"
-
-
-# ──────────────────────────────────────────────
-# User Model
-# ──────────────────────────────────────────────
 
 
 class User(AbstractUser):
@@ -134,11 +119,6 @@ class User(AbstractUser):
         return False
 
 
-# ──────────────────────────────────────────────
-# Profile Model
-# ──────────────────────────────────────────────
-
-
 def profile_image_path(instance, filename):
     ext = filename.split(".")[-1]
     filename = f"{uuid.uuid4()}.{ext}"
@@ -179,11 +159,6 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"Profile of {self.user}"
-
-
-# ──────────────────────────────────────────────
-# OTP Verification Model
-# ──────────────────────────────────────────────
 
 
 class OTPVerification(models.Model):

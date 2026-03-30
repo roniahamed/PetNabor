@@ -38,10 +38,6 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
-# ──────────────────────────────────────────────
-# Token Generation
-# ──────────────────────────────────────────────
-
 
 def get_tokens_for_user(user):
     """Generate JWT access and refresh tokens for a user."""
@@ -51,10 +47,6 @@ def get_tokens_for_user(user):
         "access": str(refresh.access_token),
     }
 
-
-# ──────────────────────────────────────────────
-# OTP Utilities
-# ──────────────────────────────────────────────
 
 
 def _generate_otp_code():
@@ -74,10 +66,6 @@ def _invalidate_existing_otps(user, otp_type):
         is_used=True
     )
 
-
-# ──────────────────────────────────────────────
-# OTP Services (shared for phone + email)
-# ──────────────────────────────────────────────
 
 
 def create_otp_for_user(user, otp_type=OTPTypes.PHONE_SIGNUP):
@@ -145,10 +133,6 @@ def _verify_otp(user, otp_code, otp_type):
     return True
 
 
-# ──────────────────────────────────────────────
-# Phone OTP
-# ──────────────────────────────────────────────
-
 
 def send_phone_otp(phone, otp_code):
     """Trigger asynchronous SMS delivery via Celery."""
@@ -166,10 +150,6 @@ def verify_phone_otp(user, otp_code):
     return True
 
 
-# ──────────────────────────────────────────────
-# Email OTP
-# ──────────────────────────────────────────────
-
 
 def send_email_otp(email, otp_code):
     """Trigger asynchronous Email delivery via Celery."""
@@ -186,10 +166,6 @@ def verify_email_otp(user, otp_code):
     user.save(update_fields=["is_email_verified", "is_verified"])
     return True
 
-
-# ──────────────────────────────────────────────
-# Auth Services
-# ──────────────────────────────────────────────
 
 
 def signup_user(
@@ -342,10 +318,6 @@ def login_user(email_or_phone, password):
     return tokens, user
 
 
-# ──────────────────────────────────────────────
-# Password Reset Services
-# ──────────────────────────────────────────────
-
 
 def request_password_reset(email_or_phone):
     """
@@ -408,10 +380,6 @@ def _send_password_reset_email(email, otp_code):
     expiry_minutes = getattr(settings, "OTP_EXPIRY_MINUTES", 5)
     send_otp_email_task.delay(email, otp_code, expiry_minutes, is_password_reset=True)
 
-
-# ──────────────────────────────────────────────
-# Firebase Login Service
-# ──────────────────────────────────────────────
 
 
 def firebase_login_service(
@@ -517,10 +485,6 @@ def firebase_login_service(
 
     return tokens, user
 
-
-# ──────────────────────────────────────────────
-# Resend Services
-# ──────────────────────────────────────────────
 
 
 def resend_phone_otp(phone):

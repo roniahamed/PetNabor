@@ -1,3 +1,6 @@
+"""
+Celery configuration for the PetNabor project.
+"""
 import os
 from celery import Celery
 

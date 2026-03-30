@@ -1,3 +1,6 @@
+"""
+Serializers for notification settings, FCM devices, and user notifications.
+"""
 from rest_framework import serializers
 from .models import NotificationSettings, FCMDevice, Notifications
 

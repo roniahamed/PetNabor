@@ -1,8 +1,7 @@
 """
-Authentication views.
+Authentication and profile management views.
 
-Thin wrappers around service functions. All business logic lives in services.py.
-Consistent JSON response format: {"success": bool, "message": str, "data": {...}}
+All business logic is delegated to the service layer in services.py.
 """
 
 import logging
@@ -43,11 +42,6 @@ from .services import (
 logger = logging.getLogger(__name__)
 
 
-# ──────────────────────────────────────────────
-# Helper
-# ──────────────────────────────────────────────
-
-
 def _build_user_data(user):
     """Build a consistent user data dict for API responses."""
     return {
@@ -63,15 +57,8 @@ def _build_user_data(user):
     }
 
 
-# ──────────────────────────────────────────────
-# Auth Views
-# ──────────────────────────────────────────────
-
-
 class SignupView(APIView):
     """
-    POST /api/users/signup/
-
     Register a new user with email or phone.
     Sends OTP via SMS (phone) or email.
     """
@@ -133,8 +120,6 @@ class SignupView(APIView):
 
 class LoginView(APIView):
     """
-    POST /api/users/login/
-
     Authenticate with email/phone + password.
     Blocks unverified users.
     """
@@ -185,11 +170,7 @@ class LoginView(APIView):
 
 
 class VerifyPhoneOTPView(APIView):
-    """
-    POST /api/users/verify-phone/
-
-    Verify a 4-digit OTP code for phone verification.
-    """
+    """Verify a 4-digit OTP code for phone verification."""
 
     permission_classes = [AllowAny]
     serializer_class = VerifyPhoneOTPSerializer
@@ -236,11 +217,7 @@ class VerifyPhoneOTPView(APIView):
 
 
 class VerifyEmailOTPView(APIView):
-    """
-    POST /api/users/verify-email/
-
-    Verify a 4-digit OTP code for email verification.
-    """
+    """Verify a 4-digit OTP code for email verification."""
 
     permission_classes = [AllowAny]
     serializer_class = VerifyEmailOTPSerializer
@@ -287,11 +264,7 @@ class VerifyEmailOTPView(APIView):
 
 
 class ResendPhoneOTPView(APIView):
-    """
-    POST /api/users/resend-phone-otp/
-
-    Resend OTP to a user's phone number.
-    """
+    """Resend OTP to a user's phone number."""
 
     permission_classes = [AllowAny]
     serializer_class = ResendOTPSerializer
@@ -323,11 +296,7 @@ class ResendPhoneOTPView(APIView):
 
 
 class ResendEmailOTPView(APIView):
-    """
-    POST /api/users/resend-email-otp/
-
-    Resend OTP to a user's email address.
-    """
+    """Resend OTP to a user's email address."""
 
     permission_classes = [AllowAny]
     serializer_class = ResendEmailOTPSerializer
@@ -358,17 +327,8 @@ class ResendEmailOTPView(APIView):
         )
 
 
-# ──────────────────────────────────────────────
-# Password Reset Views
-# ──────────────────────────────────────────────
-
-
 class RequestPasswordResetView(APIView):
-    """
-    POST /api/users/password-reset/request/
-
-    Send a password reset OTP to user's email or phone.
-    """
+    """Send a password reset OTP to user's email or phone."""
 
     permission_classes = [AllowAny]
     serializer_class = RequestPasswordResetSerializer
@@ -412,11 +372,7 @@ class RequestPasswordResetView(APIView):
 
 
 class ConfirmPasswordResetView(APIView):
-    """
-    POST /api/users/password-reset/confirm/
-
-    Verify OTP and set a new password.
-    """
+    """Verify OTP and set a new password."""
 
     permission_classes = [AllowAny]
     serializer_class = ConfirmPasswordResetSerializer
@@ -451,15 +407,8 @@ class ConfirmPasswordResetView(APIView):
         )
 
 
-# ──────────────────────────────────────────────
-# Firebase Login
-# ──────────────────────────────────────────────
-
-
 class FirebaseLoginView(APIView):
     """
-    POST /api/users/login/firebase/
-
     Login/Register via Firebase ID token.
     Firebase users are auto-verified.
     """
@@ -514,13 +463,8 @@ class FirebaseLoginView(APIView):
         )
 
 
-# ──────────────────────────────────────────────
-# User & Profile Views
-# ──────────────────────────────────────────────
-
-
 class UserDetailView(RetrieveUpdateDestroyAPIView):
-    """GET/PUT/PATCH/DELETE /api/users/user/ — Current user's details."""
+    """Current user's details (GET/PUT/PATCH/DELETE)."""
 
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]

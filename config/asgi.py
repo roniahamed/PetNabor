@@ -1,3 +1,6 @@
+"""
+ASGI configuration for the PetNabor project.
+"""
 import os
 import django
 
