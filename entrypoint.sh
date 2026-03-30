@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Ensure Django FILE_UPLOAD_TEMP_DIR exists before any management command runs.
+mkdir -p /app/tmp_uploads
+
 echo "Collecting static files..."
 python manage.py collectstatic --no-input
 

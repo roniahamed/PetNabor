@@ -30,6 +30,7 @@ services:
       - redis
     volumes:
       - .:/app
+      - tmp_uploads_volume:/app/tmp_uploads
       - static_volume:/app/staticfiles
       - media_volume:/app/media
   
@@ -50,6 +51,7 @@ services:
     command: celery -A config worker -l info
     volumes:
       - .:/app
+      - tmp_uploads_volume:/app/tmp_uploads
       - static_volume:/app/staticfiles
       - media_volume:/app/media
     depends_on:
@@ -64,4 +66,5 @@ volumes:
   postgres_data:
   static_volume:
   media_volume:
+  tmp_uploads_volume:
 

@@ -20,6 +20,9 @@ RUN pip install -r requirements/local.txt
 
 COPY . /app/
 
+# Ensure temp upload directory exists in the built image.
+RUN mkdir -p /app/tmp_uploads
+
 COPY ./entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
