@@ -11,7 +11,18 @@ class PetProfileViewSet(viewsets.ModelViewSet):
         return PetProfile.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        pet = serializer.save(user=self.request.user)
+        if "image" in self.request.FILES:
+            from .tasks import process_pet_image_task
+
+            process_pet_image_task.delay(str(pet.id))
+
+    def perform_update(self, serializer):
+        pet = serializer.save()
+        if "image" in self.request.FILES:
+            from .tasks import process_pet_image_task
+
+            process_pet_image_task.delay(str(pet.id))
 
 
 class UserPetListView(generics.ListAPIView):
