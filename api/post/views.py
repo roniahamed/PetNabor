@@ -68,6 +68,16 @@ class PostViewSet(viewsets.ModelViewSet):
         "mentions__username",
     ]
 
+    # Interaction actions (like, save) are NOT authorship-restricted —
+    # any authenticated user who can VIEW the post may interact with it.
+    _INTERACTION_ACTIONS = {"like", "save_post"}
+
+    def get_permissions(self):
+        if self.action in self._INTERACTION_ACTIONS:
+            # Skip IsAuthorOrReadOnly — react/save is open to all viewers
+            return [permissions.IsAuthenticated(), CanViewPost()]
+        return super().get_permissions()
+
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
             return PostCreateUpdateSerializer

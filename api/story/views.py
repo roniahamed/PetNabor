@@ -86,6 +86,16 @@ class StoryViewSet(viewsets.ModelViewSet):
     # Disable PUT/PATCH — stories are immutable once published
     http_method_names = ["get", "post", "delete", "head", "options"]
 
+    # Interaction actions are NOT authorship-restricted —
+    # any authenticated user who can VIEW the story may interact with it.
+    _INTERACTION_ACTIONS = {"react", "view", "reply"}
+
+    def get_permissions(self):
+        if self.action in self._INTERACTION_ACTIONS:
+            # Skip IsStoryAuthor — react/view/reply is open to all viewers
+            return [permissions.IsAuthenticated(), CanViewStory()]
+        return super().get_permissions()
+
     def get_queryset(self):
         """
         - list  → requesting user's own active stories
