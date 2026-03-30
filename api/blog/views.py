@@ -6,7 +6,7 @@ from rest_framework import viewsets, permissions, status, filters, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter, OpenApiTypes
 
 from .models import Blog, BlogComment
 from .serializers import (
@@ -82,6 +82,55 @@ class BlogViewSet(viewsets.ModelViewSet):
 
         return qs
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="search",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Full-text search in blog title, body, and tags.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="category",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Filter blogs by category slug.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="author_id",
+                type=OpenApiTypes.UUID,
+                location=OpenApiParameter.QUERY,
+                description="Filter blogs by author ID.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="ordering",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Sort blogs by created date, views, or likes.",
+                required=False,
+                enum=["created_at", "-created_at", "views_count", "-views_count", "likes_count", "-likes_count"],
+            ),
+            OpenApiParameter(
+                name="cursor",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Cursor token for loading the next page.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of blogs per page.",
+                required=False,
+                default=10,
+            ),
+        ],
+        responses=BlogListSerializer(many=True)
+    )
     def list(self, request, *args, **kwargs):
         """
         List all published blogs. Uses Redis caching for performance.
@@ -211,6 +260,23 @@ class BlogViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         methods=['GET'],
+        parameters=[
+            OpenApiParameter(
+                name="cursor",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Cursor token for loading the next page of comments.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of comments per page.",
+                required=False,
+                default=20,
+            ),
+        ],
         responses=BlogCommentSerializer(many=True)
     )
     @extend_schema(

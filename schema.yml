@@ -1,0 +1,7345 @@
+openapi: 3.0.3
+info:
+  title: PetNabor API
+  version: 1.0.0
+  description: Interactive API documentation for the PetNabor application.
+paths:
+  /blog/blog-comments/{id}/:
+    patch:
+      operationId: blog_blog_comments_partial_update
+      description: Edit comment text.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - blog
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: blog_blog_comments_destroy
+      description: Soft delete a comment.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - blog
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /blog/blogs/:
+    get:
+      operationId: blog_blogs_list
+      description: |-
+        List all published blogs. Uses Redis caching for performance.
+        Skip caching if there are active search/filter query params.
+      parameters:
+      - in: query
+        name: author_id
+        schema:
+          type: string
+          format: uuid
+        description: Filter blogs by author ID.
+      - in: query
+        name: category
+        schema:
+          type: string
+        description: Filter blogs by category slug.
+      - in: query
+        name: cursor
+        schema:
+          type: string
+        description: Cursor token for loading the next page.
+      - in: query
+        name: ordering
+        schema:
+          type: string
+          enum:
+          - -created_at
+          - -likes_count
+          - -views_count
+          - created_at
+          - likes_count
+          - views_count
+        description: Sort blogs by created date, views, or likes.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 10
+        description: Number of blogs per page.
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Full-text search in blog title, body, and tags.
+      tags:
+      - blog
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBlogListList'
+          description: ''
+    post:
+      operationId: blog_blogs_create
+      description: |-
+        CRUD for Blogs.
+        Uses Cursor Pagination, Full Text Search, and robust Pre-fetching.
+      tags:
+      - blog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlogDetailRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BlogDetailRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BlogDetailRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogDetail'
+          description: ''
+  /blog/blogs/{slug}/:
+    get:
+      operationId: blog_blogs_retrieve
+      description: Retrieve blog details and track views asyncly.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - blog
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogDetail'
+          description: ''
+    put:
+      operationId: blog_blogs_update
+      description: |-
+        CRUD for Blogs.
+        Uses Cursor Pagination, Full Text Search, and robust Pre-fetching.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - blog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlogDetailRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BlogDetailRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BlogDetailRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogDetail'
+          description: ''
+    patch:
+      operationId: blog_blogs_partial_update
+      description: |-
+        CRUD for Blogs.
+        Uses Cursor Pagination, Full Text Search, and robust Pre-fetching.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - blog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBlogDetailRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBlogDetailRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBlogDetailRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogDetail'
+          description: ''
+    delete:
+      operationId: blog_blogs_destroy
+      description: |-
+        CRUD for Blogs.
+        Uses Cursor Pagination, Full Text Search, and robust Pre-fetching.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - blog
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /blog/blogs/{slug}/comments/:
+    get:
+      operationId: blog_blogs_comments_list
+      description: |-
+        GET: List top-level comments for the blog with cursor pagination.
+        POST: Create a comment/reply.
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+        description: Cursor token for loading the next page of comments.
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of comments per page.
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - blog
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBlogCommentList'
+          description: ''
+    post:
+      operationId: blog_blogs_comments_create
+      description: |-
+        GET: List top-level comments for the blog with cursor pagination.
+        POST: Create a comment/reply.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - blog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlogCommentCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BlogCommentCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BlogCommentCreateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogComment'
+          description: ''
+  /blog/blogs/{slug}/like/:
+    post:
+      operationId: blog_blogs_like_create
+      description: Toggle like for this blog.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - blog
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogLikeResponse'
+          description: ''
+  /blog/blogs/{slug}/share/:
+    post:
+      operationId: blog_blogs_share_create
+      description: Increments share count. Just a simple metric tracker.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - blog
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogShareResponse'
+          description: ''
+  /blog/blogs/popular/:
+    get:
+      operationId: blog_blogs_popular_retrieve
+      description: |-
+        Retrieves top trending/popular posts based on views and likes.
+        Cached separately for fast access.
+      tags:
+      - blog
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PopularBlogResponse'
+          description: ''
+  /friends/block/:
+    get:
+      operationId: friends_block_list
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+        description: Page number for blocked users.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of blocked users per page.
+      tags:
+      - friends
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserBlock'
+          description: ''
+    post:
+      operationId: friends_block_create
+      tags:
+      - friends
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserActionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserActionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserActionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockUserResponse'
+          description: ''
+    delete:
+      operationId: friends_block_destroy
+      tags:
+      - friends
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnblockUserResponse'
+          description: ''
+  /friends/list/:
+    get:
+      operationId: friends_list_list
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+        description: Page number for paginated results.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of friends per page.
+      - in: query
+        name: type
+        schema:
+          type: string
+          enum:
+          - petnabors
+          - petpals
+        description: Filter friends by user group.
+      tags:
+      - friends
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFriendshipList'
+          description: ''
+  /friends/remove/:
+    post:
+      operationId: friends_remove_create
+      tags:
+      - friends
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserActionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserActionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserActionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnfriendResponse'
+          description: ''
+  /friends/requests/:
+    get:
+      operationId: friends_requests_list
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+        description: Page number for paginated results.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of requests per page.
+      - in: query
+        name: type
+        schema:
+          type: string
+          enum:
+          - received
+          - sent
+        description: Filter request direction.
+      tags:
+      - friends
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFriendRequestList'
+          description: ''
+    post:
+      operationId: friends_requests_create
+      tags:
+      - friends
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FriendRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FriendRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FriendRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendRequest'
+          description: ''
+  /friends/requests/{id}/:
+    get:
+      operationId: friends_requests_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - friends
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendRequest'
+          description: ''
+    put:
+      operationId: friends_requests_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - friends
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FriendRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FriendRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FriendRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendRequest'
+          description: ''
+    patch:
+      operationId: friends_requests_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - friends
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFriendRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFriendRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFriendRequestRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendRequest'
+          description: ''
+    delete:
+      operationId: friends_requests_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - friends
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /friends/requests/{id}/accept/:
+    post:
+      operationId: friends_requests_accept_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - friends
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FriendRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FriendRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FriendRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendRequest'
+          description: ''
+  /friends/requests/{id}/cancel/:
+    post:
+      operationId: friends_requests_cancel_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - friends
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FriendRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FriendRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FriendRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendRequest'
+          description: ''
+  /friends/requests/{id}/reject/:
+    post:
+      operationId: friends_requests_reject_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - friends
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FriendRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FriendRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FriendRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendRequest'
+          description: ''
+  /friends/search/:
+    get:
+      operationId: friends_search_list
+      parameters:
+      - in: query
+        name: city
+        schema:
+          type: string
+        description: City-based filter.
+      - in: query
+        name: include_friends
+        schema:
+          type: boolean
+          default: false
+        description: Include already-friended users.
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+        description: Page number for paginated results.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of results per page.
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Search keyword for nearby users.
+      - in: query
+        name: radius
+        schema:
+          type: integer
+          default: 25
+        description: Distance radius in miles.
+      - in: query
+        name: state
+        schema:
+          type: string
+        description: State or region filter.
+      - in: query
+        name: type
+        schema:
+          type: string
+          enum:
+          - patnabor
+          - patpal
+        description: User type filter.
+      tags:
+      - friends
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NearbyUser'
+          description: ''
+  /friends/suggestions/:
+    get:
+      operationId: friends_suggestions_list
+      description: |-
+        API view to retrieve suggested friends for the current user.
+        Suggestions are calculated considering mutual friends and distance.
+      parameters:
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 20
+        description: Maximum suggestions to return.
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+        description: Page number for paginated results.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of suggestions per page.
+      tags:
+      - friends
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SuggestedUser'
+          description: ''
+  /friends/user/{user_id}/:
+    get:
+      operationId: friends_user_retrieve
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - friends
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicUser'
+          description: ''
+  /meetings/feedback/:
+    get:
+      operationId: meetings_feedback_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - meetings
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMeetingFeedbackList'
+          description: ''
+    post:
+      operationId: meetings_feedback_create
+      tags:
+      - meetings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeetingFeedbackRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MeetingFeedbackRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MeetingFeedbackRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingFeedback'
+          description: ''
+  /meetings/feedback/{id}/:
+    get:
+      operationId: meetings_feedback_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - meetings
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingFeedback'
+          description: ''
+    put:
+      operationId: meetings_feedback_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - meetings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeetingFeedbackRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MeetingFeedbackRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MeetingFeedbackRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingFeedback'
+          description: ''
+    patch:
+      operationId: meetings_feedback_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - meetings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMeetingFeedbackRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMeetingFeedbackRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMeetingFeedbackRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingFeedback'
+          description: ''
+    delete:
+      operationId: meetings_feedback_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - meetings
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /meetings/feedback/user/{user_id}/:
+    get:
+      operationId: meetings_feedback_user_list
+      description: |-
+        GET /api/meetings/feedback/user/{user_id}/
+        Returns all public feedbacks where the given user is the reviewee.
+        Accessible by any authenticated user (e.g. viewing a profile).
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+        description: Page number for feedback results.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of feedback records per page.
+      - in: path
+        name: user_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - meetings
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMeetingFeedbackList'
+          description: ''
+  /meetings/requests/:
+    get:
+      operationId: meetings_requests_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - meetings
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMeetingList'
+          description: ''
+    post:
+      operationId: meetings_requests_create
+      tags:
+      - meetings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeetingRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MeetingRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MeetingRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+          description: ''
+  /meetings/requests/{id}/:
+    get:
+      operationId: meetings_requests_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - meetings
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+          description: ''
+    put:
+      operationId: meetings_requests_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - meetings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeetingRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MeetingRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MeetingRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+          description: ''
+    patch:
+      operationId: meetings_requests_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - meetings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMeetingRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMeetingRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMeetingRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+          description: ''
+    delete:
+      operationId: meetings_requests_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - meetings
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /meetings/requests/{id}/accept/:
+    post:
+      operationId: meetings_requests_accept_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - meetings
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingAcceptResponse'
+          description: ''
+  /meetings/requests/{id}/cancel/:
+    post:
+      operationId: meetings_requests_cancel_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - meetings
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingCancelResponse'
+          description: ''
+  /meetings/requests/{id}/complete/:
+    post:
+      operationId: meetings_requests_complete_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - meetings
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingCompleteResponse'
+          description: ''
+  /meetings/requests/previous/:
+    get:
+      operationId: meetings_requests_previous_list
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+        description: Page number for previous meetings.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of previous meetings per page.
+      tags:
+      - meetings
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMeetingList'
+          description: ''
+  /meetings/requests/upcoming/:
+    get:
+      operationId: meetings_requests_upcoming_list
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+        description: Page number for upcoming meetings.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of upcoming meetings per page.
+      tags:
+      - meetings
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMeetingList'
+          description: ''
+  /messaging/threads/:
+    get:
+      operationId: messaging_thread_list
+      description: |-
+        GET  /messaging/threads/       → user's inbox
+        POST /messaging/threads/       → start a DIRECT thread
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+        description: Page number for inbox results.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of threads per page.
+      tags:
+      - messaging
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatThread'
+          description: ''
+    post:
+      operationId: messaging_threads_create
+      description: Start a DIRECT conversation with another user.
+      tags:
+      - messaging
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDirectThreadRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreateDirectThreadRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateDirectThreadRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatThread'
+          description: ''
+  /messaging/threads/{thread_id}/:
+    get:
+      operationId: messaging_thread_retrieve
+      description: GET /messaging/threads/<thread_id>/ — retrieve a single thread.
+      parameters:
+      - in: path
+        name: thread_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - messaging
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatThread'
+          description: ''
+    delete:
+      operationId: messaging_threads_destroy
+      description: |-
+        DELETE /messaging/threads/<id>/
+        - If query param `everyone=true`, try to delete thread for all (Admin only).
+        - Otherwise, soft-leave thread for the current user.
+      parameters:
+      - in: query
+        name: everyone
+        schema:
+          type: boolean
+          default: false
+        description: Set true to delete the thread for all participants (admin only).
+      - in: path
+        name: thread_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - messaging
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveThreadResponse'
+          description: ''
+  /messaging/threads/{thread_id}/clear-history/:
+    post:
+      operationId: messaging_threads_clear_history_create
+      description: POST /messaging/threads/<thread_id>/clear-history/ — per-user clear
+        history.
+      parameters:
+      - in: path
+        name: thread_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - messaging
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClearHistoryResponse'
+          description: ''
+  /messaging/threads/{thread_id}/messages/:
+    get:
+      operationId: messaging_threads_messages_list
+      description: |-
+        GET  /messaging/threads/<thread_id>/messages/  → message thread (paginated)
+        POST /messaging/threads/<thread_id>/messages/  → send a message
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+        description: Cursor token for loading the next page of messages.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 30
+        description: Number of messages per page.
+      - in: path
+        name: thread_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - messaging
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+          description: ''
+    post:
+      operationId: messaging_threads_messages_create
+      description: |-
+        GET  /messaging/threads/<thread_id>/messages/  → message thread (paginated)
+        POST /messaging/threads/<thread_id>/messages/  → send a message
+      parameters:
+      - in: path
+        name: thread_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - messaging
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+          description: ''
+  /messaging/threads/{thread_id}/messages/{message_id}/:
+    delete:
+      operationId: messaging_threads_messages_destroy
+      description: DELETE /messaging/threads/<thread_id>/messages/<message_id>/ —
+        delete for everyone.
+      parameters:
+      - in: path
+        name: message_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: thread_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - messaging
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /messaging/threads/{thread_id}/messages/bulk-delete/:
+    post:
+      operationId: messaging_threads_messages_bulk_delete_create
+      description: POST /messaging/threads/<thread_id>/messages/bulk-delete/ — delete
+        own messages.
+      parameters:
+      - in: path
+        name: thread_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - messaging
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkDeleteMessagesRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BulkDeleteMessagesRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BulkDeleteMessagesRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkDeleteResponse'
+          description: ''
+  /messaging/threads/group/:
+    post:
+      operationId: messaging_threads_group_create
+      description: POST /messaging/threads/group/ — create a GROUP thread.
+      tags:
+      - messaging
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupThreadRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreateGroupThreadRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateGroupThreadRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatThread'
+          description: ''
+  /notifications/fcm-devices/:
+    get:
+      operationId: notifications_fcm_devices_list
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FCMDevice'
+          description: ''
+    post:
+      operationId: notifications_fcm_devices_create
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FCMDeviceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FCMDeviceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FCMDeviceRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FCMDevice'
+          description: ''
+    delete:
+      operationId: notifications_fcm_devices_destroy
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /notifications/notification-settings/:
+    get:
+      operationId: notifications_notification_settings_retrieve
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+          description: ''
+    put:
+      operationId: notifications_notification_settings_update
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationSettingsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NotificationSettingsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NotificationSettingsRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+          description: ''
+    patch:
+      operationId: notifications_notification_settings_partial_update
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationSettingsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationSettingsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationSettingsRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+          description: ''
+  /notifications/notifications/:
+    get:
+      operationId: notifications_notifications_list
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+        description: Page number for notifications.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of notifications per page.
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedNotificationList'
+          description: ''
+    post:
+      operationId: notifications_notifications_create
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+  /notifications/notifications/{id}/:
+    get:
+      operationId: notifications_notifications_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+    put:
+      operationId: notifications_notifications_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+    patch:
+      operationId: notifications_notifications_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+    delete:
+      operationId: notifications_notifications_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /notifications/notifications/{id}/mark_read/:
+    post:
+      operationId: notifications_notifications_mark_read_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkReadResponse'
+          description: ''
+  /notifications/notifications/mark_all_read/:
+    post:
+      operationId: notifications_notifications_mark_all_read_create
+      tags:
+      - notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkAllReadResponse'
+          description: ''
+  /pets/pet/:
+    get:
+      operationId: pets_pet_list
+      tags:
+      - pets
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PetProfile'
+          description: ''
+    post:
+      operationId: pets_pet_create
+      tags:
+      - pets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PetProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PetProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PetProfileRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PetProfile'
+          description: ''
+  /pets/pet/{id}/:
+    get:
+      operationId: pets_pet_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - pets
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PetProfile'
+          description: ''
+    put:
+      operationId: pets_pet_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - pets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PetProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PetProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PetProfileRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PetProfile'
+          description: ''
+    patch:
+      operationId: pets_pet_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - pets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPetProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPetProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPetProfileRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PetProfile'
+          description: ''
+    delete:
+      operationId: pets_pet_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - pets
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /pets/user/{user_id}/pets/:
+    get:
+      operationId: pets_user_pets_list
+      description: |-
+        GET /pets/user/<uuid:user_id>/pets/
+        Public (authenticated) — returns the pet list of any user.
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pets
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PetProfile'
+          description: ''
+  /post/comments/:
+    get:
+      operationId: post_comments_list
+      description: |-
+        CRUD for top-level comments.
+        - Throttled creation to prevent spam.
+        - Destruction allowed by comment author OR post author (via permission class).
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+        description: Cursor token for the next page.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of comments per page.
+      - in: query
+        name: post_id
+        schema:
+          type: string
+          format: uuid
+        description: Filter comments for a specific post.
+      tags:
+      - post
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPostCommentList'
+          description: ''
+    post:
+      operationId: post_comments_create
+      description: |-
+        CRUD for top-level comments.
+        - Throttled creation to prevent spam.
+        - Destruction allowed by comment author OR post author (via permission class).
+      tags:
+      - post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostCommentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PostCommentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PostCommentRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostComment'
+          description: ''
+  /post/comments/{id}/:
+    get:
+      operationId: post_comments_retrieve
+      description: |-
+        CRUD for top-level comments.
+        - Throttled creation to prevent spam.
+        - Destruction allowed by comment author OR post author (via permission class).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this post comment.
+        required: true
+      tags:
+      - post
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostComment'
+          description: ''
+    put:
+      operationId: post_comments_update
+      description: |-
+        CRUD for top-level comments.
+        - Throttled creation to prevent spam.
+        - Destruction allowed by comment author OR post author (via permission class).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this post comment.
+        required: true
+      tags:
+      - post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostCommentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PostCommentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PostCommentRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostComment'
+          description: ''
+    patch:
+      operationId: post_comments_partial_update
+      description: |-
+        CRUD for top-level comments.
+        - Throttled creation to prevent spam.
+        - Destruction allowed by comment author OR post author (via permission class).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this post comment.
+        required: true
+      tags:
+      - post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPostCommentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPostCommentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPostCommentRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostComment'
+          description: ''
+    delete:
+      operationId: post_comments_destroy
+      description: |-
+        CRUD for top-level comments.
+        - Throttled creation to prevent spam.
+        - Destruction allowed by comment author OR post author (via permission class).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this post comment.
+        required: true
+      tags:
+      - post
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /post/comments/{id}/replies/:
+    get:
+      operationId: post_comments_replies_list
+      description: Paginated replies for a specific parent comment — select_related
+        added.
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+        description: Cursor token for replies pagination.
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this post comment.
+        required: true
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of replies per page.
+      tags:
+      - post
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPostCommentList'
+          description: ''
+  /post/posts/:
+    get:
+      operationId: post_posts_list
+      description: |-
+        CRUD for Posts.
+        - create / update use PostCreateUpdateSerializer
+        - retrieve uses PostDetailSerializer with recent comments prefetch
+        - list / feed use PostListSerializer
+        - Soft-delete via destroy
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+        description: Cursor token for the next page.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of posts per page.
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Search by post text, hashtag, or mentioned username.
+      tags:
+      - post
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPostListList'
+          description: ''
+    post:
+      operationId: post_posts_create
+      description: Handles multipart/form-data post creation via service layer.
+      tags:
+      - post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostCreateUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PostCreateUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PostCreateUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostCreateUpdate'
+          description: ''
+  /post/posts/{id}/:
+    get:
+      operationId: post_posts_retrieve
+      description: |-
+        CRUD for Posts.
+        - create / update use PostCreateUpdateSerializer
+        - retrieve uses PostDetailSerializer with recent comments prefetch
+        - list / feed use PostListSerializer
+        - Soft-delete via destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - post
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostDetail'
+          description: ''
+    put:
+      operationId: post_posts_update
+      description: |-
+        CRUD for Posts.
+        - create / update use PostCreateUpdateSerializer
+        - retrieve uses PostDetailSerializer with recent comments prefetch
+        - list / feed use PostListSerializer
+        - Soft-delete via destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostCreateUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PostCreateUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PostCreateUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostCreateUpdate'
+          description: ''
+    patch:
+      operationId: post_posts_partial_update
+      description: |-
+        CRUD for Posts.
+        - create / update use PostCreateUpdateSerializer
+        - retrieve uses PostDetailSerializer with recent comments prefetch
+        - list / feed use PostListSerializer
+        - Soft-delete via destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPostCreateUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPostCreateUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPostCreateUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostCreateUpdate'
+          description: ''
+    delete:
+      operationId: post_posts_destroy
+      description: Soft-delete instead of hard-delete — requires IsPostAuthor permission.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - post
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /post/posts/{id}/like/:
+    post:
+      operationId: post_posts_like_create
+      description: |-
+        POST  → like/react to a post
+        DELETE → remove like
+        Always returns the updated likes_count for easy frontend use.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostReactionRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PostReactionRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PostReactionRequestRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostReactionResponse'
+          description: ''
+    delete:
+      operationId: post_posts_like_destroy
+      description: |-
+        POST  → like/react to a post
+        DELETE → remove like
+        Always returns the updated likes_count for easy frontend use.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - post
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostReactionResponse'
+          description: ''
+  /post/posts/{id}/save_post/:
+    post:
+      operationId: post_posts_save_post_create
+      description: POST → save; DELETE → unsave.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - post
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostSaveResponse'
+          description: ''
+    delete:
+      operationId: post_posts_save_post_destroy
+      description: POST → save; DELETE → unsave.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - post
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostSaveResponse'
+          description: ''
+  /post/posts/feed/:
+    get:
+      operationId: post_posts_feed_list
+      description: |-
+        Public discovery feed.
+        Returns ALL public posts from every user, plus FRIENDS_ONLY posts from friends.
+        All posts sorted newest-first. Blocked users (both directions) are excluded.
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+        description: Cursor token for feed pagination.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of feed posts per page.
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - post
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPostListList'
+          description: ''
+  /post/saved-posts/:
+    get:
+      operationId: post_saved_posts_list
+      description: Returns the authenticated user's bookmarked posts.
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+        description: Cursor token for the next page.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of saved posts per page.
+      tags:
+      - post
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSavedPostList'
+          description: ''
+  /post/saved-posts/{id}/:
+    get:
+      operationId: post_saved_posts_retrieve
+      description: Returns the authenticated user's bookmarked posts.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - post
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedPost'
+          description: ''
+  /post/user/{user_id}/posts/:
+    get:
+      operationId: post_user_posts_list
+      description: |-
+        GET /post/user/<uuid:user_id>/posts/
+        Public (authenticated) — returns any user's posts.
+        Privacy is enforced by PostService.get_user_posts (respects blocks, visibility).
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+        description: Cursor token for the next page.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of posts per page.
+      - in: path
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - post
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPostListList'
+          description: ''
+  /referral/dashboard/:
+    get:
+      operationId: referral_dashboard_retrieve
+      description: |-
+        GET /api/referral/dashboard/?q=<search>
+        Full dashboard: stats + member list (optional search by name/email).
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+          default: ''
+        description: Search referred members by name or email.
+      tags:
+      - referral
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferralDashboardResponse'
+          description: ''
+  /referral/my/:
+    get:
+      operationId: referral_my_retrieve
+      description: |-
+        GET /api/referral/my/
+        Returns the current user's referral code and quick stats.
+      tags:
+      - referral
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferralMyResponse'
+          description: ''
+  /referral/redeem/:
+    post:
+      operationId: referral_redeem_create
+      description: |-
+        POST /api/referral/redeem/
+        Redeem a code manually for a logged-in user who hasn't redeemed one yet.
+      tags:
+      - referral
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReferralCodeRedeemRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReferralCodeRedeemRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReferralCodeRedeemRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferralRedeemResponse'
+          description: ''
+  /referral/transactions/:
+    get:
+      operationId: referral_transactions_list
+      description: |-
+        GET /api/referral/transactions/
+        Paginated transaction history for the current user.
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+        description: Page number for transaction history.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of transactions per page.
+      tags:
+      - referral
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReferralTransaction'
+          description: ''
+  /referral/verify/:
+    post:
+      operationId: referral_verify_create
+      description: |-
+        POST /api/referral/verify/
+        Verify if a referral code is valid.
+      tags:
+      - referral
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReferralCodeVerifyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReferralCodeVerifyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReferralCodeVerifyRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferralVerifyResponse'
+          description: ''
+  /report/:
+    get:
+      operationId: report_list
+      description: |-
+        Reports are write-once (submit-only). No update or deletion by reporters.
+        Admin can list all reports and mark them resolved via the `resolve` action.
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      tags:
+      - report
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedReportList'
+          description: ''
+    post:
+      operationId: report_create
+      description: |-
+        Reports are write-once (submit-only). No update or deletion by reporters.
+        Admin can list all reports and mark them resolved via the `resolve` action.
+      tags:
+      - report
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReportRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReportRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+          description: ''
+  /report/{id}/:
+    get:
+      operationId: report_retrieve
+      description: |-
+        Reports are write-once (submit-only). No update or deletion by reporters.
+        Admin can list all reports and mark them resolved via the `resolve` action.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - report
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+          description: ''
+  /report/{id}/resolve/:
+    post:
+      operationId: report_resolve_create
+      description: Admin-only action to mark a report as resolved.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - report
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResolveResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResolveErrorResponse'
+          description: ''
+  /story/stories/:
+    get:
+      operationId: story_stories_list
+      description: |-
+        Central ViewSet covering all story CRUD and interaction endpoints.
+        Actions: publish, retrieve, delete, feed, user_stories,
+                 view, viewers, react, reply, replies.
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      tags:
+      - story
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStoryListList'
+          description: ''
+    post:
+      operationId: story_stories_create
+      description: POST /stories/ — publish a new story.
+      tags:
+      - story
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoryCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StoryCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StoryCreateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryCreate'
+          description: ''
+  /story/stories/{id}/:
+    get:
+      operationId: story_stories_retrieve
+      description: |-
+        Central ViewSet covering all story CRUD and interaction endpoints.
+        Actions: publish, retrieve, delete, feed, user_stories,
+                 view, viewers, react, reply, replies.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - story
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryDetail'
+          description: ''
+    delete:
+      operationId: story_stories_destroy
+      description: DELETE /stories/{id}/ — delete own story (hard delete).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - story
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /story/stories/{id}/react/:
+    post:
+      operationId: story_stories_react_create
+      description: |-
+        POST   /stories/{id}/react/ → react or change reaction
+        DELETE /stories/{id}/react/ → remove reaction
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - story
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoryReactionCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StoryReactionCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StoryReactionCreateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryReaction'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryReaction'
+          description: ''
+    delete:
+      operationId: story_stories_react_destroy
+      description: |-
+        POST   /stories/{id}/react/ → react or change reaction
+        DELETE /stories/{id}/react/ → remove reaction
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - story
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryReactionRemoved'
+          description: ''
+  /story/stories/{id}/reply/:
+    get:
+      operationId: story_stories_reply_list
+      description: |-
+        POST /stories/{id}/reply/ → send a reply to the story
+        GET  /stories/{id}/reply/ → list replies (author sees all; others see own)
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+        description: Cursor token for loading the next page of replies.
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 12
+        description: Number of replies per page.
+      tags:
+      - story
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStoryReplyList'
+          description: ''
+    post:
+      operationId: story_stories_reply_create
+      description: |-
+        POST /stories/{id}/reply/ → send a reply to the story
+        GET  /stories/{id}/reply/ → list replies (author sees all; others see own)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - story
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoryReplyRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StoryReplyRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StoryReplyRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryReply'
+          description: ''
+  /story/stories/{id}/view/:
+    post:
+      operationId: story_stories_view_create
+      description: POST /stories/{id}/view/ — mark story as viewed by the requester.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - story
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryViewResponse'
+          description: ''
+  /story/stories/{id}/viewers/:
+    get:
+      operationId: story_stories_viewers_list
+      description: GET /stories/{id}/viewers/ — viewers list; only the author may
+        call this.
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+        description: Cursor token for loading the next page of viewers.
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 20
+        description: Number of viewers per page.
+      tags:
+      - story
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStoryViewList'
+          description: ''
+  /story/stories/feed/:
+    get:
+      operationId: story_stories_feed_list
+      description: GET /stories/feed/ — stories from friends + self, unseen-first.
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+        description: Cursor token for loading the next page of stories.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 12
+        description: Number of stories per page.
+      tags:
+      - story
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStoryListList'
+          description: ''
+  /story/stories/user_stories/:
+    get:
+      operationId: story_stories_user_stories_list
+      description: |-
+        GET /stories/user_stories/?user_id=<uuid>
+        Returns active stories for any user, respecting privacy.
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+        description: Cursor token for loading the next page.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          default: 12
+        description: Number of stories per page.
+      - in: query
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+        description: User ID whose active stories will be returned.
+        required: true
+      tags:
+      - story
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStoryListList'
+          description: ''
+  /users/login/:
+    post:
+      operationId: users_login_create
+      description: |-
+        Authenticate with email/phone + password.
+        Blocks unverified users.
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+          description: ''
+  /users/login/firebase/:
+    post:
+      operationId: users_login_firebase_create
+      description: |-
+        Login/Register via Firebase ID token.
+        Firebase users are auto-verified.
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FirebaseTokenRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FirebaseTokenRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FirebaseTokenRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FirebaseLoginResponse'
+          description: ''
+  /users/password-reset/confirm/:
+    post:
+      operationId: users_password_reset_confirm_create
+      description: Verify OTP and set a new password.
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmPasswordResetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConfirmPasswordResetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConfirmPasswordResetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmPasswordResetResponse'
+          description: ''
+  /users/password-reset/request/:
+    post:
+      operationId: users_password_reset_request_create
+      description: Send a password reset OTP to user's email or phone.
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestPasswordResetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RequestPasswordResetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RequestPasswordResetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestPasswordResetResponse'
+          description: ''
+  /users/profile/:
+    get:
+      operationId: users_profile_retrieve
+      description: GET/PUT/PATCH /api/users/profile/ — Current user's profile.
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+          description: ''
+    put:
+      operationId: users_profile_update
+      description: GET/PUT/PATCH /api/users/profile/ — Current user's profile.
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProfileRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+          description: ''
+    patch:
+      operationId: users_profile_partial_update
+      description: GET/PUT/PATCH /api/users/profile/ — Current user's profile.
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProfileRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+          description: ''
+  /users/resend-email-otp/:
+    post:
+      operationId: users_resend_email_otp_create
+      description: Resend OTP to a user's email address.
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResendEmailOTPRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ResendEmailOTPRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ResendEmailOTPRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResendEmailOTPResponse'
+          description: ''
+  /users/resend-phone-otp/:
+    post:
+      operationId: users_resend_phone_otp_create
+      description: Resend OTP to a user's phone number.
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResendOTPRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ResendOTPRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ResendOTPRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResendPhoneOTPResponse'
+          description: ''
+  /users/signup/:
+    post:
+      operationId: users_signup_create
+      description: |-
+        Register a new user with email or phone.
+        Sends OTP via SMS (phone) or email.
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupResponse'
+          description: ''
+  /users/token/refresh/:
+    post:
+      operationId: users_token_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /users/user/:
+    get:
+      operationId: users_user_retrieve
+      description: Current user's details (GET/PUT/PATCH/DELETE).
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    put:
+      operationId: users_user_update
+      description: Current user's details (GET/PUT/PATCH/DELETE).
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: users_user_partial_update
+      description: Current user's details (GET/PUT/PATCH/DELETE).
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    delete:
+      operationId: users_user_destroy
+      description: Current user's details (GET/PUT/PATCH/DELETE).
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /users/verify-email/:
+    post:
+      operationId: users_verify_email_create
+      description: Verify a 4-digit OTP code for email verification.
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailOTPRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailOTPRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailOTPRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyEmailResponse'
+          description: ''
+  /users/verify-phone/:
+    post:
+      operationId: users_verify_phone_create
+      description: Verify a 4-digit OTP code for phone verification.
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyPhoneOTPRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VerifyPhoneOTPRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VerifyPhoneOTPRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyPhoneResponse'
+          description: ''
+components:
+  schemas:
+    AuthorBasic:
+      type: object
+      description: Lightweight user embedding — avoids N+1 and data leakage.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        first_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        last_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        username:
+          type: string
+          nullable: true
+          maxLength: 150
+        profile_picture:
+          type: string
+          format: uri
+          readOnly: true
+      required:
+      - id
+      - profile_picture
+    AuthorBasicRequest:
+      type: object
+      description: Lightweight user embedding — avoids N+1 and data leakage.
+      properties:
+        first_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        last_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        username:
+          type: string
+          nullable: true
+          maxLength: 150
+    BlockUserResponse:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+      - status
+    BlogCategory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        slug:
+          type: string
+          maxLength: 120
+          pattern: ^[-a-zA-Z0-9_]+$
+      required:
+      - id
+      - name
+    BlogCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        slug:
+          type: string
+          maxLength: 120
+          pattern: ^[-a-zA-Z0-9_]+$
+      required:
+      - name
+    BlogComment:
+      type: object
+      description: Serializer for blog comments, handling nested replies carefully.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        blog:
+          type: string
+          format: uuid
+          readOnly: true
+        user:
+          allOf:
+          - $ref: '#/components/schemas/AuthorBasic'
+          readOnly: true
+        parent_comment:
+          type: string
+          format: uuid
+          nullable: true
+        comment_text:
+          type: string
+          description: Comment body text
+        media_file:
+          type: string
+          format: uri
+          nullable: true
+        reply_count:
+          type: integer
+          readOnly: true
+        is_edited:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        replies:
+          type: string
+          readOnly: true
+      required:
+      - blog
+      - comment_text
+      - created_at
+      - id
+      - is_edited
+      - replies
+      - reply_count
+      - updated_at
+      - user
+    BlogCommentCreateRequest:
+      type: object
+      properties:
+        comment_text:
+          type: string
+          minLength: 1
+        parent_id:
+          type: string
+          format: uuid
+        media_file:
+          type: string
+          format: binary
+      required:
+      - comment_text
+    BlogDetail:
+      type: object
+      description: Full detail serializer with SEO and tags.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        content_body:
+          type: string
+          description: Markdown or HTML content
+        cover_image:
+          type: string
+          format: uri
+          nullable: true
+        author:
+          allOf:
+          - $ref: '#/components/schemas/AuthorBasic'
+          readOnly: true
+        category:
+          allOf:
+          - $ref: '#/components/schemas/BlogCategory'
+          readOnly: true
+        meta_title:
+          type: string
+          nullable: true
+          maxLength: 100
+        meta_description:
+          type: string
+          nullable: true
+          maxLength: 255
+        tags:
+          description: List of string tags for simple searching
+        is_published:
+          type: boolean
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+        views_count:
+          type: integer
+          readOnly: true
+        likes_count:
+          type: integer
+          readOnly: true
+        comments_count:
+          type: integer
+          readOnly: true
+        shares_count:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        is_liked:
+          type: string
+          readOnly: true
+      required:
+      - author
+      - category
+      - comments_count
+      - content_body
+      - created_at
+      - id
+      - is_liked
+      - likes_count
+      - shares_count
+      - slug
+      - title
+      - updated_at
+      - views_count
+    BlogDetailRequest:
+      type: object
+      description: Full detail serializer with SEO and tags.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        content_body:
+          type: string
+          minLength: 1
+          description: Markdown or HTML content
+        cover_image:
+          type: string
+          format: binary
+          nullable: true
+        category_id:
+          type: string
+          format: uuid
+          writeOnly: true
+        meta_title:
+          type: string
+          nullable: true
+          maxLength: 100
+        meta_description:
+          type: string
+          nullable: true
+          maxLength: 255
+        tags:
+          description: List of string tags for simple searching
+        is_published:
+          type: boolean
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - content_body
+      - title
+    BlogLikeResponse:
+      type: object
+      properties:
+        is_liked:
+          type: boolean
+        likes_count:
+          type: integer
+      required:
+      - is_liked
+      - likes_count
+    BlogList:
+      type: object
+      description: Optimized serializer for list views.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        slug:
+          type: string
+          maxLength: 280
+          pattern: ^[-a-zA-Z0-9_]+$
+        cover_image:
+          type: string
+          format: uri
+          nullable: true
+        author:
+          allOf:
+          - $ref: '#/components/schemas/AuthorBasic'
+          readOnly: true
+        category:
+          allOf:
+          - $ref: '#/components/schemas/BlogCategory'
+          readOnly: true
+        is_published:
+          type: boolean
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+        views_count:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        likes_count:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        comments_count:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - author
+      - category
+      - created_at
+      - id
+      - title
+    BlogShareResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
+    BulkDeleteMessagesRequest:
+      type: object
+      description: Input for bulk message deletion.
+      properties:
+        message_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+          minItems: 1
+      required:
+      - message_ids
+    BulkDeleteResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        deleted_count:
+          type: integer
+      required:
+      - deleted_count
+      - success
+    ChatThread:
+      type: object
+      description: |-
+        Simplified thread serializer.
+
+        DIRECT thread → `other_user` shows the other person (not the requester).
+        GROUP  thread → `members` shows a simplified participant list.
+
+        Requires `request` in serializer context to determine current user.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        thread_type:
+          $ref: '#/components/schemas/ThreadTypeEnum'
+        name:
+          type: string
+          nullable: true
+          maxLength: 255
+        avatar_url:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 512
+        other_user:
+          type: string
+          readOnly: true
+        members:
+          type: string
+          readOnly: true
+        last_message_text:
+          type: string
+          nullable: true
+          maxLength: 255
+        last_message_timestamp:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - members
+      - other_user
+    ClearHistoryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+      - message
+      - success
+    ConfirmPasswordResetRequest:
+      type: object
+      description: Validates password reset confirmation.
+      properties:
+        email_or_phone:
+          type: string
+          minLength: 1
+        otp_code:
+          type: string
+          minLength: 4
+          maxLength: 6
+        new_password:
+          type: string
+          writeOnly: true
+          minLength: 8
+      required:
+      - email_or_phone
+      - new_password
+      - otp_code
+    ConfirmPasswordResetResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+      - message
+      - success
+    CreateDirectThreadRequest:
+      type: object
+      description: Input serializer for starting a DIRECT chat.
+      properties:
+        recipient_id:
+          type: string
+          format: uuid
+      required:
+      - recipient_id
+    CreateGroupThreadRequest:
+      type: object
+      description: Input serializer for creating a GROUP thread.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+        avatar_url:
+          type: string
+          format: uri
+          minLength: 1
+        member_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - name
+    CustomUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        username:
+          type: string
+          nullable: true
+          maxLength: 150
+        first_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        last_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        profile:
+          allOf:
+          - $ref: '#/components/schemas/Profile_Read'
+          readOnly: true
+      required:
+      - id
+      - profile
+    CustomUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          nullable: true
+          maxLength: 150
+        first_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        last_name:
+          type: string
+          nullable: true
+          maxLength: 150
+    FCMDevice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        user:
+          type: string
+          format: uuid
+          readOnly: true
+        registration_id:
+          type: string
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - registration_id
+      - user
+    FCMDeviceRequest:
+      type: object
+      properties:
+        registration_id:
+          type: string
+          minLength: 1
+          maxLength: 255
+      required:
+      - registration_id
+    FirebaseLoginData:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        user:
+          type: object
+          additionalProperties: {}
+      required:
+      - access_token
+      - refresh_token
+      - user
+    FirebaseLoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/FirebaseLoginData'
+      required:
+      - data
+      - message
+      - success
+    FirebaseTokenRequest:
+      type: object
+      description: Validates Firebase login token request.
+      properties:
+        id_token:
+          type: string
+          minLength: 1
+          description: Firebase ID Token
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        user_type:
+          type: string
+          minLength: 1
+          default: patnabor
+        agree_to_terms_and_conditions:
+          type: boolean
+          default: false
+        referred_by_code:
+          type: string
+          maxLength: 50
+      required:
+      - id_token
+    FriendRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        sender:
+          type: string
+          format: uuid
+          readOnly: true
+        sender_details:
+          allOf:
+          - $ref: '#/components/schemas/NearbyUser'
+          readOnly: true
+        receiver:
+          type: string
+          format: uuid
+        receiver_details:
+          allOf:
+          - $ref: '#/components/schemas/NearbyUser'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/FriendStatusEnum'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - receiver
+      - receiver_details
+      - sender
+      - sender_details
+      - status
+      - updated_at
+    FriendRequestRequest:
+      type: object
+      properties:
+        receiver:
+          type: string
+          format: uuid
+      required:
+      - receiver
+    FriendStatusEnum:
+      enum:
+      - pending
+      - accepted
+      - rejected
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `accepted` - Accepted
+        * `rejected` - Rejected
+    Friendship:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        sender:
+          type: string
+          format: uuid
+          readOnly: true
+        receiver:
+          type: string
+          format: uuid
+          readOnly: true
+        friend_details:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - friend_details
+      - id
+      - receiver
+      - sender
+    Hashtag:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+      required:
+      - id
+      - name
+    LeaveThreadResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+      - message
+      - success
+    LoginData:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        user:
+          type: object
+          additionalProperties: {}
+      required:
+      - access_token
+      - refresh_token
+      - user
+    LoginRequest:
+      type: object
+      description: Validates login credentials. Accepts email or phone + password.
+      properties:
+        email_or_phone:
+          type: string
+          minLength: 1
+          description: Email address or phone number.
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email_or_phone
+      - password
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/LoginData'
+      required:
+      - data
+      - message
+      - success
+    MarkAllReadResponse:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+      - status
+    MarkReadResponse:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+      - status
+    MediaTypeF3fEnum:
+      enum:
+      - TEXT
+      - IMAGE
+      - VIDEO
+      type: string
+      description: |-
+        * `TEXT` - Text
+        * `IMAGE` - Image
+        * `VIDEO` - Video
+    Meeting:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        sender:
+          allOf:
+          - $ref: '#/components/schemas/CustomUser'
+          readOnly: true
+        receiver_details:
+          allOf:
+          - $ref: '#/components/schemas/CustomUser'
+          readOnly: true
+        visitor_name:
+          type: string
+          maxLength: 255
+        visitor_phone:
+          type: string
+          maxLength: 20
+        visit_date:
+          type: string
+          format: date
+        visit_time:
+          type: string
+          format: time
+        reason:
+          $ref: '#/components/schemas/ReasonEnum'
+        address_street:
+          type: string
+          maxLength: 255
+        city:
+          type: string
+          maxLength: 100
+        state:
+          type: string
+          maxLength: 100
+        zipcode:
+          type: string
+          maxLength: 20
+        message:
+          type: string
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/MeetingStatusEnum'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - address_street
+      - city
+      - created_at
+      - id
+      - reason
+      - receiver_details
+      - sender
+      - state
+      - status
+      - updated_at
+      - visit_date
+      - visit_time
+      - visitor_name
+      - visitor_phone
+      - zipcode
+    MeetingAcceptResponse:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+      - status
+    MeetingCancelResponse:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+      - status
+    MeetingCompleteResponse:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+      - status
+    MeetingFeedback:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        meeting:
+          type: string
+          format: uuid
+        reviewer:
+          allOf:
+          - $ref: '#/components/schemas/CustomUser'
+          readOnly: true
+        reviewee:
+          type: string
+          format: uuid
+        reviewee_details:
+          allOf:
+          - $ref: '#/components/schemas/CustomUser'
+          readOnly: true
+        rating:
+          type: number
+          format: double
+          nullable: true
+        feedback_text:
+          type: string
+        is_public:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - feedback_text
+      - id
+      - meeting
+      - reviewee
+      - reviewee_details
+      - reviewer
+      - updated_at
+    MeetingFeedbackRequest:
+      type: object
+      properties:
+        meeting:
+          type: string
+          format: uuid
+        reviewee:
+          type: string
+          format: uuid
+        rating:
+          type: number
+          format: double
+          nullable: true
+        feedback_text:
+          type: string
+          minLength: 1
+        is_public:
+          type: boolean
+      required:
+      - feedback_text
+      - meeting
+      - reviewee
+    MeetingRequest:
+      type: object
+      properties:
+        receiver_id:
+          type: string
+          format: uuid
+          writeOnly: true
+        visitor_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        visitor_phone:
+          type: string
+          minLength: 1
+          maxLength: 20
+        visit_date:
+          type: string
+          format: date
+        visit_time:
+          type: string
+          format: time
+        reason:
+          $ref: '#/components/schemas/ReasonEnum'
+        address_street:
+          type: string
+          minLength: 1
+          maxLength: 255
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        state:
+          type: string
+          minLength: 1
+          maxLength: 100
+        zipcode:
+          type: string
+          minLength: 1
+          maxLength: 20
+        message:
+          type: string
+          nullable: true
+      required:
+      - address_street
+      - city
+      - reason
+      - receiver_id
+      - state
+      - visit_date
+      - visit_time
+      - visitor_name
+      - visitor_phone
+      - zipcode
+    MeetingStatusEnum:
+      enum:
+      - PENDING
+      - ACCEPTED
+      - CANCELLED
+      - COMPLETED
+      type: string
+      description: |-
+        * `PENDING` - Pending
+        * `ACCEPTED` - Accepted
+        * `CANCELLED` - Cancelled
+        * `COMPLETED` - Completed
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        thread:
+          type: string
+          format: uuid
+          readOnly: true
+        sender:
+          allOf:
+          - $ref: '#/components/schemas/ParticipantUser'
+          readOnly: true
+        message_type:
+          $ref: '#/components/schemas/MessageTypeEnum'
+        text_content:
+          type: string
+          nullable: true
+        media_url:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 512
+        reply_to:
+          allOf:
+          - $ref: '#/components/schemas/ReplyPreview'
+          readOnly: true
+        is_read:
+          type: boolean
+          readOnly: true
+        is_edited:
+          type: boolean
+          readOnly: true
+        is_deleted_for_everyone:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - is_deleted_for_everyone
+      - is_edited
+      - is_read
+      - reply_to
+      - sender
+      - thread
+      - updated_at
+    MessageTypeEnum:
+      enum:
+      - TEXT
+      - IMAGE
+      - VIDEO
+      - AUDIO
+      - FILE
+      - SYSTEM
+      type: string
+      description: |-
+        * `TEXT` - Text
+        * `IMAGE` - Image
+        * `VIDEO` - Video
+        * `AUDIO` - Audio
+        * `FILE` - File
+        * `SYSTEM` - System
+    NearbyUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        first_name:
+          type: string
+          readOnly: true
+        last_name:
+          type: string
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+        user_type:
+          type: string
+          readOnly: true
+        distance:
+          type: string
+          readOnly: true
+        profile_picture:
+          type: string
+          readOnly: true
+      required:
+      - distance
+      - first_name
+      - id
+      - last_name
+      - profile_picture
+      - user_type
+      - username
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        body:
+          type: string
+          readOnly: true
+          nullable: true
+        data:
+          readOnly: true
+          nullable: true
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - body
+      - created_at
+      - data
+      - id
+      - title
+    NotificationRequest:
+      type: object
+      properties:
+        is_read:
+          type: boolean
+    NotificationSettings:
+      type: object
+      properties:
+        user:
+          type: string
+          format: uuid
+          readOnly: true
+        push_notifications:
+          type: boolean
+        email_notifications:
+          type: boolean
+        message_notifications:
+          type: boolean
+        friend_request_notifications:
+          type: boolean
+        like_notifications:
+          type: boolean
+        comment_notifications:
+          type: boolean
+        mention_notifications:
+          type: boolean
+        meetup_notifications:
+          type: boolean
+        vendor_post_notifications:
+          type: boolean
+        product_share_notifications:
+          type: boolean
+        product_interest_notifications:
+          type: boolean
+        system_notifications:
+          type: boolean
+        marketing_notifications:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - updated_at
+      - user
+    NotificationSettingsRequest:
+      type: object
+      properties:
+        push_notifications:
+          type: boolean
+        email_notifications:
+          type: boolean
+        message_notifications:
+          type: boolean
+        friend_request_notifications:
+          type: boolean
+        like_notifications:
+          type: boolean
+        comment_notifications:
+          type: boolean
+        mention_notifications:
+          type: boolean
+        meetup_notifications:
+          type: boolean
+        vendor_post_notifications:
+          type: boolean
+        product_share_notifications:
+          type: boolean
+        product_interest_notifications:
+          type: boolean
+        system_notifications:
+          type: boolean
+        marketing_notifications:
+          type: boolean
+    PaginatedBlogCommentList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlogComment'
+    PaginatedBlogListList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlogList'
+    PaginatedFriendRequestList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/FriendRequest'
+    PaginatedFriendshipList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Friendship'
+    PaginatedMeetingFeedbackList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MeetingFeedback'
+    PaginatedMeetingList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Meeting'
+    PaginatedNotificationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+    PaginatedPostCommentList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PostComment'
+    PaginatedPostListList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PostList'
+    PaginatedReportList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Report'
+    PaginatedSavedPostList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedPost'
+    PaginatedStoryListList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoryList'
+    PaginatedStoryReplyList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoryReply'
+    PaginatedStoryViewList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoryView'
+    ParticipantUser:
+      type: object
+      description: Lightweight user info for embedding inside thread/message responses.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+          nullable: true
+        first_name:
+          type: string
+          readOnly: true
+          nullable: true
+        last_name:
+          type: string
+          readOnly: true
+          nullable: true
+        avatar:
+          type: string
+          readOnly: true
+        is_online:
+          type: string
+          readOnly: true
+        last_seen:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - avatar
+      - first_name
+      - id
+      - is_online
+      - last_name
+      - last_seen
+      - username
+    PasswordResetDeliveryData:
+      type: object
+      properties:
+        delivery_method:
+          type: string
+      required:
+      - delivery_method
+    PatchedBlogDetailRequest:
+      type: object
+      description: Full detail serializer with SEO and tags.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        content_body:
+          type: string
+          minLength: 1
+          description: Markdown or HTML content
+        cover_image:
+          type: string
+          format: binary
+          nullable: true
+        category_id:
+          type: string
+          format: uuid
+          writeOnly: true
+        meta_title:
+          type: string
+          nullable: true
+          maxLength: 100
+        meta_description:
+          type: string
+          nullable: true
+          maxLength: 255
+        tags:
+          description: List of string tags for simple searching
+        is_published:
+          type: boolean
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+    PatchedFriendRequestRequest:
+      type: object
+      properties:
+        receiver:
+          type: string
+          format: uuid
+    PatchedMeetingFeedbackRequest:
+      type: object
+      properties:
+        meeting:
+          type: string
+          format: uuid
+        reviewee:
+          type: string
+          format: uuid
+        rating:
+          type: number
+          format: double
+          nullable: true
+        feedback_text:
+          type: string
+          minLength: 1
+        is_public:
+          type: boolean
+    PatchedMeetingRequest:
+      type: object
+      properties:
+        receiver_id:
+          type: string
+          format: uuid
+          writeOnly: true
+        visitor_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        visitor_phone:
+          type: string
+          minLength: 1
+          maxLength: 20
+        visit_date:
+          type: string
+          format: date
+        visit_time:
+          type: string
+          format: time
+        reason:
+          $ref: '#/components/schemas/ReasonEnum'
+        address_street:
+          type: string
+          minLength: 1
+          maxLength: 255
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        state:
+          type: string
+          minLength: 1
+          maxLength: 100
+        zipcode:
+          type: string
+          minLength: 1
+          maxLength: 20
+        message:
+          type: string
+          nullable: true
+    PatchedNotificationRequest:
+      type: object
+      properties:
+        is_read:
+          type: boolean
+    PatchedNotificationSettingsRequest:
+      type: object
+      properties:
+        push_notifications:
+          type: boolean
+        email_notifications:
+          type: boolean
+        message_notifications:
+          type: boolean
+        friend_request_notifications:
+          type: boolean
+        like_notifications:
+          type: boolean
+        comment_notifications:
+          type: boolean
+        mention_notifications:
+          type: boolean
+        meetup_notifications:
+          type: boolean
+        vendor_post_notifications:
+          type: boolean
+        product_share_notifications:
+          type: boolean
+        product_interest_notifications:
+          type: boolean
+        system_notifications:
+          type: boolean
+        marketing_notifications:
+          type: boolean
+    PatchedPetProfileRequest:
+      type: object
+      properties:
+        pet_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        pet_type:
+          type: string
+          minLength: 1
+          maxLength: 50
+        size:
+          type: string
+          minLength: 1
+          maxLength: 50
+        weight:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        weight_type:
+          $ref: '#/components/schemas/WeightTypeEnum'
+        date_of_birth:
+          type: string
+          format: date
+        vaccination_status:
+          type: string
+          minLength: 1
+          maxLength: 100
+        vaccination_document:
+          type: string
+          format: binary
+          nullable: true
+        vet_contact_number:
+          type: string
+          nullable: true
+          maxLength: 15
+        image:
+          type: string
+          format: binary
+          nullable: true
+    PatchedPostCommentRequest:
+      type: object
+      properties:
+        post:
+          type: string
+          format: uuid
+        parent_comment:
+          type: string
+          format: uuid
+          nullable: true
+        comment_text:
+          type: string
+          nullable: true
+        media_file:
+          type: string
+          format: binary
+          nullable: true
+    PatchedPostCreateUpdateRequest:
+      type: object
+      description: |-
+        Handles post creation/update input.
+        Media, mentions, and hashtags are handled by the service layer.
+        Full server-side MIME + size validation here.
+      properties:
+        content_text:
+          type: string
+          nullable: true
+        location_point:
+          type: string
+          nullable: true
+        privacy:
+          $ref: '#/components/schemas/Privacy968Enum'
+    PatchedProfileRequest:
+      type: object
+      description: Profile model serializer. Allows updating user first_name and last_name
+        also.
+      properties:
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        address_street:
+          type: string
+          nullable: true
+          maxLength: 255
+        city:
+          type: string
+          nullable: true
+          maxLength: 100
+        state:
+          type: string
+          nullable: true
+          maxLength: 100
+        zipcode:
+          type: string
+          nullable: true
+          maxLength: 20
+        location_point:
+          type: string
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        profile_picture:
+          type: string
+          format: binary
+          nullable: true
+        cover_photo:
+          type: string
+          format: binary
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+    PatchedUserRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        last_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        user_type:
+          $ref: '#/components/schemas/UserTypeEnum'
+        agree_to_terms_and_conditions:
+          type: boolean
+        is_patpal:
+          type: boolean
+        is_online:
+          type: boolean
+        last_active:
+          type: string
+          format: date-time
+          nullable: true
+    PetProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        user:
+          type: string
+          format: uuid
+          readOnly: true
+        pet_name:
+          type: string
+          maxLength: 100
+        pet_type:
+          type: string
+          maxLength: 50
+        size:
+          type: string
+          maxLength: 50
+        weight:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        weight_type:
+          $ref: '#/components/schemas/WeightTypeEnum'
+        date_of_birth:
+          type: string
+          format: date
+        vaccination_status:
+          type: string
+          maxLength: 100
+        vaccination_document:
+          type: string
+          format: uri
+          nullable: true
+        vet_contact_number:
+          type: string
+          nullable: true
+          maxLength: 15
+        image:
+          type: string
+          format: uri
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - date_of_birth
+      - id
+      - pet_name
+      - pet_type
+      - size
+      - updated_at
+      - user
+      - vaccination_status
+      - weight
+    PetProfileRequest:
+      type: object
+      properties:
+        pet_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        pet_type:
+          type: string
+          minLength: 1
+          maxLength: 50
+        size:
+          type: string
+          minLength: 1
+          maxLength: 50
+        weight:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        weight_type:
+          $ref: '#/components/schemas/WeightTypeEnum'
+        date_of_birth:
+          type: string
+          format: date
+        vaccination_status:
+          type: string
+          minLength: 1
+          maxLength: 100
+        vaccination_document:
+          type: string
+          format: binary
+          nullable: true
+        vet_contact_number:
+          type: string
+          nullable: true
+          maxLength: 15
+        image:
+          type: string
+          format: binary
+          nullable: true
+      required:
+      - date_of_birth
+      - pet_name
+      - pet_type
+      - size
+      - vaccination_status
+      - weight
+    PopularBlogResponse:
+      type: object
+      properties:
+        next:
+          type: string
+          format: uri
+          nullable: true
+        previous:
+          type: string
+          format: uri
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlogList'
+      required:
+      - results
+    PostComment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        post:
+          type: string
+          format: uuid
+        user:
+          allOf:
+          - $ref: '#/components/schemas/AuthorBasic'
+          readOnly: true
+        parent_comment:
+          type: string
+          format: uuid
+          nullable: true
+        comment_text:
+          type: string
+          nullable: true
+        media_file:
+          type: string
+          format: uri
+          nullable: true
+        is_edited:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        reply_count:
+          type: integer
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - is_edited
+      - post
+      - reply_count
+      - updated_at
+      - user
+    PostCommentRequest:
+      type: object
+      properties:
+        post:
+          type: string
+          format: uuid
+        parent_comment:
+          type: string
+          format: uuid
+          nullable: true
+        comment_text:
+          type: string
+          nullable: true
+        media_file:
+          type: string
+          format: binary
+          nullable: true
+      required:
+      - post
+    PostCreateUpdate:
+      type: object
+      description: |-
+        Handles post creation/update input.
+        Media, mentions, and hashtags are handled by the service layer.
+        Full server-side MIME + size validation here.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        content_text:
+          type: string
+          nullable: true
+        location_point:
+          type: string
+          nullable: true
+        privacy:
+          $ref: '#/components/schemas/Privacy968Enum'
+      required:
+      - id
+    PostCreateUpdateRequest:
+      type: object
+      description: |-
+        Handles post creation/update input.
+        Media, mentions, and hashtags are handled by the service layer.
+        Full server-side MIME + size validation here.
+      properties:
+        content_text:
+          type: string
+          nullable: true
+        location_point:
+          type: string
+          nullable: true
+        privacy:
+          $ref: '#/components/schemas/Privacy968Enum'
+    PostDetail:
+      type: object
+      description: Single post detail view with prefetched recent top-level comments.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        author:
+          allOf:
+          - $ref: '#/components/schemas/AuthorBasic'
+          readOnly: true
+        content_text:
+          type: string
+          nullable: true
+        location_point:
+          type: string
+          nullable: true
+        privacy:
+          $ref: '#/components/schemas/Privacy968Enum'
+        is_edited:
+          type: boolean
+        is_deleted:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        media:
+          type: array
+          items:
+            $ref: '#/components/schemas/PostMedia'
+          readOnly: true
+        hashtags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Hashtag'
+          readOnly: true
+        mentions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthorBasic'
+          readOnly: true
+        likes_count:
+          type: integer
+          readOnly: true
+        comments_count:
+          type: integer
+          readOnly: true
+        is_liked:
+          type: boolean
+          description: |-
+            Returns True if the current user has liked this post.
+            Uses prefetched `user_reactions` list — avoids any extra DB query.
+          readOnly: true
+        recent_comments:
+          type: string
+          readOnly: true
+      required:
+      - author
+      - comments_count
+      - created_at
+      - hashtags
+      - id
+      - is_liked
+      - likes_count
+      - media
+      - mentions
+      - recent_comments
+      - updated_at
+    PostList:
+      type: object
+      description: |-
+        Optimized for feed/list views.
+        - `is_liked` is derived from the `user_reactions` Prefetch attribute (zero extra DB hits).
+        - All nested objects are served from prefetch caches.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        author:
+          allOf:
+          - $ref: '#/components/schemas/AuthorBasic'
+          readOnly: true
+        content_text:
+          type: string
+          nullable: true
+        location_point:
+          type: string
+          nullable: true
+        privacy:
+          $ref: '#/components/schemas/Privacy968Enum'
+        is_edited:
+          type: boolean
+        is_deleted:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        media:
+          type: array
+          items:
+            $ref: '#/components/schemas/PostMedia'
+          readOnly: true
+        hashtags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Hashtag'
+          readOnly: true
+        mentions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthorBasic'
+          readOnly: true
+        likes_count:
+          type: integer
+          readOnly: true
+        comments_count:
+          type: integer
+          readOnly: true
+        is_liked:
+          type: boolean
+          description: |-
+            Returns True if the current user has liked this post.
+            Uses prefetched `user_reactions` list — avoids any extra DB query.
+          readOnly: true
+      required:
+      - author
+      - comments_count
+      - created_at
+      - hashtags
+      - id
+      - is_liked
+      - likes_count
+      - media
+      - mentions
+      - updated_at
+    PostMedia:
+      type: object
+      description: Exposes all three size variants + processing status.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        media_type:
+          $ref: '#/components/schemas/PostMediaMediaTypeEnum'
+        file:
+          type: string
+          format: uri
+        medium_file:
+          type: string
+          format: uri
+          nullable: true
+        thumbnail_file:
+          type: string
+          format: uri
+          nullable: true
+        processing_status:
+          allOf:
+          - $ref: '#/components/schemas/ProcessingStatusEnum'
+          readOnly: true
+        order:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - file
+      - id
+      - media_type
+      - processing_status
+    PostMediaMediaTypeEnum:
+      enum:
+      - IMAGE
+      - VIDEO
+      type: string
+      description: |-
+        * `IMAGE` - Image
+        * `VIDEO` - Video
+    PostReactionRequestRequest:
+      type: object
+      properties:
+        reaction_type:
+          type: string
+          minLength: 1
+          default: LIKE
+    PostReactionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        likes_count:
+          type: integer
+        id:
+          type: string
+          format: uuid
+      required:
+      - likes_count
+      - status
+    PostSaveResponse:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+      - status
+    Privacy968Enum:
+      enum:
+      - PUBLIC
+      - FRIENDS_ONLY
+      - PRIVATE
+      type: string
+      description: |-
+        * `PUBLIC` - Public
+        * `FRIENDS_ONLY` - Friends Only
+        * `PRIVATE` - Private
+    PrivacyA01Enum:
+      enum:
+      - PUBLIC
+      - FRIENDS_ONLY
+      type: string
+      description: |-
+        * `PUBLIC` - Public
+        * `FRIENDS_ONLY` - Friends Only
+    ProcessingStatusEnum:
+      enum:
+      - PENDING
+      - DONE
+      - FAILED
+      type: string
+      description: |-
+        * `PENDING` - Pending
+        * `DONE` - Done
+        * `FAILED` - Failed
+    Profile:
+      type: object
+      description: Profile model serializer. Allows updating user first_name and last_name
+        also.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        user:
+          type: string
+          format: uuid
+          readOnly: true
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        address_street:
+          type: string
+          nullable: true
+          maxLength: 255
+        city:
+          type: string
+          nullable: true
+          maxLength: 100
+        state:
+          type: string
+          nullable: true
+          maxLength: 100
+        zipcode:
+          type: string
+          nullable: true
+          maxLength: 20
+        location_point:
+          type: string
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        profile_picture:
+          type: string
+          format: uri
+          nullable: true
+        cover_photo:
+          type: string
+          format: uri
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        referral_code:
+          type: string
+          readOnly: true
+          nullable: true
+        referred_by:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - referral_code
+      - referred_by
+      - updated_at
+      - user
+    ProfileRequest:
+      type: object
+      description: Profile model serializer. Allows updating user first_name and last_name
+        also.
+      properties:
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        address_street:
+          type: string
+          nullable: true
+          maxLength: 255
+        city:
+          type: string
+          nullable: true
+          maxLength: 100
+        state:
+          type: string
+          nullable: true
+          maxLength: 100
+        zipcode:
+          type: string
+          nullable: true
+          maxLength: 20
+        location_point:
+          type: string
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        profile_picture:
+          type: string
+          format: binary
+          nullable: true
+        cover_photo:
+          type: string
+          format: binary
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+    Profile_Read:
+      type: object
+      description: Profile model serializer with read-only fields.
+      properties:
+        address_street:
+          type: string
+          readOnly: true
+          nullable: true
+        city:
+          type: string
+          readOnly: true
+          nullable: true
+        state:
+          type: string
+          readOnly: true
+          nullable: true
+        zipcode:
+          type: string
+          readOnly: true
+          nullable: true
+        location_point:
+          type: string
+          readOnly: true
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        profile_picture:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
+        cover_photo:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
+        bio:
+          type: string
+          readOnly: true
+          nullable: true
+        referral_code:
+          type: string
+          readOnly: true
+          nullable: true
+        referred_by:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+      required:
+      - address_street
+      - bio
+      - city
+      - cover_photo
+      - date_of_birth
+      - location_point
+      - profile_picture
+      - referral_code
+      - referred_by
+      - state
+      - zipcode
+    PublicUser:
+      type: object
+      description: |-
+        Serializer for public user profiles.
+        Hides sensitive data like email/phone and precise address.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        first_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        last_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        username:
+          type: string
+          nullable: true
+          maxLength: 150
+        user_type:
+          $ref: '#/components/schemas/UserTypeEnum'
+        bio:
+          type: string
+          readOnly: true
+        city:
+          type: string
+          readOnly: true
+        state:
+          type: string
+          readOnly: true
+        profile_picture:
+          type: string
+          readOnly: true
+        cover_photo:
+          type: string
+          readOnly: true
+        friendship_status:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - bio
+      - city
+      - cover_photo
+      - created_at
+      - friendship_status
+      - id
+      - profile_picture
+      - state
+    ReactionTypeEnum:
+      enum:
+      - LIKE
+      - LOVE
+      - HAHA
+      - SAD
+      - ANGRY
+      - WOW
+      type: string
+      description: |-
+        * `LIKE` - Like
+        * `LOVE` - Love
+        * `HAHA` - Haha
+        * `SAD` - Sad
+        * `ANGRY` - Angry
+        * `WOW` - Wow
+    ReasonEnum:
+      enum:
+      - Meet & Greet
+      - PetPal Visit
+      - Other
+      type: string
+      description: |-
+        * `Meet & Greet` - Meet & Greet
+        * `PetPal Visit` - PetPal Visit
+        * `Other` - Other
+    ReferralCodeRedeemRequest:
+      type: object
+      description: Redeem a referral code for the current user.
+      properties:
+        code:
+          type: string
+          minLength: 1
+      required:
+      - code
+    ReferralCodeVerifyRequest:
+      type: object
+      description: Verify if a referral code is valid.
+      properties:
+        code:
+          type: string
+          minLength: 1
+      required:
+      - code
+    ReferralDashboardResponse:
+      type: object
+      properties:
+        referral_code:
+          type: string
+        balance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        total_earned:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        joined_count:
+          type: integer
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReferralMember'
+      required:
+      - balance
+      - joined_count
+      - members
+      - referral_code
+      - total_earned
+    ReferralMember:
+      type: object
+      description: A single referred member (for the dashboard members list).
+      properties:
+        id:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        profile_picture:
+          type: string
+          readOnly: true
+      required:
+      - email
+      - first_name
+      - id
+      - last_name
+      - profile_picture
+    ReferralMyResponse:
+      type: object
+      properties:
+        referral_code:
+          type: string
+        referrer_points:
+          type: integer
+        referee_points:
+          type: integer
+        balance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        total_earned:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        joined_count:
+          type: integer
+      required:
+      - balance
+      - joined_count
+      - referee_points
+      - referral_code
+      - referrer_points
+      - total_earned
+    ReferralRedeemResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+      - message
+    ReferralTransaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        transaction_type:
+          allOf:
+          - $ref: '#/components/schemas/TransactionTypeEnum'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ReferralTransactionStatusEnum'
+          readOnly: true
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        note:
+          type: string
+          readOnly: true
+        related_user_name:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - amount
+      - created_at
+      - id
+      - note
+      - related_user_name
+      - status
+      - transaction_type
+    ReferralTransactionStatusEnum:
+      enum:
+      - pending
+      - completed
+      - failed
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `completed` - Completed
+        * `failed` - Failed
+    ReferralVerifyResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        referrer_name:
+          type: string
+      required:
+      - referrer_name
+      - valid
+    ReplyPreview:
+      type: object
+      description: Compact representation of the replied-to message.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        sender:
+          allOf:
+          - $ref: '#/components/schemas/ParticipantUser'
+          readOnly: true
+        message_type:
+          allOf:
+          - $ref: '#/components/schemas/MessageTypeEnum'
+          readOnly: true
+        text_content:
+          type: string
+          readOnly: true
+          nullable: true
+        media_url:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
+      required:
+      - id
+      - media_url
+      - message_type
+      - sender
+      - text_content
+    Report:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        reporter:
+          allOf:
+          - $ref: '#/components/schemas/AuthorBasic'
+          readOnly: true
+        target_type:
+          $ref: '#/components/schemas/TargetTypeEnum'
+        target_id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        is_resolved:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - is_resolved
+      - reason
+      - reporter
+      - target_id
+      - target_type
+    ReportRequest:
+      type: object
+      properties:
+        target_type:
+          $ref: '#/components/schemas/TargetTypeEnum'
+        target_id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+      required:
+      - reason
+      - target_id
+      - target_type
+    ReportResolveErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
+    ReportResolveResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
+    RequestPasswordResetRequest:
+      type: object
+      description: Validates password reset request.
+      properties:
+        email_or_phone:
+          type: string
+          minLength: 1
+      required:
+      - email_or_phone
+    RequestPasswordResetResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/PasswordResetDeliveryData'
+      required:
+      - data
+      - message
+      - success
+    ResendEmailOTPRequest:
+      type: object
+      description: Validates resend OTP request for email.
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+      required:
+      - email
+    ResendEmailOTPResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+      - message
+      - success
+    ResendOTPRequest:
+      type: object
+      description: Validates resend OTP request for phone.
+      properties:
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 15
+      required:
+      - phone
+    ResendPhoneOTPResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+      - message
+      - success
+    SavedPost:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        post:
+          allOf:
+          - $ref: '#/components/schemas/PostList'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - post
+    SendMessageRequest:
+      type: object
+      description: Input serializer for creating a new message.
+      properties:
+        message_type:
+          allOf:
+          - $ref: '#/components/schemas/MessageTypeEnum'
+          default: TEXT
+        text_content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        media_url:
+          type: string
+          format: uri
+          minLength: 1
+          maxLength: 512
+        reply_to_id:
+          type: string
+          format: uuid
+    SignupData:
+      type: object
+      properties:
+        user:
+          type: object
+          additionalProperties: {}
+        verification_type:
+          type: string
+      required:
+      - user
+      - verification_type
+    SignupRequest:
+      type: object
+      description: Validates signup data. Requires at least email or phone.
+      properties:
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          maxLength: 15
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        user_type:
+          type: string
+          minLength: 1
+          default: patnabor
+        agree_to_terms_and_conditions:
+          type: boolean
+          default: false
+        referred_by_code:
+          type: string
+          maxLength: 50
+      required:
+      - password
+    SignupResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/SignupData'
+      required:
+      - data
+      - message
+      - success
+    StoryAuthor:
+      type: object
+      description: Lightweight user embed — profile_picture sourced from related Profile.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        first_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        last_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        username:
+          type: string
+          nullable: true
+          maxLength: 150
+        profile_picture:
+          type: string
+          format: uri
+          readOnly: true
+      required:
+      - id
+      - profile_picture
+    StoryCreate:
+      type: object
+      description: |-
+        Input serializer for story creation.
+        Validates that the supplied fields match the chosen media_type:
+        - TEXT  → text_content required, media_url forbidden
+        - IMAGE/VIDEO → media_url required, text_content ignored
+      properties:
+        media_type:
+          $ref: '#/components/schemas/MediaTypeF3fEnum'
+        media:
+          type: string
+          format: uri
+          nullable: true
+        text_content:
+          type: string
+          nullable: true
+        bg_color:
+          type: string
+          nullable: true
+          description: CSS hex color or gradient token for text story background.
+          maxLength: 20
+        privacy:
+          $ref: '#/components/schemas/PrivacyA01Enum'
+    StoryCreateRequest:
+      type: object
+      description: |-
+        Input serializer for story creation.
+        Validates that the supplied fields match the chosen media_type:
+        - TEXT  → text_content required, media_url forbidden
+        - IMAGE/VIDEO → media_url required, text_content ignored
+      properties:
+        media_type:
+          $ref: '#/components/schemas/MediaTypeF3fEnum'
+        media:
+          type: string
+          format: binary
+          nullable: true
+        text_content:
+          type: string
+          nullable: true
+        bg_color:
+          type: string
+          nullable: true
+          description: CSS hex color or gradient token for text story background.
+          maxLength: 20
+        privacy:
+          $ref: '#/components/schemas/PrivacyA01Enum'
+    StoryDetail:
+      type: object
+      description: |-
+        Single-story detail view — adds reaction and reply counts.
+        Counts are computed from the DB (only used on retrieve, not feed lists).
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        author:
+          allOf:
+          - $ref: '#/components/schemas/StoryAuthor'
+          readOnly: true
+        media_type:
+          $ref: '#/components/schemas/MediaTypeF3fEnum'
+        media:
+          type: string
+          format: uri
+          nullable: true
+        text_content:
+          type: string
+          nullable: true
+        bg_color:
+          type: string
+          nullable: true
+          description: CSS hex color or gradient token for text story background.
+          maxLength: 20
+        privacy:
+          $ref: '#/components/schemas/PrivacyA01Enum'
+        views_count:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        is_viewed:
+          type: boolean
+          description: |-
+            Uses the `has_unseen` annotation (added by _annotate_story_queryset)
+            when present. Falls back to a DB query if annotation is missing.
+          readOnly: true
+        user_reaction:
+          type: string
+          nullable: true
+          description: Returns the requesting user's reaction type, or None.
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        reactions_count:
+          type: integer
+          readOnly: true
+        replies_count:
+          type: integer
+          readOnly: true
+      required:
+      - author
+      - created_at
+      - expires_at
+      - id
+      - is_viewed
+      - reactions_count
+      - replies_count
+      - user_reaction
+    StoryList:
+      type: object
+      description: |-
+        Optimised for feed/list views.
+
+        `is_viewed`    → from prefetched StoryView; no extra DB hit.
+        `user_reaction`→ from prefetched `user_reactions` attribute; no extra DB hit.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        author:
+          allOf:
+          - $ref: '#/components/schemas/StoryAuthor'
+          readOnly: true
+        media_type:
+          $ref: '#/components/schemas/MediaTypeF3fEnum'
+        media:
+          type: string
+          format: uri
+          nullable: true
+        text_content:
+          type: string
+          nullable: true
+        bg_color:
+          type: string
+          nullable: true
+          description: CSS hex color or gradient token for text story background.
+          maxLength: 20
+        privacy:
+          $ref: '#/components/schemas/PrivacyA01Enum'
+        views_count:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        is_viewed:
+          type: boolean
+          description: |-
+            Uses the `has_unseen` annotation (added by _annotate_story_queryset)
+            when present. Falls back to a DB query if annotation is missing.
+          readOnly: true
+        user_reaction:
+          type: string
+          nullable: true
+          description: Returns the requesting user's reaction type, or None.
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - author
+      - created_at
+      - expires_at
+      - id
+      - is_viewed
+      - user_reaction
+    StoryReaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        user:
+          allOf:
+          - $ref: '#/components/schemas/StoryAuthor'
+          readOnly: true
+        reaction_type:
+          $ref: '#/components/schemas/ReactionTypeEnum'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - user
+    StoryReactionCreateRequest:
+      type: object
+      description: Simple input-only serializer for reaction type validation.
+      properties:
+        reaction_type:
+          $ref: '#/components/schemas/ReactionTypeEnum'
+      required:
+      - reaction_type
+    StoryReactionRemoved:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+      - status
+    StoryReply:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        user:
+          allOf:
+          - $ref: '#/components/schemas/StoryAuthor'
+          readOnly: true
+        reply_text:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - reply_text
+      - user
+    StoryReplyRequestRequest:
+      type: object
+      properties:
+        reply_text:
+          type: string
+          minLength: 1
+      required:
+      - reply_text
+    StoryView:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        viewer:
+          allOf:
+          - $ref: '#/components/schemas/StoryAuthor'
+          readOnly: true
+        viewed_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - id
+      - viewed_at
+      - viewer
+    StoryViewResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        views_count:
+          type: integer
+        detail:
+          type: string
+      required:
+      - status
+      - views_count
+    SuggestedUser:
+      type: object
+      description: |-
+        Serializer for suggested friends.
+        Includes an additional mutual_friends_count field and score.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        first_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        last_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        username:
+          type: string
+          nullable: true
+          maxLength: 150
+        user_type:
+          $ref: '#/components/schemas/UserTypeEnum'
+        bio:
+          type: string
+          readOnly: true
+        city:
+          type: string
+          readOnly: true
+        state:
+          type: string
+          readOnly: true
+        profile_picture:
+          type: string
+          readOnly: true
+        cover_photo:
+          type: string
+          readOnly: true
+        friendship_status:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        mutual_friends_count:
+          type: integer
+          readOnly: true
+        score:
+          type: string
+          readOnly: true
+      required:
+      - bio
+      - city
+      - cover_photo
+      - created_at
+      - friendship_status
+      - id
+      - mutual_friends_count
+      - profile_picture
+      - score
+      - state
+    TargetTypeEnum:
+      enum:
+      - USER
+      - POST
+      - COMMENT
+      - STORY
+      - BLOG
+      - MEETING
+      type: string
+      description: |-
+        * `USER` - User
+        * `POST` - Post
+        * `COMMENT` - Comment
+        * `STORY` - Story
+        * `BLOG` - Blog
+        * `MEETING` - Meeting
+    ThreadTypeEnum:
+      enum:
+      - DIRECT
+      - GROUP
+      type: string
+      description: |-
+        * `DIRECT` - Direct
+        * `GROUP` - Group
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    TokenRefreshRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+      required:
+      - refresh
+    TransactionTypeEnum:
+      enum:
+      - signup_bonus
+      - referral_commission
+      - withdrawal
+      type: string
+      description: |-
+        * `signup_bonus` - Signup Bonus
+        * `referral_commission` - Referral Commission
+        * `withdrawal` - Withdrawal
+    UnblockUserResponse:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+      - status
+    UnfriendResponse:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+      - status
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+          nullable: true
+        phone:
+          type: string
+          readOnly: true
+          nullable: true
+        first_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        last_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        user_type:
+          $ref: '#/components/schemas/UserTypeEnum'
+        is_verified:
+          type: boolean
+          readOnly: true
+        is_email_verified:
+          type: boolean
+          readOnly: true
+        is_phone_verified:
+          type: boolean
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+        is_staff:
+          type: boolean
+          readOnly: true
+        is_superuser:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        agree_to_terms_and_conditions:
+          type: boolean
+        is_patpal:
+          type: boolean
+        is_online:
+          type: boolean
+        last_active:
+          type: string
+          format: date-time
+          nullable: true
+        firebase_uid:
+          type: string
+          readOnly: true
+          nullable: true
+        profile:
+          allOf:
+          - $ref: '#/components/schemas/Profile_Read'
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - email
+      - firebase_uid
+      - id
+      - is_active
+      - is_email_verified
+      - is_phone_verified
+      - is_staff
+      - is_superuser
+      - is_verified
+      - phone
+      - profile
+      - updated_at
+      - username
+    UserActionRequest:
+      type: object
+      description: Used for actions requiring just a user_id like unfriend, block,
+        unblock
+      properties:
+        user_id:
+          type: string
+          format: uuid
+      required:
+      - user_id
+    UserBlock:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        blocker:
+          type: string
+          format: uuid
+          readOnly: true
+        blocked_user:
+          type: string
+          format: uuid
+        blocked_user_details:
+          allOf:
+          - $ref: '#/components/schemas/NearbyUser'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - blocked_user
+      - blocked_user_details
+      - blocker
+      - created_at
+      - id
+    UserRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        last_name:
+          type: string
+          nullable: true
+          maxLength: 150
+        user_type:
+          $ref: '#/components/schemas/UserTypeEnum'
+        agree_to_terms_and_conditions:
+          type: boolean
+        is_patpal:
+          type: boolean
+        is_online:
+          type: boolean
+        last_active:
+          type: string
+          format: date-time
+          nullable: true
+    UserTypeEnum:
+      enum:
+      - patnabor
+      - patpal
+      - vendor
+      - admin
+      type: string
+      description: |-
+        * `patnabor` - Patnabor
+        * `patpal` - Patpal
+        * `vendor` - Vendor
+        * `admin` - Admin
+    VerifyEmailData:
+      type: object
+      properties:
+        user:
+          type: object
+          additionalProperties: {}
+      required:
+      - user
+    VerifyEmailOTPRequest:
+      type: object
+      description: Validates email OTP verification request.
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        otp_code:
+          type: string
+          minLength: 4
+          maxLength: 6
+      required:
+      - email
+      - otp_code
+    VerifyEmailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/VerifyEmailData'
+      required:
+      - data
+      - message
+      - success
+    VerifyPhoneData:
+      type: object
+      properties:
+        user:
+          type: object
+          additionalProperties: {}
+      required:
+      - user
+    VerifyPhoneOTPRequest:
+      type: object
+      description: Validates phone OTP verification request.
+      properties:
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 15
+        otp_code:
+          type: string
+          minLength: 4
+          maxLength: 6
+      required:
+      - otp_code
+      - phone
+    VerifyPhoneResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/VerifyPhoneData'
+      required:
+      - data
+      - message
+      - success
+    WeightTypeEnum:
+      enum:
+      - kg
+      - lb
+      type: string
+      description: |-
+        * `kg` - Kilograms
+        * `lb` - Pounds
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

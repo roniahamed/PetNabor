@@ -143,7 +143,26 @@ class StoryViewSet(viewsets.ModelViewSet):
 
     # ── Feed ──────────────────────────────────────────────────────────────
 
-    @extend_schema(responses=StoryListSerializer(many=True))
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="cursor",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Cursor token for loading the next page of stories.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of stories per page.",
+                required=False,
+                default=12,
+            ),
+        ],
+        responses=StoryListSerializer(many=True)
+    )
     @action(detail=False, methods=["get"])
     def feed(self, request):
         """GET /stories/feed/ — stories from friends + self, unseen-first."""
@@ -159,7 +178,28 @@ class StoryViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         parameters=[
-            OpenApiParameter('user_id', OpenApiTypes.UUID, description='UUID of the user whose stories to fetch', required=True)
+            OpenApiParameter(
+                name="user_id",
+                type=OpenApiTypes.UUID,
+                location=OpenApiParameter.QUERY,
+                description="User ID whose active stories will be returned.",
+                required=True,
+            ),
+            OpenApiParameter(
+                name="cursor",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Cursor token for loading the next page.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of stories per page.",
+                required=False,
+                default=12,
+            ),
         ],
         responses=StoryListSerializer(many=True)
     )
@@ -229,7 +269,26 @@ class StoryViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
-    @extend_schema(responses=StoryViewSerializer(many=True))
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="cursor",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Cursor token for loading the next page of viewers.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of viewers per page.",
+                required=False,
+                default=20,
+            ),
+        ],
+        responses=StoryViewSerializer(many=True)
+    )
     @action(detail=True, methods=["get"])
     def viewers(self, request, pk=None):
         """GET /stories/{id}/viewers/ — viewers list; only the author may call this."""
@@ -292,6 +351,23 @@ class StoryViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         methods=["GET"],
+        parameters=[
+            OpenApiParameter(
+                name="cursor",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Cursor token for loading the next page of replies.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of replies per page.",
+                required=False,
+                default=12,
+            ),
+        ],
         responses=StoryReplySerializer(many=True)
     )
     @extend_schema(

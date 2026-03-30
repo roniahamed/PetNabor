@@ -47,6 +47,24 @@ class ThreadListCreateView(views.APIView):
 
     @extend_schema(
         operation_id='messaging_thread_list',
+        parameters=[
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Page number for inbox results.",
+                required=False,
+                default=1,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of threads per page.",
+                required=False,
+                default=20,
+            ),
+        ],
         responses=ChatThreadSerializer(many=True)
     )
     def get(self, request):
@@ -151,7 +169,14 @@ class ThreadDetailView(views.APIView):
 
     @extend_schema(
         parameters=[
-            OpenApiParameter('everyone', OpenApiTypes.BOOL, description='Delete thread for everyone (Admin only)')
+            OpenApiParameter(
+                name="everyone",
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                description="Set true to delete the thread for all participants (admin only).",
+                required=False,
+                default=False,
+            )
         ],
         responses={
             204: None,
@@ -196,6 +221,23 @@ class MessageListCreateView(views.APIView):
     throttle_scope = "messaging_send"
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="cursor",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Cursor token for loading the next page of messages.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of messages per page.",
+                required=False,
+                default=30,
+            ),
+        ],
         responses=MessageSerializer(many=True)
     )
     def get(self, request, thread_id):

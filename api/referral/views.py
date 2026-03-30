@@ -84,7 +84,14 @@ class ReferralDashboardView(APIView):
 
     @extend_schema(
         parameters=[
-            OpenApiParameter('q', OpenApiTypes.STR, description='Search by name or email'),
+            OpenApiParameter(
+                name='q',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='Search referred members by name or email.',
+                required=False,
+                default='',
+            ),
         ],
         responses={200: inline_serializer(
             name='ReferralDashboardResponse',
@@ -143,6 +150,24 @@ class ReferralTransactionListView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name='page',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description='Page number for transaction history.',
+                required=False,
+                default=1,
+            ),
+            OpenApiParameter(
+                name='page_size',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description='Number of transactions per page.',
+                required=False,
+                default=20,
+            ),
+        ],
         responses=ReferralTransactionSerializer(many=True),
     )
     def get(self, request):

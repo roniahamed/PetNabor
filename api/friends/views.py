@@ -5,7 +5,13 @@ from rest_framework import viewsets, status, generics, views, serializers
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
-from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter, OpenApiTypes
+from drf_spectacular.utils import (
+    extend_schema,
+    extend_schema_view,
+    inline_serializer,
+    OpenApiParameter,
+    OpenApiTypes,
+)
 from rest_framework.exceptions import ValidationError, NotFound, PermissionDenied
 from django.db.models import Q
 
@@ -48,6 +54,36 @@ class UnfriendView(views.APIView):
             return Response({'error': err_msg}, status=status.HTTP_404_NOT_FOUND)
 
 
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="type",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Filter request direction.",
+                required=False,
+                enum=["sent", "received"],
+            ),
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Page number for paginated results.",
+                required=False,
+                default=1,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of requests per page.",
+                required=False,
+                default=20,
+            ),
+        ]
+    )
+)
 class FriendRequestViewSet(viewsets.ModelViewSet):
     serializer_class = FriendRequestSerializer
     permission_classes = [IsAuthenticated]
@@ -129,6 +165,24 @@ class BlockUserView(views.APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Page number for blocked users.",
+                required=False,
+                default=1,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of blocked users per page.",
+                required=False,
+                default=20,
+            ),
+        ],
         responses=UserBlockSerializer(many=True),
     )
     def get(self, request):
@@ -182,6 +236,36 @@ class BlockUserView(views.APIView):
              return Response({'error': err_msg}, status=status.HTTP_404_NOT_FOUND)
 
 
+@extend_schema_view(
+    get=extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="type",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Filter friends by user group.",
+                required=False,
+                enum=["petpals", "petnabors"],
+            ),
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Page number for paginated results.",
+                required=False,
+                default=1,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of friends per page.",
+                required=False,
+                default=20,
+            ),
+        ]
+    )
+)
 class FriendListView(generics.ListAPIView):
     serializer_class = FriendshipSerializer
     permission_classes = [IsAuthenticated]
@@ -233,12 +317,67 @@ class UserSearchView(views.APIView):
 
     @extend_schema(
         parameters=[
-            OpenApiParameter("q", OpenApiTypes.STR, description="Search query"),
-            OpenApiParameter("type", OpenApiTypes.STR, description="User type (e.g. patpal, patnabor)"),
-            OpenApiParameter("radius", OpenApiTypes.INT, description="Search radius in miles"),
-            OpenApiParameter("include_friends", OpenApiTypes.BOOL, description="Include existing friends"),
-            OpenApiParameter("city", OpenApiTypes.STR, description="City name"),
-            OpenApiParameter("state", OpenApiTypes.STR, description="State code"),
+            OpenApiParameter(
+                name="q",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Search keyword for nearby users.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="type",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="User type filter.",
+                required=False,
+                enum=["patpal", "patnabor"],
+            ),
+            OpenApiParameter(
+                name="radius",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Distance radius in miles.",
+                required=False,
+                default=25,
+            ),
+            OpenApiParameter(
+                name="include_friends",
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                description="Include already-friended users.",
+                required=False,
+                default=False,
+            ),
+            OpenApiParameter(
+                name="city",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="City-based filter.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="state",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="State or region filter.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Page number for paginated results.",
+                required=False,
+                default=1,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of results per page.",
+                required=False,
+                default=20,
+            ),
         ],
         responses=NearbyUserSerializer(many=True),
     )
@@ -299,6 +438,32 @@ class SuggestedFriendsView(views.APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="limit",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Maximum suggestions to return.",
+                required=False,
+                default=20,
+            ),
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Page number for paginated results.",
+                required=False,
+                default=1,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of suggestions per page.",
+                required=False,
+                default=20,
+            ),
+        ],
         responses=SuggestedUserSerializer(many=True),
         tags=["friends"]
     )

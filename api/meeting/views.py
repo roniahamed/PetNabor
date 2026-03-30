@@ -2,7 +2,7 @@ from rest_framework import viewsets, permissions, status, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter, OpenApiTypes
 from django.db.models import Q
 from django.utils import timezone
 from django.contrib.auth import get_user_model
@@ -40,7 +40,27 @@ class MeetingViewSet(viewsets.ModelViewSet):
 
         serializer.save(sender=sender)
 
-    @extend_schema(responses=MeetingSerializer(many=True))
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Page number for upcoming meetings.",
+                required=False,
+                default=1,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of upcoming meetings per page.",
+                required=False,
+                default=20,
+            ),
+        ],
+        responses=MeetingSerializer(many=True)
+    )
     @action(detail=False, methods=['get'])
     def upcoming(self, request):
         today = timezone.localdate()
@@ -55,7 +75,27 @@ class MeetingViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(meetings, many=True)
         return Response(serializer.data)
 
-    @extend_schema(responses=MeetingSerializer(many=True))
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Page number for previous meetings.",
+                required=False,
+                default=1,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of previous meetings per page.",
+                required=False,
+                default=20,
+            ),
+        ],
+        responses=MeetingSerializer(many=True)
+    )
     @action(detail=False, methods=['get'])
     def previous(self, request):
         today = timezone.localdate()
@@ -151,7 +191,27 @@ class MeetingFeedbackViewSet(viewsets.ModelViewSet):
 
         serializer.save(reviewer=reviewer)
 
-    @extend_schema(responses=MeetingFeedbackSerializer(many=True))
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Page number for feedback results.",
+                required=False,
+                default=1,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of feedback records per page.",
+                required=False,
+                default=20,
+            ),
+        ],
+        responses=MeetingFeedbackSerializer(many=True)
+    )
     @action(detail=False, methods=['get'], url_path='user/(?P<user_id>[^/.]+)')
     def user_feedbacks(self, request, user_id=None):
         """

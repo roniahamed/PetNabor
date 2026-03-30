@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, viewsets, serializers
 from rest_framework.decorators import action
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter, OpenApiTypes
 from .paginations import NotificationPagination
 
 from .serializers import (
@@ -100,6 +100,30 @@ class NotificationViewSet(viewsets.ModelViewSet):
         return Notifications.objects.filter(user=self.request.user).order_by(
             "-created_at"
         )
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Page number for notifications.",
+                required=False,
+                default=1,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of notifications per page.",
+                required=False,
+                default=20,
+            ),
+        ],
+        responses=NotificationSerializer(many=True)
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
     @extend_schema(
         request=None,

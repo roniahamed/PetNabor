@@ -15,7 +15,13 @@ from rest_framework import filters, generics, permissions, status, viewsets, ser
 from rest_framework.decorators import action
 from rest_framework.pagination import CursorPagination
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import (
+    extend_schema,
+    extend_schema_view,
+    inline_serializer,
+    OpenApiParameter,
+    OpenApiTypes,
+)
 
 
 from django.db.models import Prefetch
@@ -50,6 +56,34 @@ class FeedCursorPagination(CursorPagination):
 # ──────────────────────────────────────────────
 
 
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="search",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Search by post text, hashtag, or mentioned username.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="cursor",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Cursor token for the next page.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of posts per page.",
+                required=False,
+                default=20,
+            ),
+        ]
+    )
+)
 class PostViewSet(viewsets.ModelViewSet):
     """
     CRUD for Posts.
@@ -150,7 +184,26 @@ class PostViewSet(viewsets.ModelViewSet):
 
     # ── Feed ──────────────────────────────────────────────────────────
 
-    @extend_schema(responses=PostListSerializer(many=True))
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="cursor",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Cursor token for feed pagination.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of feed posts per page.",
+                required=False,
+                default=20,
+            ),
+        ],
+        responses=PostListSerializer(many=True)
+    )
     @action(detail=False, methods=["get"])
     def feed(self, request):
         """
@@ -259,6 +312,35 @@ class PostCommentViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsCommentAuthorOrPostAuthor]
     pagination_class = FeedCursorPagination
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="post_id",
+                type=OpenApiTypes.UUID,
+                location=OpenApiParameter.QUERY,
+                description="Filter comments for a specific post.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="cursor",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Cursor token for the next page.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of comments per page.",
+                required=False,
+                default=20,
+            ),
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
     def get_queryset(self):
         post_id = self.request.query_params.get("post_id")
         qs = PostComment.objects.select_related("user", "user__profile").filter(
@@ -282,7 +364,26 @@ class PostCommentViewSet(viewsets.ModelViewSet):
         """Permission class handles ownership check — just call the service."""
         CommentService.delete_comment(instance)
 
-    @extend_schema(responses=PostCommentSerializer(many=True))
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="cursor",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Cursor token for replies pagination.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of replies per page.",
+                required=False,
+                default=20,
+            ),
+        ],
+        responses=PostCommentSerializer(many=True)
+    )
     @action(detail=True, methods=["get"])
     def replies(self, request, pk=None):
         """Paginated replies for a specific parent comment — select_related added."""
@@ -307,6 +408,28 @@ class SavedPostViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = SavedPostSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = FeedCursorPagination
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="cursor",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Cursor token for the next page.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of saved posts per page.",
+                required=False,
+                default=20,
+            ),
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
         return (
@@ -336,6 +459,28 @@ class UserPostListView(generics.ListAPIView):
     serializer_class = PostListSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = FeedCursorPagination
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="cursor",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Cursor token for the next page.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of posts per page.",
+                required=False,
+                default=20,
+            ),
+        ]
+    )
+    def get(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
 
     def get_queryset(self):
         user_id = self.kwargs["user_id"]
