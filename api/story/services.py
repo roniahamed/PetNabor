@@ -20,6 +20,7 @@ from api.friends.models import Friendship
 from api.users.models import User
 from .models import (
     Story,
+    StoryMediaTypeChoices,
     StoryPrivacyChoices,
     StoryReaction,
     StoryReply,
@@ -62,6 +63,12 @@ class StoryService:
             privacy=data.get("privacy", StoryPrivacyChoices.PUBLIC),
             expires_at=timezone.now() + expiry_delta,
         )
+
+        if story.media_type == StoryMediaTypeChoices.IMAGE and story.media:
+            from .tasks import process_story_media_task
+
+            process_story_media_task.delay(str(story.id))
+
         return story
 
     @staticmethod
