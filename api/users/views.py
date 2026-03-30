@@ -489,3 +489,14 @@ class ProfileDetailView(RetrieveUpdateAPIView):
             profile.referral_code = _unique_referral_code()
             profile.save(update_fields=["referral_code"])
         return profile
+
+    def perform_update(self, serializer):
+        profile = serializer.save()
+
+        from .tasks import process_profile_media_task
+
+        if "profile_picture" in self.request.FILES:
+            process_profile_media_task.delay(str(profile.id), "profile_picture")
+
+        if "cover_photo" in self.request.FILES:
+            process_profile_media_task.delay(str(profile.id), "cover_photo")
