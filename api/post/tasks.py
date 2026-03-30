@@ -20,7 +20,8 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from PIL import Image
 
-from .models import PostMedia, MediaTypeChoices, MediaProcessingStatus
+from api.media_utils import compress_image_to_webp
+from .models import PostMedia, PostComment, MediaTypeChoices, MediaProcessingStatus
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,10 @@ def process_post_media_task(self, media_ids: list) -> dict:
             continue
 
         try:
+            old_main_name = media.file.name
+            old_medium_name = media.medium_file.name if media.medium_file else None
+            old_thumb_name = media.thumbnail_file.name if media.thumbnail_file else None
+
             # ── 1. Open & verify it is a real image ─────────────────
             media.file.open("rb")
             img = Image.open(media.file)
@@ -118,6 +123,14 @@ def process_post_media_task(self, media_ids: list) -> dict:
                 ]
             )
 
+            # Remove replaced older files after DB now points to the new paths.
+            if old_main_name and old_main_name != media.file.name:
+                media.file.storage.delete(old_main_name)
+            if old_medium_name and old_medium_name != media.medium_file.name:
+                media.medium_file.storage.delete(old_medium_name)
+            if old_thumb_name and old_thumb_name != media.thumbnail_file.name:
+                media.thumbnail_file.storage.delete(old_thumb_name)
+
             results["processed"].append(str(media.id))
             logger.info("PostMedia %s processed successfully.", media.id)
 
@@ -149,3 +162,31 @@ def process_post_media_task(self, media_ids: list) -> dict:
                 pass
 
     return results
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=10)
+def process_post_comment_media_task(self, comment_id: str):
+    """Compress post comment media asynchronously and remove replaced old file."""
+    try:
+        comment = PostComment.objects.get(id=comment_id)
+    except PostComment.DoesNotExist:
+        logger.error("PostComment %s not found for media processing.", comment_id)
+        return
+
+    if not comment.media_file:
+        return
+
+    old_name = comment.media_file.name
+    compressed = compress_image_to_webp(comment.media_file)
+    if not compressed:
+        return
+
+    try:
+        comment.media_file.save(compressed.name, compressed, save=False)
+        comment.save(update_fields=["media_file"])
+
+        if old_name and old_name != comment.media_file.name:
+            comment.media_file.storage.delete(old_name)
+    except Exception as exc:
+        logger.exception("Failed to process comment media for %s: %s", comment_id, exc)
+        raise self.retry(exc=exc)

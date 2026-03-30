@@ -354,6 +354,11 @@ class CommentService:
         """Creates a comment and increments the correct counters atomically."""
         comment = PostComment.objects.create(user=user, **validated_data)
 
+        if comment.media_file:
+            from .tasks import process_post_comment_media_task
+
+            process_post_comment_media_task.delay(str(comment.id))
+
         # Always increment post comment count
         Post.objects.filter(id=comment.post_id).update(
             comments_count=F("comments_count") + 1
