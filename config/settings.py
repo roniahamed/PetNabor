@@ -476,3 +476,9 @@ POST_ALLOWED_MIME_TYPES = POST_ALLOWED_IMAGE_MIME | POST_ALLOWED_VIDEO_MIME
 
 # Story Settings (expiry duration in hours)
 STORY_EXPIRY_HOURS: int = int(os.getenv("STORY_EXPIRY_HOURS", "24"))
+
+# File Upload Settings
+# Keep 5GB upload option enabled.
+FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("FILE_UPLOAD_MAX_MEMORY_SIZE_MB", "5000")) * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("DATA_UPLOAD_MAX_MEMORY_SIZE_MB", "5000")) * 1024 * 1024
+FILE_UPLOAD_TEMP_DIR = os.path.join(BASE_DIR, "tmp_uploads")
