@@ -17,6 +17,7 @@ class NearbyUserSerializer(serializers.Serializer):
     user_type = serializers.CharField(read_only=True)
     distance = serializers.SerializerMethodField()
     profile_picture = serializers.SerializerMethodField()
+    location_point = serializers.SerializerMethodField()
 
     def get_distance(self, obj):
         distance = getattr(obj, "distance", None)
@@ -35,6 +36,16 @@ class NearbyUserSerializer(serializers.Serializer):
             if request:
                 return request.build_absolute_uri(obj.profile.profile_picture.url)
             return obj.profile.profile_picture.url
+        return None
+
+    def get_location_point(self, obj):
+        """Returns [longitude, latitude] rounded to 6 decimal places."""
+        try:
+            point = obj.profile.location_point
+            if point:
+                return [round(point.x, 6), round(point.y, 6)]
+        except Exception:
+            pass
         return None
 
 
