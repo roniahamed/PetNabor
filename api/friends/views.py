@@ -24,7 +24,8 @@ from .serializers import (
     UserActionSerializer,
     CreateFriendRequestSerializer,
     PublicUserSerializer,
-    SuggestedUserSerializer
+    SuggestedUserSerializer,
+    MapNearbyUserSerializer,
 )
 from django.contrib.auth import get_user_model
 from . import services
@@ -489,3 +490,218 @@ class SuggestedFriendsView(views.APIView):
         # Fallback if pagination fails or is disabled
         serializer = SuggestedUserSerializer(suggestions_queryset[:limit], many=True, context={'request': request})
         return Response(serializer.data)
+
+
+class MapNearbyUsersView(views.APIView):
+    """
+    Dual-mode Map Search API.
+
+    ── MODE 1: Circle Search (lat + lng + radius) ───────────────────────────
+    Client drops a pin on the map.
+    Returns paginated users within `radius` miles, ordered nearest-first.
+    Use this for the "list view" panel next to the map.
+
+    ── MODE 2: Viewport Search (bbox) ───────────────────────────────────────
+    Client sends the 4 corners of the visible map area.
+    Returns ALL users inside that rectangle (no pages — just a limit cap).
+    Re-call this on every map pan/zoom with the new viewport bounds.
+    Use this to render pins directly on the map.
+
+    Both modes return each user's latitude & longitude so the frontend
+    can place pins, and friendship_status so action buttons can be shown.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Find users near a map location (circle or viewport mode)",
+        description=(
+            "**Circle mode** (`lat` + `lng` + `radius`): paginated list of users "
+            "within the radius. Good for a side-panel list.\n\n"
+            "**Viewport mode** (`bbox`): pass `bbox=minLng,minLat,maxLng,maxLat` "
+            "(the visible map bounds). Returns ALL users in the viewport up to "
+            "`limit` (max 500). No pages — re-fetch on every pan/zoom."
+        ),
+        parameters=[
+            # ── Circle mode params ──────────────────────────────────────────
+            OpenApiParameter(
+                name="lat",
+                type=OpenApiTypes.FLOAT,
+                location=OpenApiParameter.QUERY,
+                description="[Circle mode] Latitude of the dropped pin (WGS-84).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="lng",
+                type=OpenApiTypes.FLOAT,
+                location=OpenApiParameter.QUERY,
+                description="[Circle mode] Longitude of the dropped pin (WGS-84).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="radius",
+                type=OpenApiTypes.FLOAT,
+                location=OpenApiParameter.QUERY,
+                description="[Circle mode] Radius in miles. Default 25.",
+                required=False,
+                default=25,
+            ),
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="[Circle mode] Page number for paginated results.",
+                required=False,
+                default=1,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="[Circle mode] Results per page (max 100).",
+                required=False,
+                default=20,
+            ),
+            # ── Viewport mode params ────────────────────────────────────────
+            OpenApiParameter(
+                name="bbox",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "[Viewport mode] Visible map bounds as `minLng,minLat,maxLng,maxLat`. "
+                    "Example: `bbox=90.35,23.75,90.47,23.87`. "
+                    "When present, lat/lng/radius are ignored."
+                ),
+                required=False,
+            ),
+            OpenApiParameter(
+                name="limit",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="[Viewport mode] Max pins to return (default 300, max 500).",
+                required=False,
+                default=300,
+            ),
+            # ── Shared params ───────────────────────────────────────────────
+            OpenApiParameter(
+                name="type",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Filter by user type.",
+                required=False,
+                enum=["patpal", "patnabor"],
+            ),
+            OpenApiParameter(
+                name="search",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Text search on first name, last name, or username.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="include_friends",
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                description="Include already-friended users. Default true.",
+                required=False,
+                default=True,
+            ),
+        ],
+        responses=MapNearbyUserSerializer(many=True),
+        tags=["friends"],
+    )
+    def get(self, request):
+        # ── Shared optional filters ───────────────────────────────────────────
+        raw_type        = request.query_params.get("type", "")
+        user_type       = raw_type if raw_type in ("patpal", "patnabor") else None
+        search_query    = request.query_params.get("search", "").strip()
+        include_friends = request.query_params.get("include_friends", "true").lower() == "true"
+
+        # ════════════════════════════════════════════════════════════════════
+        # MODE 2 — Viewport / BBox  (triggered when `bbox` param is present)
+        # ════════════════════════════════════════════════════════════════════
+        bbox_raw = request.query_params.get("bbox", "").strip()
+        if bbox_raw:
+            try:
+                min_lng, min_lat, max_lng, max_lat = [float(v) for v in bbox_raw.split(",")]
+            except (ValueError, TypeError):
+                return Response(
+                    {"error": "`bbox` must be `minLng,minLat,maxLng,maxLat` — e.g. `90.35,23.75,90.47,23.87`."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Validate bounds
+            if not (-90 <= min_lat <= 90 and -90 <= max_lat <= 90):
+                return Response({"error": "Latitude values must be between -90 and 90."}, status=status.HTTP_400_BAD_REQUEST)
+            if not (-180 <= min_lng <= 180 and -180 <= max_lng <= 180):
+                return Response({"error": "Longitude values must be between -180 and 180."}, status=status.HTTP_400_BAD_REQUEST)
+            if min_lat >= max_lat or min_lng >= max_lng:
+                return Response({"error": "`min_lat` < `max_lat` and `min_lng` < `max_lng` required."}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                limit = min(int(request.query_params.get("limit", 300)), 500)
+            except (ValueError, TypeError):
+                limit = 300
+
+            # No pagination — return all pins in viewport up to limit
+            results = services.get_users_in_bbox(
+                current_user=request.user,
+                min_lat=min_lat,
+                max_lat=max_lat,
+                min_lng=min_lng,
+                max_lng=max_lng,
+                user_type=user_type,
+                search_query=search_query,
+                include_friends=include_friends,
+                limit=limit,
+            )
+            serializer = MapNearbyUserSerializer(results, many=True, context={"request": request})
+            return Response({
+                "mode": "viewport",
+                "count": len(serializer.data),
+                "results": serializer.data,
+            })
+
+        # ════════════════════════════════════════════════════════════════════
+        # MODE 1 — Circle Search  (lat + lng + radius, paginated)
+        # ════════════════════════════════════════════════════════════════════
+        try:
+            latitude  = float(request.query_params["lat"])
+            longitude = float(request.query_params["lng"])
+        except (KeyError, ValueError, TypeError):
+            return Response(
+                {"error": "Provide either `bbox` (viewport mode) or `lat`+`lng` (circle mode)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
+            return Response(
+                {"error": "`lat` must be -90..90 and `lng` must be -180..180."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            radius = float(request.query_params.get("radius", 25))
+            if radius <= 0:
+                radius = 25.0
+        except (ValueError, TypeError):
+            radius = 25.0
+
+        queryset = services.get_users_near_map_point(
+            current_user=request.user,
+            latitude=latitude,
+            longitude=longitude,
+            radius=radius,
+            user_type=user_type,
+            search_query=search_query,
+            include_friends=include_friends,
+        )
+
+        paginator = StandardResultsSetPagination()
+        page      = paginator.paginate_queryset(queryset, request)
+        if page is not None:
+            serializer = MapNearbyUserSerializer(page, many=True, context={"request": request})
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = MapNearbyUserSerializer(queryset, many=True, context={"request": request})
+        return Response(serializer.data)
+

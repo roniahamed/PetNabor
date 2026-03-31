@@ -207,3 +207,91 @@ class SuggestedUserSerializer(PublicUserSerializer):
         # algorithm, so it's always 'none'. This avoids 3 N+1 queries per user.
         return "none"
 
+
+class MapNearbyUserSerializer(serializers.Serializer):
+    """
+    Serializer for users returned by the map-point search API.
+
+    Includes:
+    - Basic identity fields (id, name, username, user_type)
+    - Profile picture URL
+    - City / state (shown on user card on the map)
+    - distance_mi  : float distance in miles from the queried map point
+    - latitude     : user's stored latitude  (so the client can plot a pin)
+    - longitude    : user's stored longitude
+    - friendship_status: none | friends | request_sent | request_received | self
+    """
+    id               = serializers.UUIDField(read_only=True)
+    first_name       = serializers.CharField(read_only=True)
+    last_name        = serializers.CharField(read_only=True)
+    username         = serializers.CharField(read_only=True)
+    user_type        = serializers.CharField(read_only=True)
+    bio              = serializers.CharField(source="profile.bio", read_only=True, default=None)
+    city             = serializers.CharField(source="profile.city", read_only=True, default=None)
+    state            = serializers.CharField(source="profile.state", read_only=True, default=None)
+    profile_picture  = serializers.SerializerMethodField()
+    distance_mi      = serializers.SerializerMethodField()
+    latitude         = serializers.SerializerMethodField()
+    longitude        = serializers.SerializerMethodField()
+    friendship_status = serializers.SerializerMethodField()
+
+    def get_profile_picture(self, obj):
+        if hasattr(obj, "profile") and obj.profile.profile_picture:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.profile.profile_picture.url)
+            return obj.profile.profile_picture.url
+        return None
+
+    def get_distance_mi(self, obj):
+        """Return distance as a plain float in miles, rounded to 2 decimal places."""
+        dist = getattr(obj, "distance", None)
+        if dist is None:
+            return None
+        # Distance object coming from PostGIS annotation
+        if hasattr(dist, "mi"):
+            return round(float(dist.mi), 2)
+        try:
+            return round(float(dist), 2)
+        except (TypeError, ValueError):
+            return None
+
+    def get_latitude(self, obj):
+        """Return the user's stored latitude so the client can draw a map pin."""
+        try:
+            return obj.profile.location_point.y
+        except Exception:
+            return None
+
+    def get_longitude(self, obj):
+        """Return the user's stored longitude so the client can draw a map pin."""
+        try:
+            return obj.profile.location_point.x
+        except Exception:
+            return None
+
+    def get_friendship_status(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return None
+
+        current_user = request.user
+        if current_user.id == obj.id:
+            return "self"
+
+        if Friendship.objects.filter(
+            Q(sender=current_user, receiver=obj) | Q(sender=obj, receiver=current_user)
+        ).exists():
+            return "friends"
+
+        if FriendRequest.objects.filter(
+            sender=current_user, receiver=obj, status="pending"
+        ).exists():
+            return "request_sent"
+
+        if FriendRequest.objects.filter(
+            sender=obj, receiver=current_user, status="pending"
+        ).exists():
+            return "request_received"
+
+        return "none"

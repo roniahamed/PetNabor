@@ -11,6 +11,7 @@ from .views import (
     UnfriendView,
     PublicUserDetailsView,
     SuggestedFriendsView,
+    MapNearbyUsersView,
 )
 
 router = DefaultRouter()
@@ -24,4 +25,5 @@ urlpatterns = [
     path("remove/", UnfriendView.as_view(), name="remove-friend"),
     path("user/<uuid:user_id>/", PublicUserDetailsView.as_view(), name="user-detail"),
     path("suggestions/", SuggestedFriendsView.as_view(), name="suggested-friends"),
+    path("map-search/", MapNearbyUsersView.as_view(), name="map-nearby-users"),
 ]

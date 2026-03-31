@@ -1,6 +1,7 @@
 """
 Business logic for friendships, friend requests, and user blocks.
 """
+from django.contrib.gis.geos import Point
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 from django.contrib.gis.db.models.functions import Distance
@@ -336,3 +337,186 @@ def get_suggested_friends(current_user, limit=20):
     # By returning this, the DB handles chunk sizes, counting, and slicing effortlessly.
     return users_query
 
+
+def get_users_near_map_point(
+    current_user,
+    latitude: float,
+    longitude: float,
+    radius: float = 25.0,
+    user_type: str = None,
+    search_query: str = "",
+    include_friends: bool = True,
+):
+    """
+    Find users near a specific map coordinate (lat/lng) selected by the client.
+
+    Unlike `get_nearby_users()` which uses the logged-in user's own stored
+    location as the center, this function accepts an *arbitrary* map point
+    chosen by the client — enabling the "tap anywhere on the map to see who
+    is nearby" flow.
+
+    Args:
+        current_user   : The requesting user (used to apply block/friend filters).
+        latitude       : WGS-84 latitude of the center point chosen on the map.
+        longitude      : WGS-84 longitude of the center point chosen on the map.
+        radius         : Search radius in miles (default 25 mi).
+        user_type      : Optional filter — 'patpal' | 'patnabor' | None (all).
+        search_query   : Optional text search on first_name / last_name / username.
+        include_friends: Whether to include already-friended users in results.
+
+    Returns:
+        QuerySet[User] annotated with `distance` (Distance object), ordered
+        nearest-first.  The QuerySet is lazy — pagination is handled by the view.
+    """
+    # Build a PostGIS Point from the client-supplied coordinates.
+    # SRID 4326 = WGS-84 (standard GPS / web-map coordinate system).
+    map_point = Point(longitude, latitude, srid=4326)
+
+    # ── Block exclusions (bidirectional) ─────────────────────────────────────
+    blocked_ids     = UserBlock.objects.filter(blocker=current_user).values("blocked_user_id")
+    blocked_by_ids  = UserBlock.objects.filter(blocked_user=current_user).values("blocker_id")
+
+    # ── Friend exclusions (optional) ─────────────────────────────────────────
+    friendships = Friendship.objects.filter(Q(sender=current_user) | Q(receiver=current_user))
+    friend_ids  = [
+        f.receiver_id if f.sender_id == current_user.id else f.sender_id
+        for f in friendships
+    ]
+
+    # ── Base queryset ─────────────────────────────────────────────────────────
+    users_qs = (
+        User.objects
+        .select_related("profile")
+        .filter(
+            is_active=True,
+            # Only include users who have a stored GPS location — users without
+            # a location_point cannot appear on the map anyway.
+            profile__location_point__isnull=False,
+        )
+        .exclude(id=current_user.id)
+        .exclude(id__in=blocked_ids)
+        .exclude(id__in=blocked_by_ids)
+    )
+
+    if not include_friends and friend_ids:
+        users_qs = users_qs.exclude(id__in=friend_ids)
+
+    # ── Optional filters ──────────────────────────────────────────────────────
+    if user_type:
+        users_qs = users_qs.filter(user_type=user_type)
+
+    if search_query:
+        users_qs = users_qs.filter(
+            Q(first_name__icontains=search_query)
+            | Q(last_name__icontains=search_query)
+            | Q(username__icontains=search_query)
+        )
+
+    # ── Spatial radius filter + distance annotation ───────────────────────────
+    users_qs = (
+        users_qs
+        .filter(profile__location_point__distance_lte=(map_point, D(mi=radius)))
+        .annotate(distance=Distance("profile__location_point", map_point))
+        .order_by("distance")  # nearest first
+    )
+
+    return users_qs
+
+
+def get_users_in_bbox(
+    current_user,
+    min_lat: float,
+    max_lat: float,
+    min_lng: float,
+    max_lng: float,
+    user_type: str = None,
+    search_query: str = "",
+    include_friends: bool = True,
+    limit: int = 300,
+):
+    """
+    Find users within a map viewport bounding box (for pan/zoom flows).
+
+    The frontend sends the 4 corners of the currently visible map area.
+    The backend returns ALL users inside that rectangle — no page numbers.
+    When the user pans or zooms the map, the frontend re-calls this endpoint
+    with the new viewport coordinates.
+
+    Args:
+        current_user : The requesting user (for block/friend filters).
+        min_lat      : South boundary of the viewport.
+        max_lat      : North boundary of the viewport.
+        min_lng      : West  boundary of the viewport.
+        max_lng      : East  boundary of the viewport.
+        user_type    : Optional 'patpal' | 'patnabor' | None.
+        search_query : Optional text search.
+        include_friends : Include already-friended users.
+        limit        : Hard cap on returned results (default 300, max 500).
+
+    Returns:
+        QuerySet[User] with `distance` annotated from the viewport center,
+        ordered nearest-to-center first. Sliced to `limit`.
+    """
+    from django.contrib.gis.geos import Polygon
+
+    # Rectangular polygon matching the visible map area.
+    # from_bbox() takes (min_lng, min_lat, max_lng, max_lat).
+    viewport_polygon = Polygon.from_bbox((min_lng, min_lat, max_lng, max_lat))
+    viewport_polygon.srid = 4326
+
+    # Centre of viewport — used for distance ordering so nearest pins come first
+    center_point = Point(
+        (min_lng + max_lng) / 2,
+        (min_lat + max_lat) / 2,
+        srid=4326,
+    )
+
+    # ── Block exclusions (bidirectional) ─────────────────────────────────────
+    blocked_ids    = UserBlock.objects.filter(blocker=current_user).values("blocked_user_id")
+    blocked_by_ids = UserBlock.objects.filter(blocked_user=current_user).values("blocker_id")
+
+    # ── Friend exclusions (optional) ─────────────────────────────────────────
+    friendships = Friendship.objects.filter(Q(sender=current_user) | Q(receiver=current_user))
+    friend_ids  = [
+        f.receiver_id if f.sender_id == current_user.id else f.sender_id
+        for f in friendships
+    ]
+
+    # ── Base queryset ─────────────────────────────────────────────────────────
+    users_qs = (
+        User.objects
+        .select_related("profile")
+        .filter(
+            is_active=True,
+            profile__location_point__isnull=False,
+            # Spatial filter: user's pin must be INSIDE the viewport polygon
+            profile__location_point__within=viewport_polygon,
+        )
+        .exclude(id=current_user.id)
+        .exclude(id__in=blocked_ids)
+        .exclude(id__in=blocked_by_ids)
+    )
+
+    if not include_friends and friend_ids:
+        users_qs = users_qs.exclude(id__in=friend_ids)
+
+    if user_type:
+        users_qs = users_qs.filter(user_type=user_type)
+
+    if search_query:
+        users_qs = users_qs.filter(
+            Q(first_name__icontains=search_query)
+            | Q(last_name__icontains=search_query)
+            | Q(username__icontains=search_query)
+        )
+
+    # Annotate distance from viewport center → nearest first
+    users_qs = (
+        users_qs
+        .annotate(distance=Distance("profile__location_point", center_point))
+        .order_by("distance")
+    )
+
+    # Safety cap — never flood the client with thousands of pins at once
+    limit = min(limit, 500)
+    return users_qs[:limit]
