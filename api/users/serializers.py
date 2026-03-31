@@ -211,8 +211,8 @@ class Profile_Read(serializers.ModelSerializer):
         ret = super().to_representation(instance)
         if hasattr(instance, "location_point") and instance.location_point:
             ret["location_point"] = [
-                round(instance.location_point.x, 6),
-                round(instance.location_point.y, 6),
+                round(instance.location_point.x, 4),
+                round(instance.location_point.y, 4),
             ]
         return ret
 
@@ -327,8 +327,8 @@ class ProfileSerializer(serializers.ModelSerializer):
         ret = super().to_representation(instance)
         if instance.location_point:
             ret["location_point"] = [
-                round(instance.location_point.x, 6),
-                round(instance.location_point.y, 6),
+                round(instance.location_point.x, 4),
+                round(instance.location_point.y, 4),
             ]
         return ret
 
