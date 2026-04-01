@@ -5,8 +5,8 @@ from rest_framework import status
 from rest_framework.test import APIClient
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from api.friends.models import Friendship
-from .models import Post, PostComment, PostMedia, SavedPost, PrivacyChoices
+from api.friends.models import Friendship, UserBlock
+from .models import Post, PostComment, PostMedia, PrivacyChoices
 
 User = get_user_model()
 
@@ -113,6 +113,126 @@ class PostAPITest(PostBaseTestCase):
         
         post.refresh_from_db()
         self.assertTrue(post.is_deleted)
+
+    def test_user_post_list_uses_target_user_from_url(self):
+        alice_public = Post.objects.create(
+            author=self.alice,
+            content_text="Alice public post",
+            privacy=PrivacyChoices.PUBLIC,
+        )
+        Post.objects.create(
+            author=self.bob,
+            content_text="Bob public post",
+            privacy=PrivacyChoices.PUBLIC,
+        )
+
+        self.client.force_authenticate(self.bob)
+        url = reverse('user-post-list', kwargs={'user_id': self.alice.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('results', response.data)
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['results'][0]['id'], str(alice_public.id))
+        self.assertEqual(response.data['results'][0]['author']['id'], str(self.alice.id))
+
+    def test_user_post_list_returns_requested_users_posts_not_requesters_posts(self):
+        alice_post = Post.objects.create(
+            author=self.alice,
+            content_text="Alice only post",
+            privacy=PrivacyChoices.PUBLIC,
+        )
+        bob_post = Post.objects.create(
+            author=self.bob,
+            content_text="Bob only post",
+            privacy=PrivacyChoices.PUBLIC,
+        )
+
+        self.client.force_authenticate(self.alice)
+        url = reverse('user-post-list', kwargs={'user_id': self.bob.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        returned_ids = {item['id'] for item in response.data['results']}
+        self.assertIn(str(bob_post.id), returned_ids)
+        self.assertNotIn(str(alice_post.id), returned_ids)
+
+    def test_user_post_list_non_friend_sees_only_public_posts(self):
+        public_post = Post.objects.create(
+            author=self.alice,
+            content_text="Alice public",
+            privacy=PrivacyChoices.PUBLIC,
+        )
+        friends_only_post = Post.objects.create(
+            author=self.alice,
+            content_text="Alice friends only",
+            privacy=PrivacyChoices.FRIENDS_ONLY,
+        )
+
+        self.client.force_authenticate(self.bob)
+        response = self.client.get(reverse('user-post-list', kwargs={'user_id': self.alice.id}))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        returned_ids = {item['id'] for item in response.data['results']}
+        self.assertIn(str(public_post.id), returned_ids)
+        self.assertNotIn(str(friends_only_post.id), returned_ids)
+
+    def test_user_post_list_friend_sees_public_and_friends_only_posts(self):
+        public_post = Post.objects.create(
+            author=self.alice,
+            content_text="Alice public",
+            privacy=PrivacyChoices.PUBLIC,
+        )
+        friends_only_post = Post.objects.create(
+            author=self.alice,
+            content_text="Alice friends only",
+            privacy=PrivacyChoices.FRIENDS_ONLY,
+        )
+        private_post = Post.objects.create(
+            author=self.alice,
+            content_text="Alice private",
+            privacy=PrivacyChoices.PRIVATE,
+        )
+
+        self.make_friends(self.alice, self.bob)
+        self.client.force_authenticate(self.bob)
+        response = self.client.get(reverse('user-post-list', kwargs={'user_id': self.alice.id}))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        returned_ids = {item['id'] for item in response.data['results']}
+        self.assertIn(str(public_post.id), returned_ids)
+        self.assertIn(str(friends_only_post.id), returned_ids)
+        self.assertNotIn(str(private_post.id), returned_ids)
+
+    def test_user_post_list_blocked_user_sees_no_posts(self):
+        Post.objects.create(
+            author=self.alice,
+            content_text="Alice public",
+            privacy=PrivacyChoices.PUBLIC,
+        )
+        UserBlock.objects.create(blocker=self.alice, blocked_user=self.bob)
+
+        self.client.force_authenticate(self.bob)
+        response = self.client.get(reverse('user-post-list', kwargs={'user_id': self.alice.id}))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['results'], [])
+
+    def test_user_post_list_blocker_also_sees_no_posts(self):
+        Post.objects.create(
+            author=self.alice,
+            content_text="Alice public",
+            privacy=PrivacyChoices.PUBLIC,
+        )
+        UserBlock.objects.create(blocker=self.bob, blocked_user=self.alice)
+
+        self.client.force_authenticate(self.bob)
+        response = self.client.get(
+            reverse('user-post-list', kwargs={'user_id': self.alice.id})
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['results'], [])
 
 
 class InteractionAPITest(PostBaseTestCase):
