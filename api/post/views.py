@@ -485,4 +485,4 @@ class UserPostListView(generics.ListAPIView):
     def get_queryset(self):
         user_id = self.kwargs["user_id"]
         target_user = get_object_or_404(User, id=user_id, is_active=True)
-        return PostService.get_user_posts(self.request.user, target_user)
+        return PostService.get_user_posts(target_user, self.request.user)
