@@ -58,6 +58,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "drf_spectacular",
+    # AWS
+    "django_ses",
     "api.users",
     "api.notifications",
     "api.pet",
@@ -445,14 +447,17 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
 
-# Email Configuration (Gmail SMTP)
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = os.getenv("EMAIL_HOST", "")
-EMAIL_PORT = os.getenv("EMAIL_PORT", "")
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "")
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-DEFAULT_FROM_EMAIL = os.getenv("EMAIL_HOST_USER", "")
+# ─── AWS Credentials (shared across SES, S3, etc.) ───────────────────────────
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+
+# ─── Email Configuration — AWS SES (via django-ses) ───────────────────────────
+EMAIL_BACKEND = "django_ses.SESBackend"
+AWS_SES_REGION_NAME = os.getenv("AWS_SES_REGION_NAME", "us-east-1")
+AWS_SES_REGION_ENDPOINT = f"email.{os.getenv('AWS_SES_REGION_NAME', 'us-east-1')}.amazonaws.com"
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@petnabor.com")
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # OTP Configuration
 OTP_LENGTH = int(os.getenv("OTP_LENGTH", "4"))
