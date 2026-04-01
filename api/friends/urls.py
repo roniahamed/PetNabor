@@ -25,3 +25,4 @@ urlpatterns = [
     path("user/<uuid:user_id>/", PublicUserDetailsView.as_view(), name="user-detail"),
     path("suggestions/", SuggestedFriendsView.as_view(), name="suggested-friends"),
 ]
+

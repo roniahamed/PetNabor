@@ -22,7 +22,6 @@ from .serializers import (
     NearbyUserSerializer,
     UserBlockSerializer,
     UserActionSerializer,
-    CreateFriendRequestSerializer,
     PublicUserSerializer,
     SuggestedUserSerializer
 )
@@ -115,50 +114,127 @@ class FriendRequestViewSet(viewsets.ModelViewSet):
         return queryset
 
     def create(self, request, *args, **kwargs):
-        payload_serializer = CreateFriendRequestSerializer(data=request.data)
-        payload_serializer.is_valid(raise_exception=True)
-        receiver_id = payload_serializer.validated_data['receiver_id']
-        
+        serializer = UserActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        receiver_id = serializer.validated_data['user_id']
+
         try:
             freq, auto_accepted = services.send_friend_request(request.user, receiver_id)
             if auto_accepted:
                 return Response({'message': 'Friend request accepted automatically'}, status=status.HTTP_201_CREATED)
-            
+
             res_serializer = self.get_serializer(freq)
             return Response(res_serializer.data, status=status.HTTP_201_CREATED)
         except (ValidationError, NotFound) as e:
             err_msg = str(e.detail[0]) if isinstance(e.detail, list) else str(e.detail)
-            return Response({'error': err_msg}, status=status.HTTP_400_BAD_REQUEST)
+            http_status = status.HTTP_404_NOT_FOUND if isinstance(e, NotFound) else status.HTTP_400_BAD_REQUEST
+            return Response({'error': err_msg}, status=http_status)
 
-    @action(detail=True, methods=['post'])
-    def accept(self, request, pk=None):
+    @extend_schema(
+        request=UserActionSerializer,
+        responses={200: inline_serializer(
+            name='AcceptFriendRequestResponse',
+            fields={'status': serializers.CharField()}
+        )}
+    )
+    @action(detail=False, methods=['post'])
+    def accept(self, request):
+        serializer = UserActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        sender_id = serializer.validated_data['user_id']
+
         try:
-            friend_request = self.get_object()
+            sender_user = get_user_model().objects.get(id=sender_id)
+        except get_user_model().DoesNotExist:
+            return Response({'error': 'Friend request not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if services.is_blocked(request.user, sender_user):
+            return Response({'error': 'Friend request not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            friend_request = FriendRequest.objects.get(
+                sender=sender_user, receiver=request.user, status='pending'
+            )
+        except FriendRequest.DoesNotExist:
+            return Response({'error': 'Friend request not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
             services.accept_friend_request(request.user, friend_request)
             return Response({'status': 'Friend request accepted'})
         except (ValidationError, PermissionDenied) as e:
             err_msg = str(e.detail[0]) if isinstance(e.detail, list) else str(e.detail)
             return Response({'error': err_msg}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['post'])
-    def reject(self, request, pk=None):
+    @extend_schema(
+        request=UserActionSerializer,
+        responses={200: inline_serializer(
+            name='RejectFriendRequestResponse',
+            fields={'status': serializers.CharField()}
+        )}
+    )
+    @action(detail=False, methods=['post'])
+    def reject(self, request):
+        serializer = UserActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        sender_id = serializer.validated_data['user_id']
+
         try:
-            friend_request = self.get_object()
+            sender_user = get_user_model().objects.get(id=sender_id)
+        except get_user_model().DoesNotExist:
+            return Response({'error': 'Friend request not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if services.is_blocked(request.user, sender_user):
+            return Response({'error': 'Friend request not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            friend_request = FriendRequest.objects.get(
+                sender=sender_user, receiver=request.user, status='pending'
+            )
+        except FriendRequest.DoesNotExist:
+            return Response({'error': 'Friend request not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
             services.reject_friend_request(request.user, friend_request)
             return Response({'status': 'Friend request rejected'})
         except (ValidationError, PermissionDenied) as e:
             err_msg = str(e.detail[0]) if isinstance(e.detail, list) else str(e.detail)
             return Response({'error': err_msg}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['post'])
-    def cancel(self, request, pk=None):
+    @extend_schema(
+        request=UserActionSerializer,
+        responses={200: inline_serializer(
+            name='CancelFriendRequestResponse',
+            fields={'status': serializers.CharField()}
+        )}
+    )
+    @action(detail=False, methods=['post'])
+    def cancel(self, request):
+        serializer = UserActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        receiver_id = serializer.validated_data['user_id']
+
         try:
-            friend_request = self.get_object()
+            receiver_user = get_user_model().objects.get(id=receiver_id)
+        except get_user_model().DoesNotExist:
+            return Response({'error': 'Friend request not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if services.is_blocked(request.user, receiver_user):
+            return Response({'error': 'Friend request not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            friend_request = FriendRequest.objects.get(
+                sender=request.user, receiver=receiver_user, status='pending'
+            )
+        except FriendRequest.DoesNotExist:
+            return Response({'error': 'Friend request not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
             services.cancel_friend_request(request.user, friend_request)
             return Response({'status': 'Friend request cancelled'})
         except (ValidationError, PermissionDenied) as e:
             err_msg = str(e.detail[0]) if isinstance(e.detail, list) else str(e.detail)
             return Response({'error': err_msg}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class BlockUserView(views.APIView):

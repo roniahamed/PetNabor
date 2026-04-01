@@ -94,15 +94,9 @@ class UserBlockSerializer(serializers.ModelSerializer):
 
 
 class UserActionSerializer(serializers.Serializer):
-    """Used for actions requiring just a user_id like unfriend, block, unblock"""
+    """Used for actions requiring just a user_id: unfriend, block, unblock, send/accept/reject/cancel friend request"""
 
     user_id = serializers.UUIDField(required=True)
-
-
-class CreateFriendRequestSerializer(serializers.Serializer):
-    """Used specifically for creating friend requests via user ID"""
-
-    receiver_id = serializers.UUIDField(required=True)
 
 
 class PublicUserSerializer(serializers.ModelSerializer):
