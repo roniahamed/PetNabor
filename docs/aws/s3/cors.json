@@ -1,14 +1,36 @@
 {
     "CORSRules": [
         {
-            "AllowedHeaders": ["*"],
-            "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+            "AllowedHeaders": [
+                "*"
+            ],
+            "AllowedMethods": [
+                "GET",
+                "PUT",
+                "POST",
+                "DELETE",
+                "HEAD"
+            ],
             "AllowedOrigins": [
                 "https://petnabor.com",
                 "https://backend.petnabor.com",
-                "http://localhost:8002"
+                "https://www.petnabor.com",
+                "https://www.backend.petnabor.com",
+                "https://api.petnabor.com",
+                "https://www.api.petnabor.com",
+                "http://petnabor.com",
+                "http://backend.petnabor.com",
+                "http://www.petnabor.com",
+                "http://www.backend.petnabor.com",
+                "http://www.api.petnabor.com",
+                "http://api.petnabor.com",
+                "http://localhost:8002",
+                "http://localhost:8000"
             ],
-            "ExposeHeaders": ["ETag", "Content-Length"],
+            "ExposeHeaders": [
+                "ETag",
+                "Content-Length"
+            ],
             "MaxAgeSeconds": 3000
         }
     ]
