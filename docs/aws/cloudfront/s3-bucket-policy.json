@@ -11,7 +11,7 @@
             "Resource": "arn:aws:s3:::petnabor-media/*",
             "Condition": {
                 "StringEquals": {
-                    "AWS:SourceArn": "arn:aws:cloudfront::ACCOUNT_ID:distribution/DISTRIBUTION_ID"
+                    "AWS:SourceArn": "arn:aws:cloudfront::836567207606:distribution/E1H48YM0XJDWF0"
                 }
             }
         }
