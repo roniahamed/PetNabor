@@ -451,6 +451,8 @@ TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
 AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+# Required for SSO / temporary credentials (e.g. from `aws configure export-credentials`)
+AWS_SESSION_TOKEN = os.getenv("AWS_SESSION_TOKEN", "") or None
 
 # ─── Email Configuration — AWS SES (via django-ses) ───────────────────────────
 EMAIL_BACKEND = "django_ses.SESBackend"
