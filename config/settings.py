@@ -168,8 +168,8 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+# ─── Storage: set conditionally below based on USE_S3 ───────────────────────
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")  # fallback / collectstatic target
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # django-unfold Admin Configuration
@@ -380,8 +380,8 @@ UNFOLD = {
     "TABS": [],
 }
 
-MEDIA_URL = "media/"
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+# ─── Media: set conditionally below based on USE_S3 ─────────────────────────
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")  # fallback for local dev
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -460,6 +460,49 @@ AWS_SES_REGION_NAME = os.getenv("AWS_SES_REGION_NAME", "us-east-1")
 AWS_SES_REGION_ENDPOINT = f"email.{os.getenv('AWS_SES_REGION_NAME', 'us-east-1')}.amazonaws.com"
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@petnabor.com")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+# ─── S3 Storage Configuration ──────────────────────────────────────────────────────
+# Set USE_S3=True in .env for production, False for local development
+USE_S3 = os.getenv("USE_S3", "False") == "True"
+
+if USE_S3:
+    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", "")
+    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "us-east-1")
+    AWS_S3_FILE_OVERWRITE = False       # Don't overwrite files with same name
+    AWS_DEFAULT_ACL = None              # Use bucket policy, not object ACLs
+    AWS_QUERYSTRING_AUTH = False        # Public URLs (CloudFront handles auth)
+    AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+
+    # CloudFront domain (set after Feature 3 — CloudFront setup)
+    # If not set, falls back to direct S3 URL
+    _cdn = os.getenv("AWS_CLOUDFRONT_DOMAIN", "")
+    _s3 = f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
+    _domain = _cdn if _cdn else _s3
+
+    MEDIA_URL = f"https://{_domain}/media/"
+    STATIC_URL = f"https://{_domain}/static/"
+
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+            "OPTIONS": {
+                "location": "media",
+                "file_overwrite": False,
+                "default_acl": None,
+            },
+        },
+        "staticfiles": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+            "OPTIONS": {
+                "location": "static",
+                "default_acl": None,
+            },
+        },
+    }
+else:
+    # Local development — serve from filesystem
+    MEDIA_URL = "media/"
+    STATIC_URL = "static/"
 
 # OTP Configuration
 OTP_LENGTH = int(os.getenv("OTP_LENGTH", "4"))

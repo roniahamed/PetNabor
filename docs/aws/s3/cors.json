@@ -1,0 +1,15 @@
+{
+    "CORSRules": [
+        {
+            "AllowedHeaders": ["*"],
+            "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+            "AllowedOrigins": [
+                "https://petnabor.com",
+                "https://backend.petnabor.com",
+                "http://localhost:8002"
+            ],
+            "ExposeHeaders": ["ETag", "Content-Length"],
+            "MaxAgeSeconds": 3000
+        }
+    ]
+}
