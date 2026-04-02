@@ -134,14 +134,23 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
+# ─── Database Configuration ───────────────────────────────────────────────────
+# USE_RDS=True → connects to AWS RDS (production)
+# USE_RDS=False → connects to local Docker PostgreSQL (development)
+_USE_RDS = os.getenv("USE_RDS", "False") == "True"
+
 DATABASES = {
     "default": {
         "ENGINE": "django.contrib.gis.db.backends.postgis",
-        "NAME": os.getenv("POSTGRES_DB"),
-        "USER": os.getenv("POSTGRES_USER"),
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
-        "HOST": os.getenv("POSTGRES_HOST"),
-        "PORT": os.getenv("POSTGRES_PORT"),
+        "NAME": os.getenv("RDS_DB" if _USE_RDS else "POSTGRES_DB"),
+        "USER": os.getenv("RDS_USER" if _USE_RDS else "POSTGRES_USER"),
+        "PASSWORD": os.getenv("RDS_PASSWORD" if _USE_RDS else "POSTGRES_PASSWORD"),
+        "HOST": os.getenv("RDS_HOST" if _USE_RDS else "POSTGRES_HOST"),
+        "PORT": os.getenv("RDS_PORT" if _USE_RDS else "POSTGRES_PORT", "5432"),
+        "OPTIONS": {
+            # 'require' for RDS production, 'prefer' for local dev (auto-detected)
+            "sslmode": os.getenv("POSTGRES_SSLMODE", "require" if _USE_RDS else "prefer"),
+        },
         "TEST": {
             "NAME": "test_petnabor_db_new",
         },
