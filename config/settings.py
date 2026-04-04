@@ -241,7 +241,7 @@ UNFOLD = {
                 ],
             },
             {
-                "title": "Content",
+                "title": "Posts & Feed",
                 "separator": True,
                 "items": [
                     {
@@ -250,14 +250,24 @@ UNFOLD = {
                         "link": "/admin/post/post/",
                     },
                     {
-                        "title": "Stories",
-                        "icon": "auto_stories",
-                        "link": "/admin/story/story/",
+                        "title": "Post Media",
+                        "icon": "perm_media",
+                        "link": "/admin/post/postmedia/",
                     },
                     {
-                        "title": "Blogs",
-                        "icon": "rss_feed",
-                        "link": "/admin/blog/blog/",
+                        "title": "Post Likes",
+                        "icon": "thumb_up",
+                        "link": "/admin/post/postlike/",
+                    },
+                    {
+                        "title": "Post Comments",
+                        "icon": "comment",
+                        "link": "/admin/post/postcomment/",
+                    },
+                    {
+                        "title": "Saved Posts",
+                        "icon": "bookmark",
+                        "link": "/admin/post/savedpost/",
                     },
                     {
                         "title": "Hashtags",
@@ -267,18 +277,64 @@ UNFOLD = {
                 ],
             },
             {
-                "title": "Pets",
+                "title": "Stories",
                 "separator": True,
                 "items": [
                     {
-                        "title": "Pet Profiles",
-                        "icon": "pets",
-                        "link": "/admin/pet/petprofile/",
+                        "title": "Stories",
+                        "icon": "auto_stories",
+                        "link": "/admin/story/story/",
+                    },
+                    {
+                        "title": "Story Views",
+                        "icon": "visibility",
+                        "link": "/admin/story/storyview/",
+                    },
+                    {
+                        "title": "Story Reactions",
+                        "icon": "favorite",
+                        "link": "/admin/story/storyreaction/",
+                    },
+                    {
+                        "title": "Story Replies",
+                        "icon": "reply",
+                        "link": "/admin/story/storyreply/",
                     },
                 ],
             },
             {
-                "title": "Social",
+                "title": "Blogs",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Blogs",
+                        "icon": "rss_feed",
+                        "link": "/admin/blog/blog/",
+                    },
+                    {
+                        "title": "Blog Categories",
+                        "icon": "category",
+                        "link": "/admin/blog/blogcategory/",
+                    },
+                    {
+                        "title": "Blog Likes",
+                        "icon": "thumb_up",
+                        "link": "/admin/blog/bloglike/",
+                    },
+                    {
+                        "title": "Blog Comments",
+                        "icon": "comment",
+                        "link": "/admin/blog/blogcomment/",
+                    },
+                    {
+                        "title": "Blog Views",
+                        "icon": "visibility",
+                        "link": "/admin/blog/blogviewtracker/",
+                    },
+                ],
+            },
+            {
+                "title": "Social & Connections",
                 "separator": True,
                 "items": [
                     {
@@ -296,22 +352,21 @@ UNFOLD = {
                         "icon": "block",
                         "link": "/admin/friends/userblock/",
                     },
+                ],
+            },
+            {
+                "title": "Meetings",
+                "separator": True,
+                "items": [
                     {
                         "title": "Meetings",
                         "icon": "event",
                         "link": "/admin/meeting/meeting/",
                     },
-                ],
-            },
-            {
-                "title": "Moderation",
-                "separator": True,
-                "items": [
                     {
-                        "title": "Reports",
-                        "icon": "flag",
-                        "link": "/admin/report/report/",
-                        "badge": "api.users.admin_utils.pending_reports_badge",
+                        "title": "Meeting Feedback",
+                        "icon": "rate_review",
+                        "link": "/admin/meeting/meetingfeedback/",
                     },
                 ],
             },
@@ -325,9 +380,37 @@ UNFOLD = {
                         "link": "/admin/messaging/chatthread/",
                     },
                     {
+                        "title": "Thread Participants",
+                        "icon": "group_add",
+                        "link": "/admin/messaging/threadparticipant/",
+                    },
+                    {
                         "title": "Messages",
                         "icon": "chat",
                         "link": "/admin/messaging/message/",
+                    },
+                ],
+            },
+            {
+                "title": "Pets",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Pet Profiles",
+                        "icon": "pets",
+                        "link": "/admin/pet/petprofile/",
+                    },
+                ],
+            },
+            {
+                "title": "Moderation",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Reports",
+                        "icon": "flag",
+                        "link": "/admin/report/report/",
+                        "badge": "api.users.admin_utils.pending_reports_badge",
                     },
                 ],
             },
@@ -346,7 +429,7 @@ UNFOLD = {
                         "link": "/admin/notifications/fcmdevice/",
                     },
                     {
-                        "title": "Notification Settings",
+                        "title": "Settings",
                         "icon": "tune",
                         "link": "/admin/notifications/notificationsettings/",
                     },
@@ -357,7 +440,7 @@ UNFOLD = {
                 "separator": True,
                 "items": [
                     {
-                        "title": "Settings",
+                        "title": "Referral Settings",
                         "icon": "settings",
                         "link": "/admin/referral/referralsettings/",
                     },
