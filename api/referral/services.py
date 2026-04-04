@@ -75,3 +75,25 @@ def award_referral_points(new_user):
         related_user=referrer,
         note=f"Signup bonus from referral code of {referrer.email or referrer.phone}",
     )
+    
+    try:
+        from api.notifications.services import send_notification
+        from api.notifications.models import NotificationTypes
+        
+        sender_first_name = referrer.first_name or referrer.username
+        claimer_first_name = new_user.first_name or new_user.username
+        
+        send_notification(
+            title="Referral Redeemed",
+            body=f"{claimer_first_name} claimed your referral. You earned {cfg.referrer_points} points!",
+            user_id=referrer.id,
+            notification_type=NotificationTypes.REWARD,
+            data={
+                "type": "referral_redeemed",
+                "sender_name": sender_first_name,
+                "claimer_name": claimer_first_name,
+                "earned_points": str(cfg.referrer_points)
+            },
+        )
+    except Exception:
+        pass

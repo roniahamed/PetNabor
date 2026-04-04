@@ -350,7 +350,7 @@ def _notify_story_author_of_reaction(story: Story, reactor: User) -> None:
 
         send_notification(
             title="Story Reaction",
-            body=f"{reactor.username} reacted to your story.",
+            body=f"{reactor.first_name or reactor.username} reacted to your story.",
             user_id=story.author_id,
             notification_type=NotificationTypes.LIKE,
             data={"story_id": str(story.id)},
@@ -369,7 +369,7 @@ def _notify_story_author_of_reply(story: Story, replier: User) -> None:
 
         send_notification(
             title="Story Reply",
-            body=f"{replier.username} replied to your story.",
+            body=f"{replier.first_name or replier.username} replied to your story.",
             user_id=story.author_id,
             notification_type=NotificationTypes.COMMENT,
             data={"story_id": str(story.id)},

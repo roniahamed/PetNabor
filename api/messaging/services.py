@@ -327,6 +327,7 @@ def send_message(sender, thread_id, text_content=None, message_type=MessageTypes
         )
         notify_new_message.delay(
             str(message.id),
+            str(thread.id),
             str(sender.id),
             [str(uid) for uid in recipient_ids],
             preview[:100],

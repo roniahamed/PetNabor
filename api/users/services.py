@@ -304,13 +304,14 @@ def login_user(email_or_phone, password):
 
     # Send login notification (async via Celery)
     try:
-        send_notification(
-            user_id=user.id,
-            title="New Login Detected",
-            body="A new login session was established for your account.",
-            data={"type": "login"},
-            notification_type=NotificationTypes.LOGIN,
-        )
+        # send_notification(
+        #     user_id=user.id,
+        #     title="New Login Detected",
+        #     body="A new login session was established for your account.",
+        #     data={"type": "login"},
+        #     notification_type=NotificationTypes.LOGIN,
+        # )
+        pass
     except Exception:
         # Don't block login if notification fails
         logger.warning("Failed to send login notification for user %s", user.id)
@@ -371,6 +372,17 @@ def confirm_password_reset(email_or_phone, otp_code, new_password):
 
     user.set_password(new_password)
     user.save(update_fields=["password"])
+    
+    try:
+        send_notification(
+            user_id=user.id,
+            title="Password Reset Successful",
+            body=f"Your password has been successfully reset.",
+            notification_type=NotificationTypes.SYSTEM,
+            data={"type": "password_reset"},
+        )
+    except Exception:
+        logger.warning("Failed to send password reset notification for user %s", user.id)
 
     return True
 
@@ -473,13 +485,14 @@ def firebase_login_service(
     tokens = get_tokens_for_user(user)
 
     try:
-        send_notification(
-            user_id=user.id,
-            title="New Login Detected",
-            body="A new login session was established for your account.",
-            data={"type": "login"},
-            notification_type=NotificationTypes.LOGIN,
-        )
+        # send_notification(
+        #     user_id=user.id,
+        #     title="New Login Detected",
+        #     body="A new login session was established for your account.",
+        #     data={"type": "login"},
+        #     notification_type=NotificationTypes.LOGIN,
+        # )
+        pass
     except Exception:
         logger.warning("Failed to send login notification for user %s", user.id)
 

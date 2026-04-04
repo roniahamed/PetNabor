@@ -39,6 +39,19 @@ class MeetingViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You can only request meetings with friends.")
 
         serializer.save(sender=sender)
+        
+        try:
+            from api.notifications.services import send_notification
+            from api.notifications.models import NotificationTypes
+            send_notification(
+                title="New Meeting Request",
+                body=f"{sender.first_name or sender.username} requested a meeting.",
+                user_id=receiver.id,
+                notification_type=NotificationTypes.MEETUP_INVITE,
+                data={"meeting_id": str(serializer.instance.id)},
+            )
+        except Exception:
+            pass
 
     @extend_schema(
         parameters=[
@@ -125,6 +138,20 @@ class MeetingViewSet(viewsets.ModelViewSet):
 
         meeting.status = 'ACCEPTED'
         meeting.save()
+
+        try:
+            from api.notifications.services import send_notification
+            from api.notifications.models import NotificationTypes
+            send_notification(
+                title="Meeting Accepted",
+                body=f"{request.user.first_name or request.user.username} accepted your meeting request.",
+                user_id=meeting.sender.id,
+                notification_type=NotificationTypes.MEETUP_UPDATE,
+                data={"meeting_id": str(meeting.id)},
+            )
+        except Exception:
+            pass
+
         return Response({'status': 'Meeting accepted'})
 
     @extend_schema(
@@ -140,6 +167,22 @@ class MeetingViewSet(viewsets.ModelViewSet):
 
         meeting.status = 'CANCELLED'
         meeting.save()
+
+        try:
+            from api.notifications.services import send_notification
+            from api.notifications.models import NotificationTypes
+            
+            notify_user = meeting.receiver if request.user == meeting.sender else meeting.sender
+            send_notification(
+                title="Meeting Cancelled",
+                body=f"{request.user.first_name or request.user.username} cancelled the meeting.",
+                user_id=notify_user.id,
+                notification_type=NotificationTypes.MEETUP_UPDATE,
+                data={"meeting_id": str(meeting.id)},
+            )
+        except Exception:
+            pass
+
         return Response({'status': 'Meeting cancelled'})
 
     @extend_schema(
@@ -190,6 +233,19 @@ class MeetingFeedbackViewSet(viewsets.ModelViewSet):
             raise ValidationError({"detail": "You have already provided feedback for this meeting."})
 
         serializer.save(reviewer=reviewer)
+
+        try:
+            from api.notifications.services import send_notification
+            from api.notifications.models import NotificationTypes
+            send_notification(
+                title="New Meeting Feedback",
+                body=f"{reviewer.first_name or reviewer.username} left feedback for your meeting.",
+                user_id=reviewee.id,
+                notification_type=NotificationTypes.SYSTEM,
+                data={"meeting_id": str(meeting.id)},
+            )
+        except Exception:
+            pass
 
     @extend_schema(
         parameters=[
