@@ -494,3 +494,24 @@ STORY_EXPIRY_HOURS: int = int(os.getenv("STORY_EXPIRY_HOURS", "24"))
 FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("FILE_UPLOAD_MAX_MEMORY_SIZE_MB", "5000")) * 1024 * 1024
 DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("DATA_UPLOAD_MAX_MEMORY_SIZE_MB", "5000")) * 1024 * 1024
 FILE_UPLOAD_TEMP_DIR = os.path.join(BASE_DIR, "tmp_uploads")
+
+# ─── Sentry Configuration ──────────────────────────────────────────────────
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.redis import RedisIntegration
+    
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            DjangoIntegration(),
+            CeleryIntegration(),
+            RedisIntegration(),
+        ],
+        environment=os.getenv("SENTRY_ENVIRONMENT"),
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE")),
+        send_default_pii=False,
+    )
