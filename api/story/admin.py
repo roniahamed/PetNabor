@@ -22,7 +22,7 @@ class StoryAdmin(UnfoldModelAdmin):
         "created_at",
     ]
     list_filter = ["media_type", "privacy"]
-    search_fields = ["author__email", "author__username", "text_content"]
+    search_fields = ["id", "author__email", "author__username", "text_content"]
     readonly_fields = ["id", "views_count", "created_at"]
     raw_id_fields = ["author"]
     date_hierarchy = "created_at"
@@ -75,7 +75,7 @@ class StoryViewAdmin(UnfoldModelAdmin):
     list_display = ["story", "viewer", "viewed_at"]
     raw_id_fields = ["story", "viewer"]
     readonly_fields = ["id", "viewed_at"]
-    search_fields = ["viewer__email", "viewer__username"]
+    search_fields = ["id", "viewer__email", "viewer__username"]
     ordering = ["-viewed_at"]
 
 
@@ -85,7 +85,7 @@ class StoryReactionAdmin(UnfoldModelAdmin):
     list_filter = ["reaction_type"]
     raw_id_fields = ["story", "user"]
     readonly_fields = ["id", "created_at"]
-    search_fields = ["user__email", "user__username"]
+    search_fields = ["id", "user__email", "user__username"]
 
     @display(description=_("Reaction"), label={
         "LIKE": "info",
@@ -104,7 +104,7 @@ class StoryReplyAdmin(UnfoldModelAdmin):
     list_display = ["story", "user", "truncated_reply", "created_at"]
     raw_id_fields = ["story", "user"]
     readonly_fields = ["id", "created_at"]
-    search_fields = ["user__email", "reply_text"]
+    search_fields = ["id", "user__email", "reply_text"]
     ordering = ["-created_at"]
 
     @display(description=_("Reply"))

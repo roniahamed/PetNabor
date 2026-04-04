@@ -24,7 +24,7 @@ class PetProfileAdmin(UnfoldModelAdmin):
         "created_at",
     )
     list_filter = ("pet_type", "size", "weight_type", "vaccination_status")
-    search_fields = ("pet_name", "user__email", "user__username", "pet_type")
+    search_fields = ("id", "pet_name", "user__email", "user__username", "pet_type")
     ordering = ("-created_at",)
     readonly_fields = ("id", "created_at", "updated_at")
     raw_id_fields = ("user",)

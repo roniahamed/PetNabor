@@ -43,7 +43,7 @@ class ChatThreadAdmin(UnfoldModelAdmin):
         "created_at",
     ]
     list_filter = ["thread_type"]
-    search_fields = ["name", "created_by__email", "created_by__username"]
+    search_fields = ["id", "name", "created_by__email", "created_by__username"]
     ordering = ["-last_message_timestamp"]
     readonly_fields = ["id", "created_at", "updated_at"]
     raw_id_fields = ["created_by"]
@@ -100,7 +100,7 @@ class ChatThreadAdmin(UnfoldModelAdmin):
 class ThreadParticipantAdmin(UnfoldModelAdmin):
     list_display = ["thread", "user", "display_role", "display_muted", "joined_at", "left_at"]
     list_filter = ["role", "is_muted"]
-    search_fields = ["user__email", "user__username"]
+    search_fields = ["id", "user__email", "user__username"]
     readonly_fields = ["id", "joined_at"]
     raw_id_fields = ["thread", "user"]
     ordering = ["-joined_at"]
@@ -133,7 +133,7 @@ class MessageAdmin(UnfoldModelAdmin):
         "created_at",
     ]
     list_filter = ["message_type", "is_deleted_for_everyone", "is_read", "is_edited"]
-    search_fields = ["sender__email", "sender__username", "text_content"]
+    search_fields = ["id", "sender__email", "sender__username", "text_content"]
     readonly_fields = ["id", "created_at", "updated_at"]
     raw_id_fields = ["thread", "sender", "reply_to"]
     ordering = ["-created_at"]

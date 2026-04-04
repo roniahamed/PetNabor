@@ -62,7 +62,7 @@ class ReferralSettingsAdmin(UnfoldModelAdmin):
 @admin.register(ReferralWallet)
 class ReferralWalletAdmin(UnfoldModelAdmin):
     list_display = ["user", "display_balance", "updated_at"]
-    search_fields = ["user__email", "user__phone"]
+    search_fields = ["id", "user__email", "user__phone"]
     readonly_fields = ["id", "user", "balance", "created_at", "updated_at"]
     ordering = ["-balance"]
 
@@ -89,7 +89,7 @@ class ReferralTransactionAdmin(UnfoldModelAdmin):
         "created_at",
     ]
     list_filter = ["transaction_type", "status"]
-    search_fields = ["wallet__user__email", "related_user__email", "note"]
+    search_fields = ["id", "wallet__user__email", "related_user__email", "note"]
     ordering = ["-created_at"]
     readonly_fields = [f.name for f in ReferralTransaction._meta.fields]
     date_hierarchy = "created_at"

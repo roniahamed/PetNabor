@@ -57,7 +57,7 @@ class UserAdmin(UnfoldModelAdmin):
         "is_phone_verified",
         "user_type",
     )
-    search_fields = ("username", "email", "phone", "first_name", "last_name")
+    search_fields = ("id", "username", "email", "phone", "first_name", "last_name")
     ordering = ("-created_at",)
     readonly_fields = ("id", "created_at", "updated_at", "firebase_uid")
     inlines = [ProfileInline]
@@ -144,7 +144,7 @@ class UserAdmin(UnfoldModelAdmin):
 @admin.register(Profile)
 class ProfileAdmin(UnfoldModelAdmin):
     list_display = ("user", "city", "state", "referral_code", "display_avatar")
-    search_fields = ("user__email", "user__username", "city", "state", "referral_code")
+    search_fields = ("id", "user__email", "user__username", "city", "state", "referral_code")
     ordering = ("user__id",)
     raw_id_fields = ("user", "referred_by")
 
@@ -171,7 +171,7 @@ class OTPVerificationAdmin(UnfoldModelAdmin):
         "created_at",
     )
     list_filter = ("otp_type", "is_used")
-    search_fields = ("user__email", "user__phone")
+    search_fields = ("id", "user__email", "user__phone")
     ordering = ("-created_at",)
     readonly_fields = ("id", "otp_hash", "created_at")
     raw_id_fields = ("user",)

@@ -52,7 +52,7 @@ class PostAdmin(UnfoldModelAdmin):
         "created_at",
     )
     list_filter = ("privacy", "is_deleted", "is_edited")
-    search_fields = ("content_text", "author__email", "author__username")
+    search_fields = ("id", "content_text", "author__email", "author__username")
     ordering = ("-created_at",)
     readonly_fields = ("id", "likes_count", "comments_count", "created_at", "updated_at")
     raw_id_fields = ("author",)
@@ -96,6 +96,7 @@ class PostAdmin(UnfoldModelAdmin):
 @admin.register(PostMedia)
 class PostMediaAdmin(UnfoldModelAdmin):
     list_display = ("id", "post", "media_type", "display_status", "order", "created_at")
+    search_fields = ("id", "post__id")
     list_filter = ("media_type", "processing_status")
     raw_id_fields = ("post",)
     readonly_fields = ("id", "created_at")
@@ -119,7 +120,7 @@ class PostLikeAdmin(UnfoldModelAdmin):
     list_filter = ("reaction_type",)
     raw_id_fields = ("post", "user")
     readonly_fields = ("id", "created_at")
-    search_fields = ("user__email", "post__id")
+    search_fields = ("id", "user__email", "post__id")
 
 
 # ──────────────────────────────────────────────
@@ -132,7 +133,7 @@ class PostCommentAdmin(UnfoldModelAdmin):
     list_filter = ("is_edited",)
     raw_id_fields = ("post", "user", "parent_comment")
     readonly_fields = ("id", "replies_count", "created_at", "updated_at")
-    search_fields = ("comment_text", "user__email")
+    search_fields = ("id", "comment_text", "user__email")
 
     @display(description=_("Comment"))
     def truncated_comment(self, obj):
@@ -153,7 +154,7 @@ class SavedPostAdmin(UnfoldModelAdmin):
     list_display = ("user", "post", "created_at")
     raw_id_fields = ("user", "post")
     readonly_fields = ("id", "created_at")
-    search_fields = ("user__email", "post__id")
+    search_fields = ("id", "user__email", "post__id")
 
 
 # ──────────────────────────────────────────────
@@ -163,5 +164,5 @@ class SavedPostAdmin(UnfoldModelAdmin):
 @admin.register(Hashtag)
 class HashtagAdmin(UnfoldModelAdmin):
     list_display = ("name", "created_at")
-    search_fields = ("name",)
+    search_fields = ("id", "name",)
     ordering = ("name",)

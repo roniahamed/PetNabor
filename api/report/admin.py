@@ -20,7 +20,7 @@ class ReportAdmin(UnfoldModelAdmin):
         "created_at",
     )
     list_filter = ("target_type", "is_resolved")
-    search_fields = ("reporter__email", "reporter__phone", "reason", "description")
+    search_fields = ("id", "reporter__email", "reporter__phone", "reason", "description")
     ordering = ("-created_at", "is_resolved")
     readonly_fields = ("id", "reporter", "target_type", "target_id", "created_at", "updated_at")
     date_hierarchy = "created_at"

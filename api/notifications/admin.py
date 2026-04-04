@@ -18,7 +18,7 @@ class NotificationSettingsAdmin(UnfoldModelAdmin):
         "display_email",
         "display_message",
     )
-    search_fields = ("user__email", "user__username")
+    search_fields = ("id", "user__email", "user__username")
     ordering = ("user__id",)
     raw_id_fields = ("user",)
     readonly_fields = ("id", "created_at", "updated_at")
@@ -101,7 +101,7 @@ class NotificationsAdmin(UnfoldModelAdmin):
         "created_at",
     )
     list_filter = ("notification_type", "is_read")
-    search_fields = ("user__email", "user__username", "title", "body")
+    search_fields = ("id", "user__email", "user__username", "title", "body")
     ordering = ("-created_at",)
     readonly_fields = ("id", "created_at", "updated_at")
     raw_id_fields = ("user",)
@@ -135,7 +135,7 @@ class NotificationsAdmin(UnfoldModelAdmin):
 @admin.register(FCMDevice)
 class FCMDeviceAdmin(UnfoldModelAdmin):
     list_display = ("user", "truncated_token", "created_at")
-    search_fields = ("user__email", "user__username", "registration_id")
+    search_fields = ("id", "user__email", "user__username", "registration_id")
     ordering = ("-created_at",)
     readonly_fields = ("id", "created_at")
     raw_id_fields = ("user",)

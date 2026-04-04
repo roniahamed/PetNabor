@@ -39,7 +39,7 @@ class MeetingAdmin(UnfoldModelAdmin):
         "created_at",
     )
     list_filter = ("status", "reason", "visit_date")
-    search_fields = (
+    search_fields = ("id", 
         "sender__email", "sender__username",
         "receiver__email", "receiver__username",
         "visitor_name", "city",
@@ -130,7 +130,7 @@ class MeetingFeedbackAdmin(UnfoldModelAdmin):
         "created_at",
     )
     list_filter = ("is_public",)
-    search_fields = (
+    search_fields = ("id", 
         "reviewer__email", "reviewer__username",
         "reviewee__email", "reviewee__username",
     )

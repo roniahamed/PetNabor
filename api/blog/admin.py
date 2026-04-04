@@ -14,7 +14,7 @@ from .models import Blog, BlogCategory, BlogComment, BlogLike, BlogViewTracker
 @admin.register(BlogCategory)
 class BlogCategoryAdmin(UnfoldModelAdmin):
     list_display = ("name", "slug", "created_at")
-    search_fields = ("name",)
+    search_fields = ("id", "name",)
     prepopulated_fields = {"slug": ("name",)}
     ordering = ("name",)
 
@@ -32,7 +32,7 @@ class BlogAdmin(UnfoldModelAdmin):
         "created_at",
     )
     list_filter = ("is_published", "is_deleted", "category")
-    search_fields = ("title", "author__username", "author__email")
+    search_fields = ("id", "title", "author__username", "author__email")
     raw_id_fields = ("author",)
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
@@ -98,7 +98,7 @@ class BlogAdmin(UnfoldModelAdmin):
 class BlogLikeAdmin(UnfoldModelAdmin):
     list_display = ("blog", "user", "created_at")
     raw_id_fields = ("blog", "user")
-    search_fields = ("user__email", "blog__title")
+    search_fields = ("id", "user__email", "blog__title")
     readonly_fields = ("id", "created_at")
 
 
@@ -107,7 +107,7 @@ class BlogCommentAdmin(UnfoldModelAdmin):
     list_display = ("user", "blog", "display_edited", "display_deleted", "created_at")
     list_filter = ("is_edited", "is_deleted")
     raw_id_fields = ("blog", "user", "parent_comment")
-    search_fields = ("comment_text", "user__username", "blog__title")
+    search_fields = ("id", "comment_text", "user__username", "blog__title")
     readonly_fields = ("id", "replies_count", "created_at", "updated_at")
 
     @display(description=_("Edited"), label={True: "warning", False: "success"}, boolean=True)
@@ -123,5 +123,5 @@ class BlogCommentAdmin(UnfoldModelAdmin):
 class BlogViewTrackerAdmin(UnfoldModelAdmin):
     list_display = ("blog", "user", "ip_address", "created_at")
     raw_id_fields = ("blog", "user")
-    search_fields = ("ip_address", "blog__title")
+    search_fields = ("id", "ip_address", "blog__title")
     readonly_fields = ("id", "created_at")
