@@ -177,7 +177,6 @@ UNFOLD = {
     "SITE_SUBHEADER": "Social Media Dashboard",
     "SITE_URL": "/",
     "SITE_SYMBOL": "pets",
-    "SITE_LOGO": "/media/logo.svg",
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": False,
     "ENVIRONMENT": "api.users.admin_utils.environment_callback",
