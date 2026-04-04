@@ -12,11 +12,14 @@ from .models import FriendRequest, Friendship, UserBlock
 
 @admin.register(FriendRequest)
 class FriendRequestAdmin(UnfoldModelAdmin):
-    list_display = ("sender", "receiver", "display_status", "created_at")
+    list_display = ("id", "sender", "receiver", "display_status", "created_at")
     list_filter = ("status",)
-    search_fields = ("id", 
-        "sender__email", "sender__username",
-        "receiver__email", "receiver__username",
+    search_fields = (
+        "id",
+        "sender__email",
+        "sender__username",
+        "receiver__email",
+        "receiver__username",
     )
     ordering = ("-created_at",)
     readonly_fields = ("id", "created_at", "updated_at")
@@ -35,21 +38,28 @@ class FriendRequestAdmin(UnfoldModelAdmin):
         count = queryset.update(status="rejected")
         self.message_user(request, f"{count} request(s) rejected.")
 
-    @display(description=_("Status"), label={
-        "pending": "warning",
-        "accepted": "success",
-        "rejected": "danger",
-    }, ordering="status")
+    @display(
+        description=_("Status"),
+        label={
+            "pending": "warning",
+            "accepted": "success",
+            "rejected": "danger",
+        },
+        ordering="status",
+    )
     def display_status(self, obj):
         return obj.status
 
 
 @admin.register(Friendship)
 class FriendshipAdmin(UnfoldModelAdmin):
-    list_display = ("sender", "receiver", "created_at")
-    search_fields = ("id", 
-        "sender__email", "sender__username",
-        "receiver__email", "receiver__username",
+    list_display = ("id", "sender", "receiver", "created_at")
+    search_fields = (
+        "id",
+        "sender__email",
+        "sender__username",
+        "receiver__email",
+        "receiver__username",
     )
     ordering = ("-created_at",)
     readonly_fields = ("id", "created_at")
@@ -59,10 +69,13 @@ class FriendshipAdmin(UnfoldModelAdmin):
 
 @admin.register(UserBlock)
 class UserBlockAdmin(UnfoldModelAdmin):
-    list_display = ("blocker", "blocked_user", "created_at")
-    search_fields = ("id", 
-        "blocker__email", "blocker__username",
-        "blocked_user__email", "blocked_user__username",
+    list_display = ("id", "blocker", "blocked_user", "created_at")
+    search_fields = (
+        "id",
+        "blocker__email",
+        "blocker__username",
+        "blocked_user__email",
+        "blocked_user__username",
     )
     ordering = ("-created_at",)
     readonly_fields = ("id", "created_at")

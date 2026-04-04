@@ -12,9 +12,9 @@ from unfold.decorators import display
 
 from .models import OTPVerification, Profile, User
 
-
 # Inline
 # ──────────────────────────────────────────────
+
 
 class ProfileInline(admin.StackedInline):
     model = Profile
@@ -37,9 +37,11 @@ class ProfileInline(admin.StackedInline):
 # User Admin (with inline Profile)
 # ──────────────────────────────────────────────
 
+
 @admin.register(User)
 class UserAdmin(UnfoldModelAdmin):
     list_display = (
+        "id",
         "email",
         "phone",
         "display_user_type",
@@ -66,7 +68,14 @@ class UserAdmin(UnfoldModelAdmin):
         (
             _("Identity"),
             {
-                "fields": ("id", "email", "phone", "username", "first_name", "last_name"),
+                "fields": (
+                    "id",
+                    "email",
+                    "phone",
+                    "username",
+                    "first_name",
+                    "last_name",
+                ),
             },
         ),
         (
@@ -90,7 +99,13 @@ class UserAdmin(UnfoldModelAdmin):
             _("Permissions"),
             {
                 "classes": ("collapse",),
-                "fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions"),
+                "fields": (
+                    "is_active",
+                    "is_staff",
+                    "is_superuser",
+                    "groups",
+                    "user_permissions",
+                ),
             },
         ),
         (
@@ -123,28 +138,45 @@ class UserAdmin(UnfoldModelAdmin):
 
     # ── Colored @display columns ──────────────────────────────────────────────
 
-    @display(description=_("User Type"), label={
-        "patnabor": "info",
-        "patpal": "success",
-        "vendor": "warning",
-        "admin": "danger",
-    }, ordering="user_type")
+    @display(
+        description=_("User Type"),
+        label={
+            "patnabor": "info",
+            "patpal": "success",
+            "vendor": "warning",
+            "admin": "danger",
+        },
+        ordering="user_type",
+    )
     def display_user_type(self, obj):
         return obj.user_type.capitalize() if obj.user_type else "—"
 
-    @display(description=_("Verified"), label={True: "success", False: "danger"}, boolean=True)
+    @display(
+        description=_("Verified"),
+        label={True: "success", False: "danger"},
+        boolean=True,
+    )
     def display_verified(self, obj):
         return obj.is_verified
 
-    @display(description=_("Online"), label={True: "success", False: "warning"}, boolean=True)
+    @display(
+        description=_("Online"), label={True: "success", False: "warning"}, boolean=True
+    )
     def display_online(self, obj):
         return obj.is_online
 
 
 @admin.register(Profile)
 class ProfileAdmin(UnfoldModelAdmin):
-    list_display = ("user", "city", "state", "referral_code", "display_avatar")
-    search_fields = ("id", "user__email", "user__username", "city", "state", "referral_code")
+    list_display = ("id", "user", "city", "state", "referral_code", "display_avatar")
+    search_fields = (
+        "id",
+        "user__email",
+        "user__username",
+        "city",
+        "state",
+        "referral_code",
+    )
     ordering = ("user__id",)
     raw_id_fields = ("user", "referred_by")
 
@@ -163,6 +195,7 @@ class ProfileAdmin(UnfoldModelAdmin):
 @admin.register(OTPVerification)
 class OTPVerificationAdmin(UnfoldModelAdmin):
     list_display = (
+        "id",
         "user",
         "otp_type",
         "display_used",
@@ -176,6 +209,8 @@ class OTPVerificationAdmin(UnfoldModelAdmin):
     readonly_fields = ("id", "otp_hash", "created_at")
     raw_id_fields = ("user",)
 
-    @display(description=_("Used"), label={True: "success", False: "warning"}, boolean=True)
+    @display(
+        description=_("Used"), label={True: "success", False: "warning"}, boolean=True
+    )
     def display_used(self, obj):
         return obj.is_used

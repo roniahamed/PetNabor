@@ -13,6 +13,7 @@ from .models import Report
 @admin.register(Report)
 class ReportAdmin(UnfoldModelAdmin):
     list_display = (
+        "id",
         "reporter",
         "display_target",
         "reason",
@@ -20,9 +21,22 @@ class ReportAdmin(UnfoldModelAdmin):
         "created_at",
     )
     list_filter = ("target_type", "is_resolved")
-    search_fields = ("id", "reporter__email", "reporter__phone", "reason", "description")
+    search_fields = (
+        "id",
+        "reporter__email",
+        "reporter__phone",
+        "reason",
+        "description",
+    )
     ordering = ("-created_at", "is_resolved")
-    readonly_fields = ("id", "reporter", "target_type", "target_id", "created_at", "updated_at")
+    readonly_fields = (
+        "id",
+        "reporter",
+        "target_type",
+        "target_id",
+        "created_at",
+        "updated_at",
+    )
     date_hierarchy = "created_at"
 
     fieldsets = (
@@ -69,6 +83,10 @@ class ReportAdmin(UnfoldModelAdmin):
     def display_target(self, obj):
         return f"{obj.target_type} / {str(obj.target_id)[:8]}…"
 
-    @display(description=_("Resolved"), label={True: "success", False: "danger"}, boolean=True)
+    @display(
+        description=_("Resolved"),
+        label={True: "success", False: "danger"},
+        boolean=True,
+    )
     def display_resolved(self, obj):
         return obj.is_resolved

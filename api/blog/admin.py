@@ -13,8 +13,11 @@ from .models import Blog, BlogCategory, BlogComment, BlogLike, BlogViewTracker
 
 @admin.register(BlogCategory)
 class BlogCategoryAdmin(UnfoldModelAdmin):
-    list_display = ("name", "slug", "created_at")
-    search_fields = ("id", "name",)
+    list_display = ("id", "name", "slug", "created_at")
+    search_fields = (
+        "id",
+        "name",
+    )
     prepopulated_fields = {"slug": ("name",)}
     ordering = ("name",)
 
@@ -22,6 +25,7 @@ class BlogCategoryAdmin(UnfoldModelAdmin):
 @admin.register(Blog)
 class BlogAdmin(UnfoldModelAdmin):
     list_display = (
+        "id",
         "title",
         "author",
         "category",
@@ -41,7 +45,14 @@ class BlogAdmin(UnfoldModelAdmin):
         (
             _("Content"),
             {
-                "fields": ("author", "category", "title", "slug", "content_body", "cover_image"),
+                "fields": (
+                    "author",
+                    "category",
+                    "title",
+                    "slug",
+                    "content_body",
+                    "cover_image",
+                ),
             },
         ),
         (
@@ -60,11 +71,22 @@ class BlogAdmin(UnfoldModelAdmin):
             _("Counters"),
             {
                 "classes": ("collapse",),
-                "fields": ("views_count", "likes_count", "comments_count", "shares_count"),
+                "fields": (
+                    "views_count",
+                    "likes_count",
+                    "comments_count",
+                    "shares_count",
+                ),
             },
         ),
     )
-    readonly_fields = ("id", "views_count", "likes_count", "comments_count", "shares_count")
+    readonly_fields = (
+        "id",
+        "views_count",
+        "likes_count",
+        "comments_count",
+        "shares_count",
+    )
     prepopulated_fields = {"slug": ("title",)}
 
     actions = ["publish_blogs", "unpublish_blogs", "soft_delete_blogs"]
@@ -72,6 +94,7 @@ class BlogAdmin(UnfoldModelAdmin):
     @admin.action(description="📢 Publish selected blogs")
     def publish_blogs(self, request, queryset):
         from django.utils import timezone
+
         count = queryset.update(is_published=True, published_at=timezone.now())
         self.message_user(request, f"{count} blog(s) published.")
 
@@ -85,18 +108,24 @@ class BlogAdmin(UnfoldModelAdmin):
         count = queryset.update(is_deleted=True, is_published=False)
         self.message_user(request, f"{count} blog(s) soft-deleted.")
 
-    @display(description=_("Published"), label={True: "success", False: "warning"}, boolean=True)
+    @display(
+        description=_("Published"),
+        label={True: "success", False: "warning"},
+        boolean=True,
+    )
     def display_published(self, obj):
         return obj.is_published
 
-    @display(description=_("Deleted"), label={True: "danger", False: "success"}, boolean=True)
+    @display(
+        description=_("Deleted"), label={True: "danger", False: "success"}, boolean=True
+    )
     def display_deleted(self, obj):
         return obj.is_deleted
 
 
 @admin.register(BlogLike)
 class BlogLikeAdmin(UnfoldModelAdmin):
-    list_display = ("blog", "user", "created_at")
+    list_display = ("id", "blog", "user", "created_at")
     raw_id_fields = ("blog", "user")
     search_fields = ("id", "user__email", "blog__title")
     readonly_fields = ("id", "created_at")
@@ -104,24 +133,35 @@ class BlogLikeAdmin(UnfoldModelAdmin):
 
 @admin.register(BlogComment)
 class BlogCommentAdmin(UnfoldModelAdmin):
-    list_display = ("user", "blog", "display_edited", "display_deleted", "created_at")
+    list_display = (
+        "id",
+        "user",
+        "blog",
+        "display_edited",
+        "display_deleted",
+        "created_at",
+    )
     list_filter = ("is_edited", "is_deleted")
     raw_id_fields = ("blog", "user", "parent_comment")
     search_fields = ("id", "comment_text", "user__username", "blog__title")
     readonly_fields = ("id", "replies_count", "created_at", "updated_at")
 
-    @display(description=_("Edited"), label={True: "warning", False: "success"}, boolean=True)
+    @display(
+        description=_("Edited"), label={True: "warning", False: "success"}, boolean=True
+    )
     def display_edited(self, obj):
         return obj.is_edited
 
-    @display(description=_("Deleted"), label={True: "danger", False: "success"}, boolean=True)
+    @display(
+        description=_("Deleted"), label={True: "danger", False: "success"}, boolean=True
+    )
     def display_deleted(self, obj):
         return obj.is_deleted
 
 
 @admin.register(BlogViewTracker)
 class BlogViewTrackerAdmin(UnfoldModelAdmin):
-    list_display = ("blog", "user", "ip_address", "created_at")
+    list_display = ("id", "blog", "user", "ip_address", "created_at")
     raw_id_fields = ("blog", "user")
     search_fields = ("id", "ip_address", "blog__title")
     readonly_fields = ("id", "created_at")

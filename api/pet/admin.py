@@ -14,6 +14,7 @@ from .models import PetProfile
 @admin.register(PetProfile)
 class PetProfileAdmin(UnfoldModelAdmin):
     list_display = (
+        "id",
         "display_avatar",
         "pet_name",
         "pet_type",
@@ -46,7 +47,11 @@ class PetProfileAdmin(UnfoldModelAdmin):
         (
             _("Health"),
             {
-                "fields": ("vaccination_status", "vaccination_document", "vet_contact_number"),
+                "fields": (
+                    "vaccination_status",
+                    "vaccination_document",
+                    "vet_contact_number",
+                ),
             },
         ),
         (

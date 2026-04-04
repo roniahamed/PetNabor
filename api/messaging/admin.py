@@ -9,10 +9,10 @@ from unfold.decorators import display
 
 from .models import ChatThread, Message, ThreadParticipant
 
-
 # ──────────────────────────────────────────────
 # Inline: participants inside ChatThreadAdmin
 # ──────────────────────────────────────────────
+
 
 class ThreadParticipantInline(TabularInline):
     model = ThreadParticipant
@@ -21,10 +21,13 @@ class ThreadParticipantInline(TabularInline):
     readonly_fields = ["joined_at", "display_role"]
     can_delete = False
 
-    @display(description=_("Role"), label={
-        "ADMIN": "danger",
-        "MEMBER": "info",
-    })
+    @display(
+        description=_("Role"),
+        label={
+            "ADMIN": "danger",
+            "MEMBER": "info",
+        },
+    )
     def display_role(self, obj):
         return obj.role
 
@@ -33,9 +36,11 @@ class ThreadParticipantInline(TabularInline):
 # ChatThread Admin
 # ──────────────────────────────────────────────
 
+
 @admin.register(ChatThread)
 class ChatThreadAdmin(UnfoldModelAdmin):
     list_display = [
+        "id",
         "display_thread_name",
         "display_thread_type",
         "created_by",
@@ -84,10 +89,14 @@ class ChatThreadAdmin(UnfoldModelAdmin):
     def display_thread_name(self, obj):
         return obj.name or f"DM {str(obj.id)[:8]}…"
 
-    @display(description=_("Type"), label={
-        "DIRECT": "info",
-        "GROUP": "success",
-    }, ordering="thread_type")
+    @display(
+        description=_("Type"),
+        label={
+            "DIRECT": "info",
+            "GROUP": "success",
+        },
+        ordering="thread_type",
+    )
     def display_thread_type(self, obj):
         return obj.thread_type
 
@@ -96,23 +105,38 @@ class ChatThreadAdmin(UnfoldModelAdmin):
 # ThreadParticipant Admin
 # ──────────────────────────────────────────────
 
+
 @admin.register(ThreadParticipant)
 class ThreadParticipantAdmin(UnfoldModelAdmin):
-    list_display = ["thread", "user", "display_role", "display_muted", "joined_at", "left_at"]
+    list_display = [
+        "id",
+        "thread",
+        "user",
+        "display_role",
+        "display_muted",
+        "joined_at",
+        "left_at",
+    ]
     list_filter = ["role", "is_muted"]
     search_fields = ["id", "user__email", "user__username"]
     readonly_fields = ["id", "joined_at"]
     raw_id_fields = ["thread", "user"]
     ordering = ["-joined_at"]
 
-    @display(description=_("Role"), label={
-        "ADMIN": "danger",
-        "MEMBER": "info",
-    }, ordering="role")
+    @display(
+        description=_("Role"),
+        label={
+            "ADMIN": "danger",
+            "MEMBER": "info",
+        },
+        ordering="role",
+    )
     def display_role(self, obj):
         return obj.role
 
-    @display(description=_("Muted"), label={True: "warning", False: "success"}, boolean=True)
+    @display(
+        description=_("Muted"), label={True: "warning", False: "success"}, boolean=True
+    )
     def display_muted(self, obj):
         return obj.is_muted
 
@@ -121,9 +145,11 @@ class ThreadParticipantAdmin(UnfoldModelAdmin):
 # Message Admin
 # ──────────────────────────────────────────────
 
+
 @admin.register(Message)
 class MessageAdmin(UnfoldModelAdmin):
     list_display = [
+        "id",
         "sender",
         "display_preview",
         "display_msg_type",
@@ -153,21 +179,29 @@ class MessageAdmin(UnfoldModelAdmin):
         text = obj.text_content or obj.message_type
         return text[:50] + "…" if len(text) > 50 else text
 
-    @display(description=_("Type"), label={
-        "TEXT": "info",
-        "IMAGE": "success",
-        "VIDEO": "warning",
-        "AUDIO": "warning",
-        "FILE": "info",
-        "SYSTEM": "danger",
-    }, ordering="message_type")
+    @display(
+        description=_("Type"),
+        label={
+            "TEXT": "info",
+            "IMAGE": "success",
+            "VIDEO": "warning",
+            "AUDIO": "warning",
+            "FILE": "info",
+            "SYSTEM": "danger",
+        },
+        ordering="message_type",
+    )
     def display_msg_type(self, obj):
         return obj.message_type
 
-    @display(description=_("Deleted"), label={True: "danger", False: "success"}, boolean=True)
+    @display(
+        description=_("Deleted"), label={True: "danger", False: "success"}, boolean=True
+    )
     def display_deleted(self, obj):
         return obj.is_deleted_for_everyone
 
-    @display(description=_("Read"), label={True: "success", False: "warning"}, boolean=True)
+    @display(
+        description=_("Read"), label={True: "success", False: "warning"}, boolean=True
+    )
     def display_read(self, obj):
         return obj.is_read

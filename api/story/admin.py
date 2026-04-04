@@ -13,6 +13,7 @@ from .models import Story, StoryReaction, StoryReply, StoryView
 @admin.register(Story)
 class StoryAdmin(UnfoldModelAdmin):
     list_display = [
+        "id",
         "author",
         "display_media_type",
         "display_privacy",
@@ -32,7 +33,14 @@ class StoryAdmin(UnfoldModelAdmin):
         (
             _("Content"),
             {
-                "fields": ("id", "author", "media_type", "media", "text_content", "bg_color"),
+                "fields": (
+                    "id",
+                    "author",
+                    "media_type",
+                    "media",
+                    "text_content",
+                    "bg_color",
+                ),
             },
         ),
         (
@@ -50,29 +58,39 @@ class StoryAdmin(UnfoldModelAdmin):
         ),
     )
 
-    @display(description=_("Type"), label={
-        "TEXT": "info",
-        "IMAGE": "success",
-        "VIDEO": "warning",
-    }, ordering="media_type")
+    @display(
+        description=_("Type"),
+        label={
+            "TEXT": "info",
+            "IMAGE": "success",
+            "VIDEO": "warning",
+        },
+        ordering="media_type",
+    )
     def display_media_type(self, obj):
         return obj.media_type
 
-    @display(description=_("Privacy"), label={
-        "PUBLIC": "success",
-        "FRIENDS_ONLY": "info",
-    }, ordering="privacy")
+    @display(
+        description=_("Privacy"),
+        label={
+            "PUBLIC": "success",
+            "FRIENDS_ONLY": "info",
+        },
+        ordering="privacy",
+    )
     def display_privacy(self, obj):
         return obj.privacy
 
-    @display(description=_("Active"), label={True: "success", False: "danger"}, boolean=True)
+    @display(
+        description=_("Active"), label={True: "success", False: "danger"}, boolean=True
+    )
     def display_active(self, obj):
         return obj.is_active
 
 
 @admin.register(StoryView)
 class StoryViewAdmin(UnfoldModelAdmin):
-    list_display = ["story", "viewer", "viewed_at"]
+    list_display = ["id", "story", "viewer", "viewed_at"]
     raw_id_fields = ["story", "viewer"]
     readonly_fields = ["id", "viewed_at"]
     search_fields = ["id", "viewer__email", "viewer__username"]
@@ -81,27 +99,31 @@ class StoryViewAdmin(UnfoldModelAdmin):
 
 @admin.register(StoryReaction)
 class StoryReactionAdmin(UnfoldModelAdmin):
-    list_display = ["story", "user", "display_reaction_type", "created_at"]
+    list_display = ["id", "story", "user", "display_reaction_type", "created_at"]
     list_filter = ["reaction_type"]
     raw_id_fields = ["story", "user"]
     readonly_fields = ["id", "created_at"]
     search_fields = ["id", "user__email", "user__username"]
 
-    @display(description=_("Reaction"), label={
-        "LIKE": "info",
-        "LOVE": "danger",
-        "HAHA": "warning",
-        "SAD": "warning",
-        "ANGRY": "danger",
-        "WOW": "success",
-    }, ordering="reaction_type")
+    @display(
+        description=_("Reaction"),
+        label={
+            "LIKE": "info",
+            "LOVE": "danger",
+            "HAHA": "warning",
+            "SAD": "warning",
+            "ANGRY": "danger",
+            "WOW": "success",
+        },
+        ordering="reaction_type",
+    )
     def display_reaction_type(self, obj):
         return obj.reaction_type
 
 
 @admin.register(StoryReply)
 class StoryReplyAdmin(UnfoldModelAdmin):
-    list_display = ["story", "user", "truncated_reply", "created_at"]
+    list_display = ["id", "story", "user", "truncated_reply", "created_at"]
     raw_id_fields = ["story", "user"]
     readonly_fields = ["id", "created_at"]
     search_fields = ["id", "user__email", "reply_text"]

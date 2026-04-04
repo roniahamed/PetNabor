@@ -19,7 +19,7 @@ class ReferralSettingsAdmin(UnfoldModelAdmin):
     Redirects directly to the single record.
     """
 
-    list_display = ["referrer_points", "referee_points", "updated_at"]
+    list_display = ["id", "referrer_points", "referee_points", "updated_at"]
     readonly_fields = ["created_at", "updated_at"]
 
     fieldsets = (
@@ -61,7 +61,7 @@ class ReferralSettingsAdmin(UnfoldModelAdmin):
 
 @admin.register(ReferralWallet)
 class ReferralWalletAdmin(UnfoldModelAdmin):
-    list_display = ["user", "display_balance", "updated_at"]
+    list_display = ["id", "user", "display_balance", "updated_at"]
     search_fields = ["id", "user__email", "user__phone"]
     readonly_fields = ["id", "user", "balance", "created_at", "updated_at"]
     ordering = ["-balance"]
@@ -81,6 +81,7 @@ class ReferralWalletAdmin(UnfoldModelAdmin):
 @admin.register(ReferralTransaction)
 class ReferralTransactionAdmin(UnfoldModelAdmin):
     list_display = [
+        "id",
         "wallet",
         "transaction_type",
         "display_amount",
@@ -105,10 +106,14 @@ class ReferralTransactionAdmin(UnfoldModelAdmin):
         prefix = "+" if obj.amount >= 0 else ""
         return f"{prefix}{obj.amount:,.2f} pts"
 
-    @display(description=_("Status"), label={
-        "completed": "success",
-        "pending": "warning",
-        "failed": "danger",
-    }, ordering="status")
+    @display(
+        description=_("Status"),
+        label={
+            "completed": "success",
+            "pending": "warning",
+            "failed": "danger",
+        },
+        ordering="status",
+    )
     def display_status(self, obj):
         return obj.status
