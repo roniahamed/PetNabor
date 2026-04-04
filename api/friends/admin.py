@@ -12,7 +12,7 @@ from .models import FriendRequest, Friendship, UserBlock
 
 @admin.register(FriendRequest)
 class FriendRequestAdmin(UnfoldModelAdmin):
-    list_display = ("id", "sender", "receiver", "display_status", "created_at")
+    list_display = ("short_id", "sender", "receiver", "display_status", "created_at")
     list_filter = ("status",)
     search_fields = (
         "id",
@@ -53,7 +53,7 @@ class FriendRequestAdmin(UnfoldModelAdmin):
 
 @admin.register(Friendship)
 class FriendshipAdmin(UnfoldModelAdmin):
-    list_display = ("id", "sender", "receiver", "created_at")
+    list_display = ("short_id", "sender", "receiver", "created_at")
     search_fields = (
         "id",
         "sender__email",
@@ -69,7 +69,7 @@ class FriendshipAdmin(UnfoldModelAdmin):
 
 @admin.register(UserBlock)
 class UserBlockAdmin(UnfoldModelAdmin):
-    list_display = ("id", "blocker", "blocked_user", "created_at")
+    list_display = ("short_id", "blocker", "blocked_user", "created_at")
     search_fields = (
         "id",
         "blocker__email",

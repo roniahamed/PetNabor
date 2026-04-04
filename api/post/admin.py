@@ -51,7 +51,7 @@ class PostMediaInline(TabularInline):
 @admin.register(Post)
 class PostAdmin(UnfoldModelAdmin):
     list_display = (
-        "id",
+        "short_id",
         "truncated_content",
         "author",
         "display_privacy",
@@ -117,7 +117,7 @@ class PostAdmin(UnfoldModelAdmin):
 
 @admin.register(PostMedia)
 class PostMediaAdmin(UnfoldModelAdmin):
-    list_display = ("id", "post", "media_type", "display_status", "order", "created_at")
+    list_display = ("short_id", "post", "media_type", "display_status", "order", "created_at")
     search_fields = ("id", "post__id")
     list_filter = ("media_type", "processing_status")
     raw_id_fields = ("post",)
@@ -143,7 +143,7 @@ class PostMediaAdmin(UnfoldModelAdmin):
 
 @admin.register(PostLike)
 class PostLikeAdmin(UnfoldModelAdmin):
-    list_display = ("id", "post", "user", "reaction_type", "created_at")
+    list_display = ("short_id", "post", "user", "reaction_type", "created_at")
     list_filter = ("reaction_type",)
     raw_id_fields = ("post", "user")
     readonly_fields = ("id", "created_at")
@@ -158,7 +158,7 @@ class PostLikeAdmin(UnfoldModelAdmin):
 @admin.register(PostComment)
 class PostCommentAdmin(UnfoldModelAdmin):
     list_display = (
-        "id",
+        "short_id",
         "user",
         "truncated_comment",
         "post",
@@ -190,7 +190,7 @@ class PostCommentAdmin(UnfoldModelAdmin):
 
 @admin.register(SavedPost)
 class SavedPostAdmin(UnfoldModelAdmin):
-    list_display = ("id", "user", "post", "created_at")
+    list_display = ("short_id", "user", "post", "created_at")
     raw_id_fields = ("user", "post")
     readonly_fields = ("id", "created_at")
     search_fields = ("id", "user__email", "post__id")
@@ -203,7 +203,7 @@ class SavedPostAdmin(UnfoldModelAdmin):
 
 @admin.register(Hashtag)
 class HashtagAdmin(UnfoldModelAdmin):
-    list_display = ("id", "name", "created_at")
+    list_display = ("short_id", "name", "created_at")
     search_fields = (
         "id",
         "name",

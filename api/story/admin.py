@@ -13,7 +13,7 @@ from .models import Story, StoryReaction, StoryReply, StoryView
 @admin.register(Story)
 class StoryAdmin(UnfoldModelAdmin):
     list_display = [
-        "id",
+        "short_id",
         "author",
         "display_media_type",
         "display_privacy",
@@ -90,7 +90,7 @@ class StoryAdmin(UnfoldModelAdmin):
 
 @admin.register(StoryView)
 class StoryViewAdmin(UnfoldModelAdmin):
-    list_display = ["id", "story", "viewer", "viewed_at"]
+    list_display = ["short_id", "story", "viewer", "viewed_at"]
     raw_id_fields = ["story", "viewer"]
     readonly_fields = ["id", "viewed_at"]
     search_fields = ["id", "viewer__email", "viewer__username"]
@@ -99,7 +99,7 @@ class StoryViewAdmin(UnfoldModelAdmin):
 
 @admin.register(StoryReaction)
 class StoryReactionAdmin(UnfoldModelAdmin):
-    list_display = ["id", "story", "user", "display_reaction_type", "created_at"]
+    list_display = ["short_id", "story", "user", "display_reaction_type", "created_at"]
     list_filter = ["reaction_type"]
     raw_id_fields = ["story", "user"]
     readonly_fields = ["id", "created_at"]
@@ -123,7 +123,7 @@ class StoryReactionAdmin(UnfoldModelAdmin):
 
 @admin.register(StoryReply)
 class StoryReplyAdmin(UnfoldModelAdmin):
-    list_display = ["id", "story", "user", "truncated_reply", "created_at"]
+    list_display = ["short_id", "story", "user", "truncated_reply", "created_at"]
     raw_id_fields = ["story", "user"]
     readonly_fields = ["id", "created_at"]
     search_fields = ["id", "user__email", "reply_text"]

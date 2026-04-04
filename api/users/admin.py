@@ -41,7 +41,7 @@ class ProfileInline(admin.StackedInline):
 @admin.register(User)
 class UserAdmin(UnfoldModelAdmin):
     list_display = (
-        "id",
+        "short_id",
         "email",
         "phone",
         "display_user_type",
@@ -168,7 +168,7 @@ class UserAdmin(UnfoldModelAdmin):
 
 @admin.register(Profile)
 class ProfileAdmin(UnfoldModelAdmin):
-    list_display = ("id", "user", "city", "state", "referral_code", "display_avatar")
+    list_display = ("short_id", "user", "city", "state", "referral_code", "display_avatar")
     search_fields = (
         "id",
         "user__email",
@@ -195,7 +195,7 @@ class ProfileAdmin(UnfoldModelAdmin):
 @admin.register(OTPVerification)
 class OTPVerificationAdmin(UnfoldModelAdmin):
     list_display = (
-        "id",
+        "short_id",
         "user",
         "otp_type",
         "display_used",

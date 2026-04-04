@@ -13,7 +13,7 @@ from .models import Report
 @admin.register(Report)
 class ReportAdmin(UnfoldModelAdmin):
     list_display = (
-        "id",
+        "short_id",
         "reporter",
         "display_target",
         "reason",

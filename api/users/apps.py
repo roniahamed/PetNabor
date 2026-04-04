@@ -37,3 +37,15 @@ class UsersConfig(AppConfig):
             return res
             
         ModelAdmin.get_search_results = custom_get_search_results
+
+        # Globally inject a truncated ID field to prevent table overflow
+        from django.utils.html import mark_safe
+        
+        def short_id(self, obj):
+            if hasattr(obj, 'id') and obj.id:
+                id_str = str(obj.id)
+                prefix = id_str[:8]
+                return mark_safe(f'<span title="{id_str}" style="font-family:monospace;">{prefix}</span>')
+            return "—"
+        short_id.short_description = "ID"
+        ModelAdmin.short_id = short_id

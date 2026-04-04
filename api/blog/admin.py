@@ -13,7 +13,7 @@ from .models import Blog, BlogCategory, BlogComment, BlogLike, BlogViewTracker
 
 @admin.register(BlogCategory)
 class BlogCategoryAdmin(UnfoldModelAdmin):
-    list_display = ("id", "name", "slug", "created_at")
+    list_display = ("short_id", "name", "slug", "created_at")
     search_fields = (
         "id",
         "name",
@@ -25,7 +25,7 @@ class BlogCategoryAdmin(UnfoldModelAdmin):
 @admin.register(Blog)
 class BlogAdmin(UnfoldModelAdmin):
     list_display = (
-        "id",
+        "short_id",
         "title",
         "author",
         "category",
@@ -125,7 +125,7 @@ class BlogAdmin(UnfoldModelAdmin):
 
 @admin.register(BlogLike)
 class BlogLikeAdmin(UnfoldModelAdmin):
-    list_display = ("id", "blog", "user", "created_at")
+    list_display = ("short_id", "blog", "user", "created_at")
     raw_id_fields = ("blog", "user")
     search_fields = ("id", "user__email", "blog__title")
     readonly_fields = ("id", "created_at")
@@ -134,7 +134,7 @@ class BlogLikeAdmin(UnfoldModelAdmin):
 @admin.register(BlogComment)
 class BlogCommentAdmin(UnfoldModelAdmin):
     list_display = (
-        "id",
+        "short_id",
         "user",
         "blog",
         "display_edited",
@@ -161,7 +161,7 @@ class BlogCommentAdmin(UnfoldModelAdmin):
 
 @admin.register(BlogViewTracker)
 class BlogViewTrackerAdmin(UnfoldModelAdmin):
-    list_display = ("id", "blog", "user", "ip_address", "created_at")
+    list_display = ("short_id", "blog", "user", "ip_address", "created_at")
     raw_id_fields = ("blog", "user")
     search_fields = ("id", "ip_address", "blog__title")
     readonly_fields = ("id", "created_at")

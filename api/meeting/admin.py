@@ -37,7 +37,7 @@ class MeetingFeedbackInline(TabularInline):
 @admin.register(Meeting)
 class MeetingAdmin(UnfoldModelAdmin):
     list_display = (
-        "id",
+        "short_id",
         "sender",
         "receiver",
         "visitor_name",
@@ -143,7 +143,7 @@ class MeetingAdmin(UnfoldModelAdmin):
 @admin.register(MeetingFeedback)
 class MeetingFeedbackAdmin(UnfoldModelAdmin):
     list_display = (
-        "id",
+        "short_id",
         "reviewer",
         "reviewee",
         "meeting",

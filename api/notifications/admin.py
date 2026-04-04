@@ -13,7 +13,7 @@ from .models import FCMDevice, NotificationSettings, Notifications
 @admin.register(NotificationSettings)
 class NotificationSettingsAdmin(UnfoldModelAdmin):
     list_display = (
-        "id",
+        "short_id",
         "user",
         "display_push",
         "display_email",
@@ -102,7 +102,7 @@ class NotificationSettingsAdmin(UnfoldModelAdmin):
 @admin.register(Notifications)
 class NotificationsAdmin(UnfoldModelAdmin):
     list_display = (
-        "id",
+        "short_id",
         "user",
         "title",
         "display_type",
@@ -149,7 +149,7 @@ class NotificationsAdmin(UnfoldModelAdmin):
 
 @admin.register(FCMDevice)
 class FCMDeviceAdmin(UnfoldModelAdmin):
-    list_display = ("id", "user", "truncated_token", "created_at")
+    list_display = ("short_id", "user", "truncated_token", "created_at")
     search_fields = ("id", "user__email", "user__username", "registration_id")
     ordering = ("-created_at",)
     readonly_fields = ("id", "created_at")

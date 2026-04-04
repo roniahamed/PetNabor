@@ -40,7 +40,7 @@ class ThreadParticipantInline(TabularInline):
 @admin.register(ChatThread)
 class ChatThreadAdmin(UnfoldModelAdmin):
     list_display = [
-        "id",
+        "short_id",
         "display_thread_name",
         "display_thread_type",
         "created_by",
@@ -109,7 +109,7 @@ class ChatThreadAdmin(UnfoldModelAdmin):
 @admin.register(ThreadParticipant)
 class ThreadParticipantAdmin(UnfoldModelAdmin):
     list_display = [
-        "id",
+        "short_id",
         "thread",
         "user",
         "display_role",
@@ -149,7 +149,7 @@ class ThreadParticipantAdmin(UnfoldModelAdmin):
 @admin.register(Message)
 class MessageAdmin(UnfoldModelAdmin):
     list_display = [
-        "id",
+        "short_id",
         "sender",
         "display_preview",
         "display_msg_type",

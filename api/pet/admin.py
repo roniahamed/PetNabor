@@ -14,7 +14,7 @@ from .models import PetProfile
 @admin.register(PetProfile)
 class PetProfileAdmin(UnfoldModelAdmin):
     list_display = (
-        "id",
+        "short_id",
         "display_avatar",
         "pet_name",
         "pet_type",

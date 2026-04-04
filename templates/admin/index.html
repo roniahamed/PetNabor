@@ -180,7 +180,7 @@
             <div class="p-5 rounded-3xl bg-rose-500/5 border border-rose-500/10">
               <p class="text-[10px] font-black text-rose-500 uppercase mb-1">{{ report.reason|truncatechars:25 }}</p>
               <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-gray-800 dark:text-gray-200">Issue #{{ report.id }}</span>
+                <span class="text-xs font-bold text-gray-800 dark:text-gray-200">Issue #{{ report.id|stringformat:"str"|slice:":8" }}</span>
                 <a href="/admin/report/report/{{ report.id }}/change/" class="text-[10px] font-black px-4 py-2 bg-rose-500 text-white rounded-full hover:scale-105 transition-transform">Resolve</a>
               </div>
             </div>
