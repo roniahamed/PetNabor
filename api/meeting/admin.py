@@ -5,19 +5,27 @@ Admin configuration for Meeting and MeetingFeedback — PetNabor.
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin, TabularInline
+from api.core.admin_mixins import UUIDSearchMixin
 from unfold.decorators import display
 
 from .models import Meeting, MeetingFeedback
-
 
 # ──────────────────────────────────────────────
 # Inline: feedback inside MeetingAdmin
 # ──────────────────────────────────────────────
 
+
 class MeetingFeedbackInline(TabularInline):
     model = MeetingFeedback
     extra = 0
-    readonly_fields = ("id", "reviewer", "reviewee", "rating", "is_public", "created_at")
+    readonly_fields = (
+        "id",
+        "reviewer",
+        "reviewee",
+        "rating",
+        "is_public",
+        "created_at",
+    )
     fields = ("reviewer", "reviewee", "rating", "is_public", "feedback_text")
     can_delete = False
 
@@ -26,9 +34,11 @@ class MeetingFeedbackInline(TabularInline):
 # Meeting Admin
 # ──────────────────────────────────────────────
 
+
 @admin.register(Meeting)
-class MeetingAdmin(UnfoldModelAdmin):
+class MeetingAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
+        "short_id",
         "sender",
         "receiver",
         "visitor_name",
@@ -40,9 +50,13 @@ class MeetingAdmin(UnfoldModelAdmin):
     )
     list_filter = ("status", "reason", "visit_date")
     search_fields = (
-        "sender__email", "sender__username",
-        "receiver__email", "receiver__username",
-        "visitor_name", "city",
+        "id",
+        "sender__email",
+        "sender__username",
+        "receiver__email",
+        "receiver__username",
+        "visitor_name",
+        "city",
     )
     ordering = ("-created_at",)
     readonly_fields = ("id", "created_at", "updated_at")
@@ -61,9 +75,12 @@ class MeetingAdmin(UnfoldModelAdmin):
             _("Visit Details"),
             {
                 "fields": (
-                    "visitor_name", "visitor_phone",
-                    "visit_date", "visit_time",
-                    "reason", "message",
+                    "visitor_name",
+                    "visitor_phone",
+                    "visit_date",
+                    "visit_time",
+                    "reason",
+                    "message",
                 ),
             },
         ),
@@ -105,12 +122,16 @@ class MeetingAdmin(UnfoldModelAdmin):
         count = queryset.filter(status="ACCEPTED").update(status="COMPLETED")
         self.message_user(request, f"{count} meeting(s) marked as completed.")
 
-    @display(description=_("Status"), label={
-        "PENDING": "warning",
-        "ACCEPTED": "info",
-        "CANCELLED": "danger",
-        "COMPLETED": "success",
-    }, ordering="status")
+    @display(
+        description=_("Status"),
+        label={
+            "PENDING": "warning",
+            "ACCEPTED": "info",
+            "CANCELLED": "danger",
+            "COMPLETED": "success",
+        },
+        ordering="status",
+    )
     def display_status(self, obj):
         return obj.status
 
@@ -119,9 +140,11 @@ class MeetingAdmin(UnfoldModelAdmin):
 # Meeting Feedback Admin
 # ──────────────────────────────────────────────
 
+
 @admin.register(MeetingFeedback)
-class MeetingFeedbackAdmin(UnfoldModelAdmin):
+class MeetingFeedbackAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
+        "short_id",
         "reviewer",
         "reviewee",
         "meeting",
@@ -131,8 +154,11 @@ class MeetingFeedbackAdmin(UnfoldModelAdmin):
     )
     list_filter = ("is_public",)
     search_fields = (
-        "reviewer__email", "reviewer__username",
-        "reviewee__email", "reviewee__username",
+        "id",
+        "reviewer__email",
+        "reviewer__username",
+        "reviewee__email",
+        "reviewee__username",
     )
     ordering = ("-created_at",)
     readonly_fields = ("id", "created_at", "updated_at")
@@ -145,6 +171,8 @@ class MeetingFeedbackAdmin(UnfoldModelAdmin):
         stars = "★" * int(obj.rating) + "☆" * (5 - int(obj.rating))
         return f"{stars} ({obj.rating})"
 
-    @display(description=_("Public"), label={True: "success", False: "warning"}, boolean=True)
+    @display(
+        description=_("Public"), label={True: "success", False: "warning"}, boolean=True
+    )
     def display_public(self, obj):
         return obj.is_public

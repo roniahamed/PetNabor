@@ -7,19 +7,20 @@ from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
+from api.core.admin_mixins import UUIDSearchMixin
 from unfold.decorators import display
 
 from .models import ReferralSettings, ReferralTransaction, ReferralWallet
 
 
 @admin.register(ReferralSettings)
-class ReferralSettingsAdmin(UnfoldModelAdmin):
+class ReferralSettingsAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     """
     Singleton admin: prevents creating more than one settings row.
     Redirects directly to the single record.
     """
 
-    list_display = ["referrer_points", "referee_points", "updated_at"]
+    list_display = ["short_id", "referrer_points", "referee_points", "updated_at"]
     readonly_fields = ["created_at", "updated_at"]
 
     fieldsets = (
@@ -60,9 +61,9 @@ class ReferralSettingsAdmin(UnfoldModelAdmin):
 
 
 @admin.register(ReferralWallet)
-class ReferralWalletAdmin(UnfoldModelAdmin):
-    list_display = ["user", "display_balance", "updated_at"]
-    search_fields = ["user__email", "user__phone"]
+class ReferralWalletAdmin(UUIDSearchMixin, UnfoldModelAdmin):
+    list_display = ["short_id", "user", "display_balance", "updated_at"]
+    search_fields = ["id", "user__email", "user__phone"]
     readonly_fields = ["id", "user", "balance", "created_at", "updated_at"]
     ordering = ["-balance"]
 
@@ -79,8 +80,9 @@ class ReferralWalletAdmin(UnfoldModelAdmin):
 
 
 @admin.register(ReferralTransaction)
-class ReferralTransactionAdmin(UnfoldModelAdmin):
+class ReferralTransactionAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = [
+        "short_id",
         "wallet",
         "transaction_type",
         "display_amount",
@@ -89,7 +91,7 @@ class ReferralTransactionAdmin(UnfoldModelAdmin):
         "created_at",
     ]
     list_filter = ["transaction_type", "status"]
-    search_fields = ["wallet__user__email", "related_user__email", "note"]
+    search_fields = ["id", "wallet__user__email", "related_user__email", "note"]
     ordering = ["-created_at"]
     readonly_fields = [f.name for f in ReferralTransaction._meta.fields]
     date_hierarchy = "created_at"
@@ -105,10 +107,14 @@ class ReferralTransactionAdmin(UnfoldModelAdmin):
         prefix = "+" if obj.amount >= 0 else ""
         return f"{prefix}{obj.amount:,.2f} pts"
 
-    @display(description=_("Status"), label={
-        "completed": "success",
-        "pending": "warning",
-        "failed": "danger",
-    }, ordering="status")
+    @display(
+        description=_("Status"),
+        label={
+            "completed": "success",
+            "pending": "warning",
+            "failed": "danger",
+        },
+        ordering="status",
+    )
     def display_status(self, obj):
         return obj.status

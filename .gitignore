@@ -86,3 +86,6 @@ Friend request ui by figma
 
 # TLS certificates (Let's Encrypt)
 certbot/conf/
+
+petnabor-wildcard.csr
+petnabor-wildcard.key

@@ -6,19 +6,27 @@ from django.contrib import admin
 from django.utils.html import format_html, mark_safe
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin, TabularInline
+from api.core.admin_mixins import UUIDSearchMixin
 from unfold.decorators import display
 
 from .models import Hashtag, Post, PostComment, PostLike, PostMedia, SavedPost
-
 
 # ──────────────────────────────────────────────
 # Inline: PostMedia inside PostAdmin
 # ──────────────────────────────────────────────
 
+
 class PostMediaInline(TabularInline):
     model = PostMedia
     extra = 0
-    readonly_fields = ("id", "media_type", "processing_status", "order", "display_thumb", "created_at")
+    readonly_fields = (
+        "id",
+        "media_type",
+        "processing_status",
+        "order",
+        "display_thumb",
+        "created_at",
+    )
     fields = ("display_thumb", "media_type", "processing_status", "order")
     can_delete = False
     show_change_link = False
@@ -40,9 +48,11 @@ class PostMediaInline(TabularInline):
 # Post Admin
 # ──────────────────────────────────────────────
 
+
 @admin.register(Post)
-class PostAdmin(UnfoldModelAdmin):
+class PostAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
+        "short_id",
         "truncated_content",
         "author",
         "display_privacy",
@@ -52,9 +62,15 @@ class PostAdmin(UnfoldModelAdmin):
         "created_at",
     )
     list_filter = ("privacy", "is_deleted", "is_edited")
-    search_fields = ("content_text", "author__email", "author__username")
+    search_fields = ("id", "content_text", "author__email", "author__username")
     ordering = ("-created_at",)
-    readonly_fields = ("id", "likes_count", "comments_count", "created_at", "updated_at")
+    readonly_fields = (
+        "id",
+        "likes_count",
+        "comments_count",
+        "created_at",
+        "updated_at",
+    )
     raw_id_fields = ("author",)
     date_hierarchy = "created_at"
     inlines = [PostMediaInline]
@@ -76,15 +92,21 @@ class PostAdmin(UnfoldModelAdmin):
         text = obj.content_text or "—"
         return text[:60] + "…" if len(text) > 60 else text
 
-    @display(description=_("Privacy"), label={
-        "PUBLIC": "success",
-        "FRIENDS_ONLY": "info",
-        "PRIVATE": "warning",
-    }, ordering="privacy")
+    @display(
+        description=_("Privacy"),
+        label={
+            "PUBLIC": "success",
+            "FRIENDS_ONLY": "info",
+            "PRIVATE": "warning",
+        },
+        ordering="privacy",
+    )
     def display_privacy(self, obj):
         return obj.privacy
 
-    @display(description=_("Deleted"), label={True: "danger", False: "success"}, boolean=True)
+    @display(
+        description=_("Deleted"), label={True: "danger", False: "success"}, boolean=True
+    )
     def display_deleted(self, obj):
         return obj.is_deleted
 
@@ -93,18 +115,24 @@ class PostAdmin(UnfoldModelAdmin):
 # Post Media Admin
 # ──────────────────────────────────────────────
 
+
 @admin.register(PostMedia)
-class PostMediaAdmin(UnfoldModelAdmin):
-    list_display = ("id", "post", "media_type", "display_status", "order", "created_at")
+class PostMediaAdmin(UUIDSearchMixin, UnfoldModelAdmin):
+    list_display = ("short_id", "post", "media_type", "display_status", "order", "created_at")
+    search_fields = ("id", "post__id")
     list_filter = ("media_type", "processing_status")
     raw_id_fields = ("post",)
     readonly_fields = ("id", "created_at")
 
-    @display(description=_("Status"), label={
-        "PENDING": "warning",
-        "DONE": "success",
-        "FAILED": "danger",
-    }, ordering="processing_status")
+    @display(
+        description=_("Status"),
+        label={
+            "PENDING": "warning",
+            "DONE": "success",
+            "FAILED": "danger",
+        },
+        ordering="processing_status",
+    )
     def display_status(self, obj):
         return obj.processing_status
 
@@ -113,33 +141,45 @@ class PostMediaAdmin(UnfoldModelAdmin):
 # Post Like Admin
 # ──────────────────────────────────────────────
 
+
 @admin.register(PostLike)
-class PostLikeAdmin(UnfoldModelAdmin):
-    list_display = ("post", "user", "reaction_type", "created_at")
+class PostLikeAdmin(UUIDSearchMixin, UnfoldModelAdmin):
+    list_display = ("short_id", "post", "user", "reaction_type", "created_at")
     list_filter = ("reaction_type",)
     raw_id_fields = ("post", "user")
     readonly_fields = ("id", "created_at")
-    search_fields = ("user__email", "post__id")
+    search_fields = ("id", "user__email", "post__id")
 
 
 # ──────────────────────────────────────────────
 # Post Comment Admin
 # ──────────────────────────────────────────────
 
+
 @admin.register(PostComment)
-class PostCommentAdmin(UnfoldModelAdmin):
-    list_display = ("user", "truncated_comment", "post", "display_edited", "replies_count", "created_at")
+class PostCommentAdmin(UUIDSearchMixin, UnfoldModelAdmin):
+    list_display = (
+        "short_id",
+        "user",
+        "truncated_comment",
+        "post",
+        "display_edited",
+        "replies_count",
+        "created_at",
+    )
     list_filter = ("is_edited",)
     raw_id_fields = ("post", "user", "parent_comment")
     readonly_fields = ("id", "replies_count", "created_at", "updated_at")
-    search_fields = ("comment_text", "user__email")
+    search_fields = ("id", "comment_text", "user__email")
 
     @display(description=_("Comment"))
     def truncated_comment(self, obj):
         text = obj.comment_text or "—"
         return text[:50] + "…" if len(text) > 50 else text
 
-    @display(description=_("Edited"), label={True: "warning", False: "success"}, boolean=True)
+    @display(
+        description=_("Edited"), label={True: "warning", False: "success"}, boolean=True
+    )
     def display_edited(self, obj):
         return obj.is_edited
 
@@ -148,20 +188,25 @@ class PostCommentAdmin(UnfoldModelAdmin):
 # Saved Post Admin
 # ──────────────────────────────────────────────
 
+
 @admin.register(SavedPost)
-class SavedPostAdmin(UnfoldModelAdmin):
-    list_display = ("user", "post", "created_at")
+class SavedPostAdmin(UUIDSearchMixin, UnfoldModelAdmin):
+    list_display = ("short_id", "user", "post", "created_at")
     raw_id_fields = ("user", "post")
     readonly_fields = ("id", "created_at")
-    search_fields = ("user__email", "post__id")
+    search_fields = ("id", "user__email", "post__id")
 
 
 # ──────────────────────────────────────────────
 # Hashtag Admin
 # ──────────────────────────────────────────────
 
+
 @admin.register(Hashtag)
-class HashtagAdmin(UnfoldModelAdmin):
-    list_display = ("name", "created_at")
-    search_fields = ("name",)
+class HashtagAdmin(UUIDSearchMixin, UnfoldModelAdmin):
+    list_display = ("short_id", "name", "created_at")
+    search_fields = (
+        "id",
+        "name",
+    )
     ordering = ("name",)

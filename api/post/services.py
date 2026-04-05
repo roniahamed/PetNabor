@@ -309,8 +309,8 @@ class LikeService:
                     from api.notifications.models import NotificationTypes
 
                     send_notification(
-                        title="New Like",
-                        body=f"{user.username} liked your post.",
+                        title="❤️ Someone loves your post!",
+                        body=f"{user.first_name or user.username} reacted to your post.",
                         user_id=post.author_id,
                         notification_type=NotificationTypes.LIKE,
                         data={"post_id": str(post.id)},
@@ -369,6 +369,24 @@ class CommentService:
             PostComment.objects.filter(id=comment.parent_comment_id).update(
                 replies_count=F("replies_count") + 1
             )
+            
+        # Fire notification (async — non-blocking)
+        try:
+            from api.notifications.services import send_notification
+            from api.notifications.models import NotificationTypes
+
+            recipient_id = comment.parent_comment.user_id if comment.parent_comment_id else comment.post.author_id
+            if recipient_id != user.id:
+                body_msg = f"{user.first_name or user.username} replied to your comment." if comment.parent_comment_id else f"{user.first_name or user.username} commented on your post."
+                send_notification(
+                    title="💬 New Comment" if not comment.parent_comment_id else "↩️ New Reply",
+                    body=body_msg,
+                    user_id=recipient_id,
+                    notification_type=NotificationTypes.COMMENT,
+                    data={"post_id": str(comment.post_id), "comment_id": str(comment.id)},
+                )
+        except Exception:
+            logger.exception("Failed to send comment notification for post %s", comment.post_id)
 
         return comment
 

@@ -175,13 +175,13 @@
         <!-- Safety Card -->
         <div class="glass-card-v3 border-t-8 border-rose-500">
           <h3 class="text-xl font-black text-gray-900 dark:text-white mb-6">Security Queue</h3>
-          <div class="space-y-4">
+          <div class="flex flex-col gap-4">
             {% for report in recent_reports|slice:":3" %}
-            <div class="p-5 rounded-3xl bg-rose-500/5 border border-rose-500/10">
-              <p class="text-[10px] font-black text-rose-500 uppercase mb-1">{{ report.reason|truncatechars:25 }}</p>
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-gray-800 dark:text-gray-200">Issue #{{ report.id }}</span>
-                <a href="/admin/report/report/{{ report.id }}/change/" class="text-[10px] font-black px-4 py-2 bg-rose-500 text-white rounded-full hover:scale-105 transition-transform">Resolve</a>
+            <div class="p-5 rounded-3xl bg-rose-500/5 border border-rose-500/10 mb-4 last:mb-0">
+              <p class="text-[10px] font-black text-rose-500 uppercase mb-2">{{ report.reason|truncatechars:25 }}</p>
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-bold text-gray-800 dark:text-gray-200 truncate">Issue #{{ report.id|stringformat:"str"|slice:":8" }}</span>
+                <a href="/admin/report/report/{{ report.id }}/change/" class="shrink-0 text-[10px] font-black px-4 py-2 bg-rose-500 text-white rounded-full hover:scale-105 transition-transform">Resolve</a>
               </div>
             </div>
             {% empty %}

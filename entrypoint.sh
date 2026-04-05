@@ -1,4 +1,5 @@
 #!/bin/bash
+# bash entrypoint.sh
 set -e
 
 # Ensure Django FILE_UPLOAD_TEMP_DIR exists before any management command runs.

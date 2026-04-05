@@ -26,6 +26,7 @@ NOTIFICATION_SETTINGS_MAP = {
     NotificationTypes.REWARD: "marketing_notifications",
     NotificationTypes.REFERRAL_BONUS: "marketing_notifications",
     NotificationTypes.STREAK_BONUS: "marketing_notifications",
+    NotificationTypes.MESSAGE: "message_notifications",
 }
 
 DEFAULT_BATCH_SIZE = 500

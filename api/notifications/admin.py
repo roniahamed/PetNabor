@@ -5,20 +5,22 @@ Admin configuration for Notifications — PetNabor.
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
+from api.core.admin_mixins import UUIDSearchMixin
 from unfold.decorators import display
 
 from .models import FCMDevice, NotificationSettings, Notifications
 
 
 @admin.register(NotificationSettings)
-class NotificationSettingsAdmin(UnfoldModelAdmin):
+class NotificationSettingsAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
+        "short_id",
         "user",
         "display_push",
         "display_email",
         "display_message",
     )
-    search_fields = ("user__email", "user__username")
+    search_fields = ("id", "user__email", "user__username")
     ordering = ("user__id",)
     raw_id_fields = ("user",)
     readonly_fields = ("id", "created_at", "updated_at")
@@ -70,7 +72,7 @@ class NotificationSettingsAdmin(UnfoldModelAdmin):
                 "fields": ("marketing_notifications",),
             },
         ),
-         (
+        (
             _("Timestamps"),
             {
                 "classes": ("collapse",),
@@ -78,22 +80,30 @@ class NotificationSettingsAdmin(UnfoldModelAdmin):
             },
         ),
     )
-    @display(description=_("Push"), label={True: "success", False: "danger"}, boolean=True)
+
+    @display(
+        description=_("Push"), label={True: "success", False: "danger"}, boolean=True
+    )
     def display_push(self, obj):
         return obj.push_notifications
 
-    @display(description=_("Email"), label={True: "success", False: "danger"}, boolean=True)
+    @display(
+        description=_("Email"), label={True: "success", False: "danger"}, boolean=True
+    )
     def display_email(self, obj):
         return obj.email_notifications
 
-    @display(description=_("Message"), label={True: "success", False: "danger"}, boolean=True)
+    @display(
+        description=_("Message"), label={True: "success", False: "danger"}, boolean=True
+    )
     def display_message(self, obj):
         return obj.message_notifications
 
 
 @admin.register(Notifications)
-class NotificationsAdmin(UnfoldModelAdmin):
+class NotificationsAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
+        "short_id",
         "user",
         "title",
         "display_type",
@@ -101,7 +111,7 @@ class NotificationsAdmin(UnfoldModelAdmin):
         "created_at",
     )
     list_filter = ("notification_type", "is_read")
-    search_fields = ("user__email", "user__username", "title", "body")
+    search_fields = ("id", "user__email", "user__username", "title", "body")
     ordering = ("-created_at",)
     readonly_fields = ("id", "created_at", "updated_at")
     raw_id_fields = ("user",)
@@ -114,28 +124,34 @@ class NotificationsAdmin(UnfoldModelAdmin):
         count = queryset.update(is_read=True)
         self.message_user(request, f"{count} notification(s) marked as read.")
 
-    @display(description=_("Type"), label={
-        "system": "info",
-        "security": "danger",
-        "friend_request": "success",
-        "like": "warning",
-        "comment": "info",
-        "message": "info",
-        "referral_bonus": "success",
-        "marketing": "warning",
-    }, ordering="notification_type")
+    @display(
+        description=_("Type"),
+        label={
+            "system": "info",
+            "security": "danger",
+            "friend_request": "success",
+            "like": "warning",
+            "comment": "info",
+            "message": "info",
+            "referral_bonus": "success",
+            "marketing": "warning",
+        },
+        ordering="notification_type",
+    )
     def display_type(self, obj):
         return obj.notification_type
 
-    @display(description=_("Read"), label={True: "success", False: "warning"}, boolean=True)
+    @display(
+        description=_("Read"), label={True: "success", False: "warning"}, boolean=True
+    )
     def display_read(self, obj):
         return obj.is_read
 
 
 @admin.register(FCMDevice)
-class FCMDeviceAdmin(UnfoldModelAdmin):
-    list_display = ("user", "truncated_token", "created_at")
-    search_fields = ("user__email", "user__username", "registration_id")
+class FCMDeviceAdmin(UUIDSearchMixin, UnfoldModelAdmin):
+    list_display = ("short_id", "user", "truncated_token", "created_at")
+    search_fields = ("id", "user__email", "user__username", "registration_id")
     ordering = ("-created_at",)
     readonly_fields = ("id", "created_at")
     raw_id_fields = ("user",)

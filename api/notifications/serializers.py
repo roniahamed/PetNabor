@@ -39,5 +39,5 @@ class FCMDeviceSerializer(serializers.ModelSerializer):
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notifications
-        fields = ["id", "title", "body", "data", "is_read", "created_at"]
-        read_only_fields = ["id", "created_at", "title", "body", "data"]
+        fields = ["id", "title", "body", "data", "notification_type", "is_read", "created_at"]
+        read_only_fields = ["id", "created_at", "title", "body", "data", "notification_type"]

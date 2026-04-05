@@ -18,12 +18,13 @@ User = get_user_model()
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=10)
-def notify_new_message(self, message_id, sender_id, recipient_ids, text_preview):
+def notify_new_message(self, message_id, thread_id, sender_id, recipient_ids, text_preview):
     """
     Send push notifications to all recipients of a new message.
 
     Args:
         message_id:    UUID string of the newly created Message.
+        thread_id:     UUID string of the ChatThread.
         sender_id:     UUID string of the message sender.
         recipient_ids: List of UUID strings for users to notify.
         text_preview:  First 100 chars of the message for the notification body.
@@ -34,9 +35,9 @@ def notify_new_message(self, message_id, sender_id, recipient_ids, text_preview)
             logger.warning("notify_new_message: sender %s not found", sender_id)
             return
 
-        sender_display = sender.username or sender.email or "Someone"
-        title = f"New message from {sender_display}"
-        body = text_preview
+        sender_display = sender.first_name or sender.username or sender.email or "Someone"
+        title = f"💬 New message from {sender_display}"
+        body = f"{text_preview}"
 
         send_notification(
             user_ids=recipient_ids,
@@ -45,7 +46,9 @@ def notify_new_message(self, message_id, sender_id, recipient_ids, text_preview)
             notification_type=NotificationTypes.MESSAGE,
             data={
                 "message_id": message_id,
+                "thread_id": thread_id,
                 "sender_id": sender_id,
+                "message": text_preview,
                 "type": "new_message",
             },
         )

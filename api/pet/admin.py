@@ -6,14 +6,16 @@ from django.contrib import admin
 from django.utils.html import format_html, mark_safe
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
+from api.core.admin_mixins import UUIDSearchMixin
 from unfold.decorators import display
 
 from .models import PetProfile
 
 
 @admin.register(PetProfile)
-class PetProfileAdmin(UnfoldModelAdmin):
+class PetProfileAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
+        "short_id",
         "display_avatar",
         "pet_name",
         "pet_type",
@@ -24,7 +26,7 @@ class PetProfileAdmin(UnfoldModelAdmin):
         "created_at",
     )
     list_filter = ("pet_type", "size", "weight_type", "vaccination_status")
-    search_fields = ("pet_name", "user__email", "user__username", "pet_type")
+    search_fields = ("id", "pet_name", "user__email", "user__username", "pet_type")
     ordering = ("-created_at",)
     readonly_fields = ("id", "created_at", "updated_at")
     raw_id_fields = ("user",)
@@ -46,7 +48,11 @@ class PetProfileAdmin(UnfoldModelAdmin):
         (
             _("Health"),
             {
-                "fields": ("vaccination_status", "vaccination_document", "vet_contact_number"),
+                "fields": (
+                    "vaccination_status",
+                    "vaccination_document",
+                    "vet_contact_number",
+                ),
             },
         ),
         (
