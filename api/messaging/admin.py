@@ -168,7 +168,7 @@ class MessageAdmin(UUIDSearchMixin, UnfoldModelAdmin):
 
     actions = ["mark_deleted_for_everyone"]
 
-    @admin.action(description="🗑️ Delete selected messages for everyone")
+    @admin.action(description="Delete selected messages for everyone")
     def mark_deleted_for_everyone(self, request, queryset):
         count = queryset.update(is_deleted_for_everyone=True, text_content=None)
         self.message_user(request, f"{count} message(s) deleted for everyone.")

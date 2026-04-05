@@ -117,7 +117,7 @@ class MeetingAdmin(UUIDSearchMixin, UnfoldModelAdmin):
         count = queryset.exclude(status="COMPLETED").update(status="CANCELLED")
         self.message_user(request, f"{count} meeting(s) cancelled.")
 
-    @admin.action(description="🏁 Mark selected meetings as completed")
+    @admin.action(description="Mark selected meetings as completed")
     def complete_meetings(self, request, queryset):
         count = queryset.filter(status="ACCEPTED").update(status="COMPLETED")
         self.message_user(request, f"{count} meeting(s) marked as completed.")

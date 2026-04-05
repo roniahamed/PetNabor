@@ -40,7 +40,7 @@ class PostMediaInline(TabularInline):
                 file.url,
             )
         if obj.media_type == "VIDEO":
-            return mark_safe("<span style='font-size:24px'>🎬</span>")
+            return mark_safe("<span class='material-symbols-outlined' style='font-size:24px;color:#9ca3af;'>movie</span>")
         return "—"
 
 
@@ -77,7 +77,7 @@ class PostAdmin(UUIDSearchMixin, UnfoldModelAdmin):
 
     actions = ["soft_delete_posts", "restore_posts"]
 
-    @admin.action(description="🗑️ Soft-delete selected posts")
+    @admin.action(description="Soft-delete selected posts")
     def soft_delete_posts(self, request, queryset):
         count = queryset.update(is_deleted=True)
         self.message_user(request, f"{count} post(s) soft-deleted.")

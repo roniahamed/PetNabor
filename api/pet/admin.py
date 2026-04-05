@@ -71,7 +71,7 @@ class PetProfileAdmin(UUIDSearchMixin, UnfoldModelAdmin):
                 '<img src="{}" width="48" height="48" style="border-radius:8px;object-fit:cover;" />',
                 obj.image.url,
             )
-        return mark_safe("<span style='font-size:28px'>🐾</span>")
+        return mark_safe("<span class='material-symbols-outlined' style='font-size:28px;color:#9ca3af;'>pets</span>")
 
     @display(description=_("Weight"), ordering="weight")
     def display_weight(self, obj):
