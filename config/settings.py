@@ -58,6 +58,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "drf_spectacular",
+    # AWS
+    "django_ses",
     "api.users",
     "api.notifications",
     "api.pet",
@@ -132,14 +134,23 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
+# ─── Database Configuration ───────────────────────────────────────────────────
+# USE_RDS=True → connects to AWS RDS (production)
+# USE_RDS=False → connects to local Docker PostgreSQL (development)
+_USE_RDS = os.getenv("USE_RDS", "False") == "True"
+
 DATABASES = {
     "default": {
         "ENGINE": "django.contrib.gis.db.backends.postgis",
-        "NAME": os.getenv("POSTGRES_DB"),
-        "USER": os.getenv("POSTGRES_USER"),
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
-        "HOST": os.getenv("POSTGRES_HOST"),
-        "PORT": os.getenv("POSTGRES_PORT"),
+        "NAME": os.getenv("RDS_DB" if _USE_RDS else "POSTGRES_DB"),
+        "USER": os.getenv("RDS_USER" if _USE_RDS else "POSTGRES_USER"),
+        "PASSWORD": os.getenv("RDS_PASSWORD" if _USE_RDS else "POSTGRES_PASSWORD"),
+        "HOST": os.getenv("RDS_HOST" if _USE_RDS else "POSTGRES_HOST"),
+        "PORT": os.getenv("RDS_PORT" if _USE_RDS else "POSTGRES_PORT", "5432"),
+        "OPTIONS": {
+            # 'require' for RDS production, 'prefer' for local dev (auto-detected)
+            "sslmode": os.getenv("POSTGRES_SSLMODE", "require" if _USE_RDS else "prefer"),
+        },
         "TEST": {
             "NAME": "test_petnabor_db_new",
         },
@@ -166,8 +177,8 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+# ─── Storage: set conditionally below based on USE_S3 ───────────────────────
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")  # fallback / collectstatic target
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # django-unfold Admin Configuration
@@ -461,8 +472,8 @@ UNFOLD = {
     "TABS": [],
 }
 
-MEDIA_URL = "media/"
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+# ─── Media: set conditionally below based on USE_S3 ─────────────────────────
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")  # fallback for local dev
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -528,14 +539,62 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
 
-# Email Configuration (Gmail SMTP)
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = os.getenv("EMAIL_HOST", "")
-EMAIL_PORT = os.getenv("EMAIL_PORT", "")
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "")
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-DEFAULT_FROM_EMAIL = os.getenv("EMAIL_HOST_USER", "")
+# ─── AWS Credentials (shared across SES, S3, etc.) ───────────────────────────
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+# Required for SSO / temporary credentials (e.g. from `aws configure export-credentials`)
+AWS_SESSION_TOKEN = os.getenv("AWS_SESSION_TOKEN", "") or None
+
+# ─── Email Configuration — AWS SES (via django-ses) ───────────────────────────
+EMAIL_BACKEND = "django_ses.SESBackend"
+AWS_SES_REGION_NAME = os.getenv("AWS_SES_REGION_NAME", "us-east-1")
+AWS_SES_REGION_ENDPOINT = f"email.{os.getenv('AWS_SES_REGION_NAME', 'us-east-1')}.amazonaws.com"
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@petnabor.com")
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+# ─── S3 Storage Configuration ──────────────────────────────────────────────────────
+# Set USE_S3=True in .env for production, False for local development
+USE_S3 = os.getenv("USE_S3", "False") == "True"
+
+if USE_S3:
+    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", "")
+    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "us-east-1")
+    AWS_S3_FILE_OVERWRITE = False       # Don't overwrite files with same name
+    AWS_DEFAULT_ACL = None              # Use bucket policy, not object ACLs
+    AWS_QUERYSTRING_AUTH = False        # Public URLs (CloudFront handles auth)
+    AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+
+    # CloudFront domain (set after Feature 3 — CloudFront setup)
+    # If not set, falls back to direct S3 URL
+    _cdn = os.getenv("AWS_CLOUDFRONT_DOMAIN", "")
+    _s3 = f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
+    _domain = _cdn if _cdn else _s3
+
+    MEDIA_URL = f"https://{_domain}/media/"
+    STATIC_URL = f"https://{_domain}/static/"
+
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+            "OPTIONS": {
+                "location": "media",
+                "file_overwrite": False,
+                "default_acl": None,
+            },
+        },
+        "staticfiles": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+            "OPTIONS": {
+                "location": "static",
+                "default_acl": None,
+            },
+        },
+    }
+else:
+    # Local development — serve from filesystem
+    MEDIA_URL = "media/"
+    STATIC_URL = "static/"
 
 # OTP Configuration
 OTP_LENGTH = int(os.getenv("OTP_LENGTH", "4"))

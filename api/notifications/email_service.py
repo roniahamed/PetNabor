@@ -10,8 +10,9 @@ logger = logging.getLogger(__name__)
 
 class EmailService:
     """
-    Reusable service for sending HTML/Plain emails via Gmail SMTP.
+    Reusable service for sending HTML/Plain emails via AWS SES (django-ses).
     Consolidates branding and email delivery logic.
+    Uses settings.EMAIL_BACKEND — no direct SMTP configuration needed.
     """
     
     @staticmethod
