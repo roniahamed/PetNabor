@@ -587,6 +587,15 @@ if SENTRY_DSN:
     from sentry_sdk.integrations.celery import CeleryIntegration
     from sentry_sdk.integrations.redis import RedisIntegration
     
+    def strip_sensitive_data(event, hint):
+        """Scrub sensitive data from Sentry events."""
+        if 'request' in event and 'headers' in event['request']:
+            headers = event['request']['headers']
+            for key in ['Authorization', 'authorization']:
+                if key in headers:
+                    headers[key] = '[Filtered]'
+        return event
+
     sentry_sdk.init(
         dsn=SENTRY_DSN,
         integrations=[
@@ -594,7 +603,8 @@ if SENTRY_DSN:
             CeleryIntegration(),
             RedisIntegration(),
         ],
-        environment=os.getenv("SENTRY_ENVIRONMENT"),
-        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE")),
+        environment=os.getenv("SENTRY_ENVIRONMENT", "development"),
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE") or 0.2),
         send_default_pii=False,
+        before_send=strip_sensitive_data,
     )

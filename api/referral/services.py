@@ -84,8 +84,8 @@ def award_referral_points(new_user):
         claimer_first_name = new_user.first_name or new_user.username
         
         send_notification(
-            title="🎉 Awesome news!",
-            body=f"{claimer_first_name} just joined using your referral. Your 🎁 {cfg.referrer_points} points are arriving!",
+            title="Awesome news!",
+            body=f"{claimer_first_name} just joined using your referral. Your {cfg.referrer_points} points are arriving!",
             user_id=referrer.id,
             notification_type=NotificationTypes.REWARD,
             data={

@@ -11,9 +11,6 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
-def trigger_error(request):
-    division_by_zero = 1 / 0
-
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("api.urls")),
@@ -22,8 +19,3 @@ urlpatterns = [
     path("api/swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("api/docs/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
-if settings.DEBUG:
-    urlpatterns += [
-        path("sentry-debug/", trigger_error),
-    ]

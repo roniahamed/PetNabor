@@ -352,7 +352,7 @@ def _notify_story_author_of_reaction(story: Story, reactor: User) -> None:
             title="Story Reaction",
             body=f"{reactor.first_name or reactor.username} reacted to your story.",
             user_id=story.author_id,
-            notification_type=NotificationTypes.LIKE,
+            notification_type=NotificationTypes.STORY_LIKE,
             data={"story_id": str(story.id)},
         )
     except Exception:
@@ -371,7 +371,7 @@ def _notify_story_author_of_reply(story: Story, replier: User) -> None:
             title="Story Reply",
             body=f"{replier.first_name or replier.username} replied to your story.",
             user_id=story.author_id,
-            notification_type=NotificationTypes.COMMENT,
+            notification_type=NotificationTypes.STORY_COMMENT,
             data={"story_id": str(story.id)},
         )
     except Exception:

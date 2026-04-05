@@ -36,7 +36,7 @@ def notify_new_message(self, message_id, thread_id, sender_id, recipient_ids, te
             return
 
         sender_display = sender.first_name or sender.username or sender.email or "Someone"
-        title = f"💬 New message from {sender_display}"
+        title = f"New message from {sender_display}"
         body = f"{text_preview}"
 
         send_notification(

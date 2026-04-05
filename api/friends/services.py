@@ -67,7 +67,7 @@ def send_friend_request(sender, receiver_id):
         # Use accepter_id so the frontend can deeplink to the accepter's profile.
         send_notification(
             user_id=receiver.id,
-            title="🎉 You have a new friend!",
+            title="You have a new friend!",
             body=f"{sender.first_name or sender.username} accepted your friend request.",
             notification_type=NotificationTypes.FRIEND_ACCEPT,
             data={"accepter_id": str(sender.id)},
@@ -80,7 +80,7 @@ def send_friend_request(sender, receiver_id):
     # Notify the receiver about the new friend request (include IDs for frontend deeplink)
     send_notification(
         user_id=receiver.id,
-        title="👋 New Friend Request",
+        title="New Friend Request",
         body=f"{sender.first_name or sender.username} sent you a friend request. Tap to view!",
         notification_type=NotificationTypes.FRIEND_REQUEST,
         data={"sender_id": str(sender.id), "request_id": str(freq.id)},
@@ -113,7 +113,7 @@ def accept_friend_request(user, friend_request):
     # Use accepter_id so the frontend can deeplink to the accepter's profile.
     send_notification(
         user_id=sender_id,
-        title="🎉 You have a new friend!",
+        title="You have a new friend!",
         body=f"{user.first_name or user.username} accepted your friend request.",
         notification_type=NotificationTypes.FRIEND_ACCEPT,
         data={"accepter_id": str(user.id)},

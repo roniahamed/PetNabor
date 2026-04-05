@@ -44,7 +44,7 @@ class MeetingViewSet(viewsets.ModelViewSet):
             from api.notifications.services import send_notification
             from api.notifications.models import NotificationTypes
             send_notification(
-                title="📅 Let's catch up!",
+                title="Let's catch up!",
                 body=f"{sender.first_name or sender.username} would like to schedule a meetup.",
                 user_id=receiver.id,
                 notification_type=NotificationTypes.MEETUP_INVITE,

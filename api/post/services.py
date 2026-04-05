@@ -309,10 +309,10 @@ class LikeService:
                     from api.notifications.models import NotificationTypes
 
                     send_notification(
-                        title="❤️ Someone loves your post!",
+                        title="Someone loves your post!",
                         body=f"{user.first_name or user.username} reacted to your post.",
                         user_id=post.author_id,
-                        notification_type=NotificationTypes.LIKE,
+                        notification_type=NotificationTypes.POST_LIKE,
                         data={"post_id": str(post.id)},
                     )
                 except Exception:
@@ -379,10 +379,10 @@ class CommentService:
             if recipient_id != user.id:
                 body_msg = f"{user.first_name or user.username} replied to your comment." if comment.parent_comment_id else f"{user.first_name or user.username} commented on your post."
                 send_notification(
-                    title="💬 New Comment" if not comment.parent_comment_id else "↩️ New Reply",
+                    title="New Comment" if not comment.parent_comment_id else "New Reply",
                     body=body_msg,
                     user_id=recipient_id,
-                    notification_type=NotificationTypes.COMMENT,
+                    notification_type=NotificationTypes.POST_COMMENT,
                     data={"post_id": str(comment.post_id), "comment_id": str(comment.id)},
                 )
         except Exception:
