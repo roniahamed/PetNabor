@@ -8,19 +8,80 @@ class UUIDSearchMixin:
     with exact ID matches. Otherwise, it simply falls back to the configured search_fields.
     """
     def get_search_results(self, request, queryset, search_term):
-        # Base string searches via search_fields
-        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+        import re as _re
+        old_search_fields = self.search_fields
         
-        if search_term:
+        if search_term and old_search_fields:
+            term = search_term.strip()
+            
+            # Detect full UUID
+            full_uuid = None
             try:
-                # If the user typed a valid UUID, also filter by id
-                parsed_uuid = uuid.UUID(search_term)
-                # Ensure the original filtering + the UUID filtering are combined
-                queryset = queryset | self.model.objects.filter(id=parsed_uuid)
+                full_uuid = uuid.UUID(term)
             except ValueError:
                 pass
-                
-        return queryset, use_distinct
+
+            # Detect partial UUID prefix (hex digits and dashes, 7+ chars)
+            is_uuid_prefix = bool(
+                full_uuid is None and
+                _re.match(r'^[0-9a-fA-F\-]{7,}$', term)
+            )
+
+            if full_uuid:
+                # Exact UUID match — query directly, skip LIKE
+                self.search_fields = [
+                    f for f in old_search_fields
+                    if not f.endswith('id') and not f.endswith('__id')
+                ]
+                try:
+                    base_qs, use_distinct = super().get_search_results(request, queryset, search_term)
+                finally:
+                    self.search_fields = old_search_fields
+                # Add exact id match
+                id_qs = self.model.objects.filter(id=full_uuid)
+                return (base_qs | id_qs).distinct(), use_distinct
+
+            elif is_uuid_prefix:
+                # Partial UUID — use CAST to text + startswith
+                from django.db.models.functions import Cast
+                from django.db.models import TextField, Q
+                self.search_fields = [
+                    f for f in old_search_fields
+                    if not f.endswith('id') and not f.endswith('__id')
+                ]
+                try:
+                    base_qs, use_distinct = super().get_search_results(request, queryset, search_term)
+                finally:
+                    self.search_fields = old_search_fields
+                # Cast UUID field to text and do a startswith
+                id_qs = self.model.objects.annotate(
+                    id_text=Cast('id', output_field=TextField())
+                ).filter(id_text__startswith=term.lower())
+                return (base_qs | id_qs).distinct(), use_distinct
+
+            else:
+                # Regular text search — strip id fields to avoid DataError
+                self.search_fields = [
+                    f for f in old_search_fields
+                    if not f.endswith('id') and not f.endswith('__id')
+                ]
+                try:
+                    res = super().get_search_results(request, queryset, search_term)
+                finally:
+                    self.search_fields = old_search_fields
+                return res
+        
+        return super().get_search_results(request, queryset, search_term)
+
+    def short_id(self, obj):
+        """Globally injected truncated ID field to prevent table overflow"""
+        from django.utils.html import mark_safe
+        if hasattr(obj, 'id') and obj.id:
+            id_str = str(obj.id)
+            prefix = id_str[:8]
+            return mark_safe(f'<span title="{id_str}" style="font-family:monospace;">{prefix}</span>')
+        return "—"
+    short_id.short_description = "ID"
 
     def get_fieldsets(self, request, obj=None):
         if self.fieldsets:

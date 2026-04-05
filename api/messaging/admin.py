@@ -5,6 +5,7 @@ Admin configuration for Messaging — ChatThread, ThreadParticipant, Message —
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin, TabularInline
+from api.core.admin_mixins import UUIDSearchMixin
 from unfold.decorators import display
 
 from .models import ChatThread, Message, ThreadParticipant
@@ -38,7 +39,7 @@ class ThreadParticipantInline(TabularInline):
 
 
 @admin.register(ChatThread)
-class ChatThreadAdmin(UnfoldModelAdmin):
+class ChatThreadAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = [
         "short_id",
         "display_thread_name",
@@ -107,7 +108,7 @@ class ChatThreadAdmin(UnfoldModelAdmin):
 
 
 @admin.register(ThreadParticipant)
-class ThreadParticipantAdmin(UnfoldModelAdmin):
+class ThreadParticipantAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = [
         "short_id",
         "thread",
@@ -147,7 +148,7 @@ class ThreadParticipantAdmin(UnfoldModelAdmin):
 
 
 @admin.register(Message)
-class MessageAdmin(UnfoldModelAdmin):
+class MessageAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = [
         "short_id",
         "sender",

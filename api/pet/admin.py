@@ -6,13 +6,14 @@ from django.contrib import admin
 from django.utils.html import format_html, mark_safe
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
+from api.core.admin_mixins import UUIDSearchMixin
 from unfold.decorators import display
 
 from .models import PetProfile
 
 
 @admin.register(PetProfile)
-class PetProfileAdmin(UnfoldModelAdmin):
+class PetProfileAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
         "short_id",
         "display_avatar",

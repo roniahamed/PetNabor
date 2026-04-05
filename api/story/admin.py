@@ -5,13 +5,14 @@ Admin configuration for the Story feature — PetNabor.
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
+from api.core.admin_mixins import UUIDSearchMixin
 from unfold.decorators import display
 
 from .models import Story, StoryReaction, StoryReply, StoryView
 
 
 @admin.register(Story)
-class StoryAdmin(UnfoldModelAdmin):
+class StoryAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = [
         "short_id",
         "author",
@@ -89,7 +90,7 @@ class StoryAdmin(UnfoldModelAdmin):
 
 
 @admin.register(StoryView)
-class StoryViewAdmin(UnfoldModelAdmin):
+class StoryViewAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = ["short_id", "story", "viewer", "viewed_at"]
     raw_id_fields = ["story", "viewer"]
     readonly_fields = ["id", "viewed_at"]
@@ -98,7 +99,7 @@ class StoryViewAdmin(UnfoldModelAdmin):
 
 
 @admin.register(StoryReaction)
-class StoryReactionAdmin(UnfoldModelAdmin):
+class StoryReactionAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = ["short_id", "story", "user", "display_reaction_type", "created_at"]
     list_filter = ["reaction_type"]
     raw_id_fields = ["story", "user"]
@@ -122,7 +123,7 @@ class StoryReactionAdmin(UnfoldModelAdmin):
 
 
 @admin.register(StoryReply)
-class StoryReplyAdmin(UnfoldModelAdmin):
+class StoryReplyAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = ["short_id", "story", "user", "truncated_reply", "created_at"]
     raw_id_fields = ["story", "user"]
     readonly_fields = ["id", "created_at"]

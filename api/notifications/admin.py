@@ -5,13 +5,14 @@ Admin configuration for Notifications — PetNabor.
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
+from api.core.admin_mixins import UUIDSearchMixin
 from unfold.decorators import display
 
 from .models import FCMDevice, NotificationSettings, Notifications
 
 
 @admin.register(NotificationSettings)
-class NotificationSettingsAdmin(UnfoldModelAdmin):
+class NotificationSettingsAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
         "short_id",
         "user",
@@ -100,7 +101,7 @@ class NotificationSettingsAdmin(UnfoldModelAdmin):
 
 
 @admin.register(Notifications)
-class NotificationsAdmin(UnfoldModelAdmin):
+class NotificationsAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
         "short_id",
         "user",
@@ -148,7 +149,7 @@ class NotificationsAdmin(UnfoldModelAdmin):
 
 
 @admin.register(FCMDevice)
-class FCMDeviceAdmin(UnfoldModelAdmin):
+class FCMDeviceAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = ("short_id", "user", "truncated_token", "created_at")
     search_fields = ("id", "user__email", "user__username", "registration_id")
     ordering = ("-created_at",)

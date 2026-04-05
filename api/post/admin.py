@@ -6,6 +6,7 @@ from django.contrib import admin
 from django.utils.html import format_html, mark_safe
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin, TabularInline
+from api.core.admin_mixins import UUIDSearchMixin
 from unfold.decorators import display
 
 from .models import Hashtag, Post, PostComment, PostLike, PostMedia, SavedPost
@@ -49,7 +50,7 @@ class PostMediaInline(TabularInline):
 
 
 @admin.register(Post)
-class PostAdmin(UnfoldModelAdmin):
+class PostAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
         "short_id",
         "truncated_content",
@@ -116,7 +117,7 @@ class PostAdmin(UnfoldModelAdmin):
 
 
 @admin.register(PostMedia)
-class PostMediaAdmin(UnfoldModelAdmin):
+class PostMediaAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = ("short_id", "post", "media_type", "display_status", "order", "created_at")
     search_fields = ("id", "post__id")
     list_filter = ("media_type", "processing_status")
@@ -142,7 +143,7 @@ class PostMediaAdmin(UnfoldModelAdmin):
 
 
 @admin.register(PostLike)
-class PostLikeAdmin(UnfoldModelAdmin):
+class PostLikeAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = ("short_id", "post", "user", "reaction_type", "created_at")
     list_filter = ("reaction_type",)
     raw_id_fields = ("post", "user")
@@ -156,7 +157,7 @@ class PostLikeAdmin(UnfoldModelAdmin):
 
 
 @admin.register(PostComment)
-class PostCommentAdmin(UnfoldModelAdmin):
+class PostCommentAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
         "short_id",
         "user",
@@ -189,7 +190,7 @@ class PostCommentAdmin(UnfoldModelAdmin):
 
 
 @admin.register(SavedPost)
-class SavedPostAdmin(UnfoldModelAdmin):
+class SavedPostAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = ("short_id", "user", "post", "created_at")
     raw_id_fields = ("user", "post")
     readonly_fields = ("id", "created_at")
@@ -202,7 +203,7 @@ class SavedPostAdmin(UnfoldModelAdmin):
 
 
 @admin.register(Hashtag)
-class HashtagAdmin(UnfoldModelAdmin):
+class HashtagAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = ("short_id", "name", "created_at")
     search_fields = (
         "id",

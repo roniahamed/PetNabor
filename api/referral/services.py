@@ -84,8 +84,8 @@ def award_referral_points(new_user):
         claimer_first_name = new_user.first_name or new_user.username
         
         send_notification(
-            title="Referral Redeemed",
-            body=f"{claimer_first_name} claimed your referral. You earned {cfg.referrer_points} points!",
+            title="🎉 Awesome news!",
+            body=f"{claimer_first_name} just joined using your referral. Your 🎁 {cfg.referrer_points} points are arriving!",
             user_id=referrer.id,
             notification_type=NotificationTypes.REWARD,
             data={
@@ -96,4 +96,6 @@ def award_referral_points(new_user):
             },
         )
     except Exception:
-        pass
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.exception("Failed to send referral notification")

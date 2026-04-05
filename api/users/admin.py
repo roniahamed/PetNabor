@@ -8,6 +8,7 @@ from django.contrib import admin
 from django.utils.html import format_html, mark_safe
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
+from api.core.admin_mixins import UUIDSearchMixin
 from unfold.decorators import display
 
 from .models import OTPVerification, Profile, User
@@ -39,7 +40,7 @@ class ProfileInline(admin.StackedInline):
 
 
 @admin.register(User)
-class UserAdmin(UnfoldModelAdmin):
+class UserAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
         "short_id",
         "email",
@@ -167,7 +168,7 @@ class UserAdmin(UnfoldModelAdmin):
 
 
 @admin.register(Profile)
-class ProfileAdmin(UnfoldModelAdmin):
+class ProfileAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = ("short_id", "user", "city", "state", "referral_code", "display_avatar")
     search_fields = (
         "id",
@@ -193,7 +194,7 @@ class ProfileAdmin(UnfoldModelAdmin):
 
 
 @admin.register(OTPVerification)
-class OTPVerificationAdmin(UnfoldModelAdmin):
+class OTPVerificationAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
         "short_id",
         "user",

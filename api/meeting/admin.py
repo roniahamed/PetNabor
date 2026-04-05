@@ -5,6 +5,7 @@ Admin configuration for Meeting and MeetingFeedback — PetNabor.
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin, TabularInline
+from api.core.admin_mixins import UUIDSearchMixin
 from unfold.decorators import display
 
 from .models import Meeting, MeetingFeedback
@@ -35,7 +36,7 @@ class MeetingFeedbackInline(TabularInline):
 
 
 @admin.register(Meeting)
-class MeetingAdmin(UnfoldModelAdmin):
+class MeetingAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
         "short_id",
         "sender",
@@ -141,7 +142,7 @@ class MeetingAdmin(UnfoldModelAdmin):
 
 
 @admin.register(MeetingFeedback)
-class MeetingFeedbackAdmin(UnfoldModelAdmin):
+class MeetingFeedbackAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
         "short_id",
         "reviewer",
