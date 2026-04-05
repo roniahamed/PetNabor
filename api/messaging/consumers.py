@@ -14,6 +14,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
 
+        # Derive the base URL (scheme + host) from the WS scope so we can
+        # build absolute media URLs identical to request.build_absolute_uri().
+        self.base_url = self._get_base_url()
+
         # Join a personal group to receive notifications intended for this user
         self.user_group = f"user_{self.user.id}"
         await self.channel_layer.group_add(
@@ -23,6 +27,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         await self.set_user_online(True)
         await self.accept()
+
+    def _get_base_url(self):
+        """
+        Build 'https://backend.petnabor.com' from the WebSocket scope.
+        - scheme: 'wss'→'https', 'ws'→'http' (nginx sets X-Forwarded-Proto)
+        - host:   pulled from the HTTP Host header in the handshake
+        """
+        scope = self.scope
+        # WebSocket type is 'websocket'; use forwarded proto if available.
+        headers = dict(scope.get("headers", []))
+        scheme = headers.get(b"x-forwarded-proto", b"").decode() or (
+            "https" if scope.get("type") == "websocket" and scope.get("scheme") == "wss"
+            else "http"
+        )
+        host = headers.get(b"host", b"localhost").decode()
+        return f"{scheme}://{host}"
 
     async def disconnect(self, close_code):
         if hasattr(self, "user_group"):
@@ -152,11 +172,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
         def _is_online(last_active):
             return bool(last_active and (now - last_active).total_seconds() < 300)
 
+        base_url = getattr(self, "base_url", "")
+
         def _avatar(participant):
             profile = getattr(participant.user, "profile", None)
             if profile and profile.profile_picture:
                 try:
-                    return profile.profile_picture.url
+                    relative = profile.profile_picture.url  # e.g. /media/avatars/x.jpg
+                    # Already absolute (S3 / CloudFront URLs start with http)
+                    if relative.startswith("http"):
+                        return relative
+                    return f"{base_url}{relative}"
                 except Exception:
                     pass
             return None
