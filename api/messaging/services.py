@@ -50,8 +50,9 @@ def invalidate_messaging_permission(user_a_id, user_b_id):
 
 
 def invalidate_inbox_cache(user_id):
-    """Invalidate the first page of the user's inbox cache."""
+    """Invalidate the first-page inbox cache and the WS thread-list cache."""
     cache.delete(f"user_inbox_{user_id}_page_1")
+    cache.delete(f"ws_threads_{user_id}")
 
 
 # ──────────────────────────────────────────────
@@ -385,11 +386,21 @@ def send_message(sender, thread_id, text_content=None, message_type=MessageTypes
             # Invalidate inbox cache for this participant
             invalidate_inbox_cache(p_id)
 
+            # 1) Deliver the new message to the open chat window
             async_to_sync(channel_layer.group_send)(
                 f"user_{str(p_id)}",   # str() prevents UUID serialization error
                 {
                     "type": "chat_message",
                     "message": ws_payload,
+                }
+            )
+
+            # 2) Signal the consumer to re-fetch and push the updated thread
+            #    list so the inbox re-orders instantly (thread bubbles to top).
+            async_to_sync(channel_layer.group_send)(
+                f"user_{str(p_id)}",
+                {
+                    "type": "thread_list_update",
                 }
             )
     except Exception:
