@@ -5,13 +5,14 @@ Admin configuration for Friends, Friendship, and UserBlock — PetNabor.
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
+from api.core.admin_mixins import UUIDSearchMixin
 from unfold.decorators import display
 
 from .models import FriendRequest, Friendship, UserBlock
 
 
 @admin.register(FriendRequest)
-class FriendRequestAdmin(UnfoldModelAdmin):
+class FriendRequestAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = ("short_id", "sender", "receiver", "display_status", "created_at")
     list_filter = ("status",)
     search_fields = (
@@ -52,7 +53,7 @@ class FriendRequestAdmin(UnfoldModelAdmin):
 
 
 @admin.register(Friendship)
-class FriendshipAdmin(UnfoldModelAdmin):
+class FriendshipAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = ("short_id", "sender", "receiver", "created_at")
     search_fields = (
         "id",
@@ -68,7 +69,7 @@ class FriendshipAdmin(UnfoldModelAdmin):
 
 
 @admin.register(UserBlock)
-class UserBlockAdmin(UnfoldModelAdmin):
+class UserBlockAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = ("short_id", "blocker", "blocked_user", "created_at")
     search_fields = (
         "id",

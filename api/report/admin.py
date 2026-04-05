@@ -5,13 +5,14 @@ Admin configuration for the Report feature — PetNabor.
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
+from api.core.admin_mixins import UUIDSearchMixin
 from unfold.decorators import display
 
 from .models import Report
 
 
 @admin.register(Report)
-class ReportAdmin(UnfoldModelAdmin):
+class ReportAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
         "short_id",
         "reporter",

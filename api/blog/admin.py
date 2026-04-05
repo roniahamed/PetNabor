@@ -6,13 +6,14 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
+from api.core.admin_mixins import UUIDSearchMixin
 from unfold.decorators import display
 
 from .models import Blog, BlogCategory, BlogComment, BlogLike, BlogViewTracker
 
 
 @admin.register(BlogCategory)
-class BlogCategoryAdmin(UnfoldModelAdmin):
+class BlogCategoryAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = ("short_id", "name", "slug", "created_at")
     search_fields = (
         "id",
@@ -23,7 +24,7 @@ class BlogCategoryAdmin(UnfoldModelAdmin):
 
 
 @admin.register(Blog)
-class BlogAdmin(UnfoldModelAdmin):
+class BlogAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
         "short_id",
         "title",
@@ -124,7 +125,7 @@ class BlogAdmin(UnfoldModelAdmin):
 
 
 @admin.register(BlogLike)
-class BlogLikeAdmin(UnfoldModelAdmin):
+class BlogLikeAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = ("short_id", "blog", "user", "created_at")
     raw_id_fields = ("blog", "user")
     search_fields = ("id", "user__email", "blog__title")
@@ -132,7 +133,7 @@ class BlogLikeAdmin(UnfoldModelAdmin):
 
 
 @admin.register(BlogComment)
-class BlogCommentAdmin(UnfoldModelAdmin):
+class BlogCommentAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = (
         "short_id",
         "user",
@@ -160,7 +161,7 @@ class BlogCommentAdmin(UnfoldModelAdmin):
 
 
 @admin.register(BlogViewTracker)
-class BlogViewTrackerAdmin(UnfoldModelAdmin):
+class BlogViewTrackerAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = ("short_id", "blog", "user", "ip_address", "created_at")
     raw_id_fields = ("blog", "user")
     search_fields = ("id", "ip_address", "blog__title")

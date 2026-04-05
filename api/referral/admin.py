@@ -7,13 +7,14 @@ from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
+from api.core.admin_mixins import UUIDSearchMixin
 from unfold.decorators import display
 
 from .models import ReferralSettings, ReferralTransaction, ReferralWallet
 
 
 @admin.register(ReferralSettings)
-class ReferralSettingsAdmin(UnfoldModelAdmin):
+class ReferralSettingsAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     """
     Singleton admin: prevents creating more than one settings row.
     Redirects directly to the single record.
@@ -60,7 +61,7 @@ class ReferralSettingsAdmin(UnfoldModelAdmin):
 
 
 @admin.register(ReferralWallet)
-class ReferralWalletAdmin(UnfoldModelAdmin):
+class ReferralWalletAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = ["short_id", "user", "display_balance", "updated_at"]
     search_fields = ["id", "user__email", "user__phone"]
     readonly_fields = ["id", "user", "balance", "created_at", "updated_at"]
@@ -79,7 +80,7 @@ class ReferralWalletAdmin(UnfoldModelAdmin):
 
 
 @admin.register(ReferralTransaction)
-class ReferralTransactionAdmin(UnfoldModelAdmin):
+class ReferralTransactionAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     list_display = [
         "short_id",
         "wallet",

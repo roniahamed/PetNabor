@@ -309,8 +309,8 @@ class LikeService:
                     from api.notifications.models import NotificationTypes
 
                     send_notification(
-                        title="New Like",
-                        body=f"{user.first_name or user.username} liked your post.",
+                        title="❤️ Someone loves your post!",
+                        body=f"{user.first_name or user.username} reacted to your post.",
                         user_id=post.author_id,
                         notification_type=NotificationTypes.LIKE,
                         data={"post_id": str(post.id)},
@@ -379,7 +379,7 @@ class CommentService:
             if recipient_id != user.id:
                 body_msg = f"{user.first_name or user.username} replied to your comment." if comment.parent_comment_id else f"{user.first_name or user.username} commented on your post."
                 send_notification(
-                    title="New Comment",
+                    title="💬 New Comment" if not comment.parent_comment_id else "↩️ New Reply",
                     body=body_msg,
                     user_id=recipient_id,
                     notification_type=NotificationTypes.COMMENT,

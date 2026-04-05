@@ -44,14 +44,16 @@ class MeetingViewSet(viewsets.ModelViewSet):
             from api.notifications.services import send_notification
             from api.notifications.models import NotificationTypes
             send_notification(
-                title="New Meeting Request",
-                body=f"{sender.first_name or sender.username} requested a meeting.",
+                title="📅 Let's catch up!",
+                body=f"{sender.first_name or sender.username} would like to schedule a meetup.",
                 user_id=receiver.id,
                 notification_type=NotificationTypes.MEETUP_INVITE,
                 data={"meeting_id": str(serializer.instance.id)},
             )
         except Exception:
-            pass
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.exception("Failed to send meetup notification")
 
     @extend_schema(
         parameters=[
