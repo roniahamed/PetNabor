@@ -470,17 +470,24 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-    "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.ScopedRateThrottle",
-    ],
+    # No global DEFAULT_THROTTLE_CLASSES — each view declares its own throttle
+    # class(es) explicitly so limits are always per-user or per-identity,
+    # never accidentally shared across unrelated users on the same IP.
     "DEFAULT_THROTTLE_RATES": {
-        "otp_send": "5/hour",
+        # OTP: 5 OTPs per 5 minutes per email/phone identity
+        "otp_send": "5/5minute",
+        # OTP verify: 10 attempts per hour per email/phone identity
         "otp_verify": "10/hour",
-        "auth_login": "20/hour",
+        # Login: 40 attempts per hour per account identity
+        "auth_login": "40/hour",
+        # Messaging: 5000 messages per hour per user
         "messaging_send": "5000/hour",
-        "post_like": "60/minute",
+        # Reactions: 200 per minute per user (across any posts/blogs)
+        "post_like": "200/minute",
+        # Comments: 30 per minute per user
         "post_comment": "30/minute",
-        "post_save": "60/minute",
+        # Post save/bookmark: 100 per minute per user
+        "post_save": "100/minute",
     },
     "EXCEPTION_HANDLER": "api.users.exception_handler.custom_exception_handler",
 }

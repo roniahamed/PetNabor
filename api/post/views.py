@@ -39,6 +39,11 @@ from .serializers import (
 )
 from .services import CommentService, FeedService, LikeService, PostService, SaveService
 from api.users.models import User
+from api.users.throttles import (
+    PerUserPostLikeThrottle,
+    PerUserPostSaveThrottle,
+    PerUserPostCommentThrottle,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -247,7 +252,7 @@ class PostViewSet(viewsets.ModelViewSet):
         DELETE → remove like
         Always returns the updated likes_count for easy frontend use.
         """
-        self.throttle_scope = "post_like"
+        self.throttle_classes = [PerUserPostLikeThrottle]
         post = self.get_object()
 
         if request.method == "DELETE":
@@ -288,7 +293,7 @@ class PostViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post", "delete"])
     def save_post(self, request, pk=None):
         """POST → save; DELETE → unsave."""
-        self.throttle_scope = "post_save"
+        self.throttle_classes = [PerUserPostSaveThrottle]
         post = self.get_object()
         saved = SaveService.toggle_save(post, request.user)
         if saved:
@@ -304,13 +309,14 @@ class PostViewSet(viewsets.ModelViewSet):
 class PostCommentViewSet(viewsets.ModelViewSet):
     """
     CRUD for top-level comments.
-    - Throttled creation to prevent spam.
+    - Throttled creation to prevent spam (per user, not per IP).
     - Destruction allowed by comment author OR post author (via permission class).
     """
 
     serializer_class = PostCommentSerializer
     permission_classes = [permissions.IsAuthenticated, IsCommentAuthorOrPostAuthor]
     pagination_class = FeedCursorPagination
+    throttle_classes = [PerUserPostCommentThrottle]
 
     @extend_schema(
         parameters=[

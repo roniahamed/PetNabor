@@ -13,6 +13,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, inline_serializer
 
+from .throttles import (
+    IdentityBasedOTPSendThrottle,
+    IdentityBasedOTPVerifyThrottle,
+    IdentityBasedLoginThrottle,
+)
+
 from .models import Profile, User
 from .serializers import (
     ConfirmPasswordResetSerializer,
@@ -65,7 +71,7 @@ class SignupView(APIView):
 
     permission_classes = [AllowAny]
     serializer_class = SignupSerializer
-    throttle_scope = "auth_login"
+    throttle_classes = [IdentityBasedOTPSendThrottle]
 
     @extend_schema(
         request=SignupSerializer,
@@ -126,7 +132,7 @@ class LoginView(APIView):
 
     permission_classes = [AllowAny]
     serializer_class = LoginSerializer
-    throttle_scope = "auth_login"
+    throttle_classes = [IdentityBasedLoginThrottle]
 
     @extend_schema(
         request=LoginSerializer,
@@ -174,7 +180,7 @@ class VerifyPhoneOTPView(APIView):
 
     permission_classes = [AllowAny]
     serializer_class = VerifyPhoneOTPSerializer
-    throttle_scope = "otp_verify"
+    throttle_classes = [IdentityBasedOTPVerifyThrottle]
 
     @extend_schema(
         request=VerifyPhoneOTPSerializer,
@@ -221,7 +227,7 @@ class VerifyEmailOTPView(APIView):
 
     permission_classes = [AllowAny]
     serializer_class = VerifyEmailOTPSerializer
-    throttle_scope = "otp_verify"
+    throttle_classes = [IdentityBasedOTPVerifyThrottle]
 
     @extend_schema(
         request=VerifyEmailOTPSerializer,
@@ -268,7 +274,7 @@ class ResendPhoneOTPView(APIView):
 
     permission_classes = [AllowAny]
     serializer_class = ResendOTPSerializer
-    throttle_scope = "otp_send"
+    throttle_classes = [IdentityBasedOTPSendThrottle]
 
     @extend_schema(
         request=ResendOTPSerializer,
@@ -300,7 +306,7 @@ class ResendEmailOTPView(APIView):
 
     permission_classes = [AllowAny]
     serializer_class = ResendEmailOTPSerializer
-    throttle_scope = "otp_send"
+    throttle_classes = [IdentityBasedOTPSendThrottle]
 
     @extend_schema(
         request=ResendEmailOTPSerializer,
@@ -332,7 +338,7 @@ class RequestPasswordResetView(APIView):
 
     permission_classes = [AllowAny]
     serializer_class = RequestPasswordResetSerializer
-    throttle_scope = "otp_send"
+    throttle_classes = [IdentityBasedOTPSendThrottle]
 
     @extend_schema(
         request=RequestPasswordResetSerializer,
@@ -376,7 +382,7 @@ class ConfirmPasswordResetView(APIView):
 
     permission_classes = [AllowAny]
     serializer_class = ConfirmPasswordResetSerializer
-    throttle_scope = "otp_verify"
+    throttle_classes = [IdentityBasedOTPVerifyThrottle]
 
     @extend_schema(
         request=ConfirmPasswordResetSerializer,
