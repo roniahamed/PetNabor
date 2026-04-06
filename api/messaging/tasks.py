@@ -44,6 +44,7 @@ def notify_new_message(self, message_id, thread_id, sender_id, recipient_ids, te
             title=title,
             body=body,
             notification_type=NotificationTypes.MESSAGE,
+            save_to_db=False,  # Message notifications are transient — FCM only, no DB record
             data={
                 "message_id": message_id,
                 "thread_id": thread_id,
