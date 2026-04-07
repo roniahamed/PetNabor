@@ -132,6 +132,7 @@ class Profile(models.Model):
     )
 
     address_street = models.CharField(max_length=255, null=True, blank=True)
+    apartment = models.CharField(max_length=100, null=True, blank=True)
     city = models.CharField(max_length=100, null=True, blank=True)
     state = models.CharField(max_length=100, null=True, blank=True)
     zipcode = models.CharField(max_length=20, null=True, blank=True)
