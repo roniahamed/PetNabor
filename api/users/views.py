@@ -60,6 +60,7 @@ def _build_user_data(user):
         "is_verified": user.is_verified,
         "is_email_verified": user.is_email_verified,
         "is_phone_verified": user.is_phone_verified,
+        "agree_to_terms_and_conditions": user.agree_to_terms_and_conditions,
     }
 
 
@@ -444,7 +445,7 @@ class FirebaseLoginView(APIView):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        tokens, user = firebase_login_service(
+        tokens, user , is_new_user= firebase_login_service(
             id_token=serializer.validated_data["id_token"],
             first_name=serializer.validated_data.get("first_name", ""),
             last_name=serializer.validated_data.get("last_name", ""),
@@ -464,6 +465,7 @@ class FirebaseLoginView(APIView):
                     "refresh_token": tokens["refresh"],
                     "user": _build_user_data(user),
                 },
+                "is_new_user": is_new_user,
             },
             status=status.HTTP_200_OK,
         )

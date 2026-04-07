@@ -446,6 +446,7 @@ def firebase_login_service(
             user.firebase_uid = uid
             user.is_verified = True
             user.save(update_fields=["firebase_uid", "is_verified"])
+        is_new_user = False
     else:
         # Create new user (Firebase users are auto-verified)
         base_username = (
@@ -470,6 +471,7 @@ def firebase_login_service(
             is_email_verified=bool(email),
             is_phone_verified=bool(phone),
         )
+        is_new_user = True
         user.set_unusable_password()
         user.save()
 
@@ -496,7 +498,7 @@ def firebase_login_service(
     except Exception:
         logger.warning("Failed to send login notification for user %s", user.id)
 
-    return tokens, user
+    return tokens, user, is_new_user
 
 
 
