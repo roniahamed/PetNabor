@@ -347,9 +347,10 @@ def _notify_story_author_of_reaction(story: Story, reactor: User) -> None:
         from api.notifications.services import send_notification
         from api.notifications.models import NotificationTypes
 
+        sender_display = f"{reactor.first_name} {reactor.last_name}".strip() or reactor.username or "Someone"
         send_notification(
-            title="Story Reaction",
-            body=f"{reactor.first_name or reactor.username} reacted to your story.",
+            title=sender_display,
+            body="reacted to your story.",
             user_id=story.author_id,
             notification_type=NotificationTypes.STORY_LIKE,
             data={"story_id": str(story.id)},
@@ -366,9 +367,10 @@ def _notify_story_author_of_reply(story: Story, replier: User) -> None:
         from api.notifications.services import send_notification
         from api.notifications.models import NotificationTypes
 
+        sender_display = f"{replier.first_name} {replier.last_name}".strip() or replier.username or "Someone"
         send_notification(
-            title="Story Reply",
-            body=f"{replier.first_name or replier.username} replied to your story.",
+            title=sender_display,
+            body="replied to your story.",
             user_id=story.author_id,
             notification_type=NotificationTypes.STORY_COMMENT,
             data={"story_id": str(story.id)},

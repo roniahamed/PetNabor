@@ -43,9 +43,10 @@ class MeetingViewSet(viewsets.ModelViewSet):
         try:
             from api.notifications.services import send_notification
             from api.notifications.models import NotificationTypes
+            sender_display = f"{sender.first_name} {sender.last_name}".strip() or sender.username or "Someone"
             send_notification(
-                title="Let's catch up!",
-                body=f"{sender.first_name or sender.username} would like to schedule a meetup.",
+                title=sender_display,
+                body="sent you a meetup invitation.",
                 user_id=receiver.id,
                 notification_type=NotificationTypes.MEETUP_INVITE,
                 data={"meeting_id": str(serializer.instance.id)},
@@ -144,9 +145,10 @@ class MeetingViewSet(viewsets.ModelViewSet):
         try:
             from api.notifications.services import send_notification
             from api.notifications.models import NotificationTypes
+            sender_display = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username or "Someone"
             send_notification(
-                title="Meeting Accepted",
-                body=f"{request.user.first_name or request.user.username} accepted your meeting request.",
+                title=sender_display,
+                body="accepted your meeting request.",
                 user_id=meeting.sender.id,
                 notification_type=NotificationTypes.MEETUP_UPDATE,
                 data={"meeting_id": str(meeting.id)},
@@ -175,9 +177,10 @@ class MeetingViewSet(viewsets.ModelViewSet):
             from api.notifications.models import NotificationTypes
             
             notify_user = meeting.receiver if request.user == meeting.sender else meeting.sender
+            sender_display = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username or "Someone"
             send_notification(
-                title="Meeting Cancelled",
-                body=f"{request.user.first_name or request.user.username} cancelled the meeting.",
+                title=sender_display,
+                body="cancelled the meetup.",
                 user_id=notify_user.id,
                 notification_type=NotificationTypes.MEETUP_UPDATE,
                 data={"meeting_id": str(meeting.id)},
@@ -239,9 +242,10 @@ class MeetingFeedbackViewSet(viewsets.ModelViewSet):
         try:
             from api.notifications.services import send_notification
             from api.notifications.models import NotificationTypes
+            sender_display = f"{reviewer.first_name} {reviewer.last_name}".strip() or reviewer.username or "Someone"
             send_notification(
-                title="New Meeting Feedback",
-                body=f"{reviewer.first_name or reviewer.username} left feedback for your meeting.",
+                title=sender_display,
+                body="left you a meeting review.",
                 user_id=reviewee.id,
                 notification_type=NotificationTypes.SYSTEM,
                 data={"meeting_id": str(meeting.id)},
