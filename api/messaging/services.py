@@ -16,7 +16,7 @@ import logging
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models import Prefetch, Q
+from django.db.models import Count, IntegerField, OuterRef, Prefetch, Q, Subquery
 from django.utils import timezone
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
@@ -200,29 +200,38 @@ def get_threads_for_user(user):
     """
     Return all active threads for `user`, most recent first.
     Uses prefetch_related for participants — no N+1.
+
+    Annotates each thread with `unread_count`: the number of unread messages
+    in that thread that were NOT sent by the current user.
+    This lets the serializer expose `is_read` at zero extra cost.
     """
     active_thread_ids = ThreadParticipant.objects.filter(
         user=user, left_at__isnull=True
     ).values_list("thread_id", flat=True)
 
-    latest_messages_prefetch = Prefetch(
-        "messages",
-        queryset=Message.objects.filter(
-            is_deleted_for_everyone=False
-        ).order_by("-created_at").select_related("sender"),
-        to_attr="recent_messages",
+    # Subquery: count unread messages in each thread not sent by the current user
+    unread_subquery = Subquery(
+        Message.objects.filter(
+            thread=OuterRef("pk"),
+            is_read=False,
+            is_deleted_for_everyone=False,
+        ).exclude(sender=user)
+        .values("thread")
+        .annotate(cnt=Count("id"))
+        .values("cnt"),
+        output_field=IntegerField(),
     )
 
     return (
         ChatThread.objects.filter(id__in=active_thread_ids)
         .prefetch_related(
-            latest_messages_prefetch,
             Prefetch(
                 "participants",
                 queryset=ThreadParticipant.objects.select_related("user__profile"),
                 to_attr="all_participants",
             ),
         )
+        .annotate(unread_count=unread_subquery)
         .order_by("-last_message_timestamp")
     )
 

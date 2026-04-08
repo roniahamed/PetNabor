@@ -1,10 +1,10 @@
 import json
 from django.core.cache import cache
+from django.db.models import Count, Prefetch
 from django.utils import timezone
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from django.db.models import Prefetch
-from .models import ThreadParticipant, ChatThread
+from .models import ChatThread, Message, ThreadParticipant
 from . import services
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -169,6 +169,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # ── 3. Snapshot "now" once; reuse for every online-status check ───
         now = timezone.now()
 
+        # ── 4. Bulk-fetch unread counts for all threads in one query ─────
+        #    {thread_id: unread_count}
+        unread_map = {}
+        if active_thread_ids:
+            rows = (
+                Message.objects
+                .filter(
+                    thread_id__in=active_thread_ids,
+                    is_read=False,
+                    is_deleted_for_everyone=False,
+                )
+                .exclude(sender_id=me_id)
+                .values("thread_id")
+                .annotate(cnt=Count("id"))
+            )
+            unread_map = {str(row["thread_id"]): row["cnt"] for row in rows}
+
         def _is_online(last_active):
             return bool(last_active and (now - last_active).total_seconds() < 300)
 
@@ -216,18 +233,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 members = [_user_dict(p) for p in parts]
 
             result.append({
-                "id":                     str(thread.id),
-                "thread_type":            thread.thread_type,
-                "name":                   thread.name,
-                "avatar_url":             thread.avatar_url,
-                "other_user":             other_user,
-                "members":                members,
-                "last_message_text":      thread.last_message_text,
-                "last_message_timestamp": (
+                "id":                      str(thread.id),
+                "thread_type":             thread.thread_type,
+                "name":                    thread.name,
+                "avatar_url":              thread.avatar_url,
+                "other_user":              other_user,
+                "members":                 members,
+                "last_message_text":       thread.last_message_text,
+                "last_message_timestamp":  (
                     thread.last_message_timestamp.isoformat()
                     if thread.last_message_timestamp else None
                 ),
-                "created_at":             thread.created_at.isoformat(),
+                "is_read":                 unread_map.get(str(thread.id), 0) == 0,
+                "created_at":              thread.created_at.isoformat(),
             })
 
         cache.set(cache_key, result, timeout=CACHE_TTL)
