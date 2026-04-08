@@ -490,6 +490,24 @@ def clear_thread_history(user, thread_id):
     membership.cleared_history_at = timezone.now()
     membership.save(update_fields=["cleared_history_at"])
 
+    # Invalidate cache so the next inbox fetch correctly calculates last_message as None
+    invalidate_inbox_cache(user.id)
+
+    # Broadcast thread list update via WebSocket so the frontend instantly refreshes
+    try:
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+        
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"user_{str(user.id)}",
+            {
+                "type": "thread_list_update",
+            }
+        )
+    except Exception:
+        logger.exception("Failed to broadcast WebSocket thread_list_update on clear history")
+
 
 @transaction.atomic
 def delete_thread_for_everyone(user, thread_id):
