@@ -10,7 +10,6 @@ from django.db.models.signals import post_save
 User = get_user_model()
 
 
-
 @receiver(post_save, sender=User)
 def create_or_update_user_notification_settings(sender, instance, created, **kwargs):
     if created:

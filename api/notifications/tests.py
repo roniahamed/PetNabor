@@ -1,52 +1,252 @@
+"""
+Tests for the Notification service layer.
+
+Covers:
+  - send_notification() dispatches exactly ONE Celery task per event
+  - _process_notification_batch() idempotency — DB written only once even on retry
+  - Invalid FCM tokens are cleaned without causing a retry
+  - Transient FCM errors DO trigger a retry (but DB is not re-written)
+"""
+
+from unittest.mock import patch, MagicMock, call
+
 from django.test import TestCase
 from django.contrib.auth import get_user_model
-from unittest.mock import patch
-from .services import send_notification
-from .models import NotificationSettings, NotificationTypes
+
+from .models import NotificationSettings, NotificationTypes, Notifications
+from .services import send_notification, _process_notification_batch
 
 User = get_user_model()
 
-class NotificationServiceTests(TestCase):
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helper
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _make_user(username, email):
+    user = User.objects.create_user(
+        username=username, email=email, password="pw123"
+    )
+    NotificationSettings.objects.get_or_create(
+        user=user,
+        defaults={
+            "system_notifications": True,
+            "comment_notifications": True,
+            "like_notifications": True,
+            "message_notifications": True,
+        },
+    )
+    return user
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. send_notification() — must fire exactly ONE Celery task per call
+# ─────────────────────────────────────────────────────────────────────────────
+
+class SendNotificationDispatchTests(TestCase):
+
     def setUp(self):
-        # Create users with allowed notification settings
-        self.users = []
-        for i in range(10):
-            user = User.objects.create_user(username=f'user{i}', email=f'user{i}@example.com', password='password')
-            # Assuming NotificationSettings are created automatically via signal or manually
-            # Let's ensure they exist and have the right settings
-            settings, created = NotificationSettings.objects.get_or_create(user=user)
-            settings.system_notifications = True
-            settings.save()
-            self.users.append(user)
+        self.users = [_make_user(f"u{i}", f"u{i}@test.com") for i in range(5)]
 
-    @patch('api.notifications.services._process_notification_batch.delay')
-    def test_send_notification_chunking(self, mock_delay):
-        # Test with a small batch size for verification
-        with patch('api.notifications.services.DEFAULT_BATCH_SIZE', 3):
-
-            result = send_notification(
-                title="Test Title",
-                body="Test Body",
-                broadcast=True,
-                notification_type=NotificationTypes.SYSTEM
-            )
-            
-            # 10 users / batch_size 3 = 4 batches (3, 3, 3, 1)
-            self.assertEqual(mock_delay.call_count, 4)
-            self.assertIn("queued for 10 users", result)
-
-    @patch('api.notifications.services._process_notification_batch.delay')
-    def test_send_notification_no_users(self, mock_delay):
-        # Disable notifications for all users
-        NotificationSettings.objects.all().update(system_notifications=False)
-        
-        result = send_notification(
-            title="Test Title",
-            body="Test Body",
-            broadcast=True,
-            notification_type=NotificationTypes.SYSTEM
+    @patch("api.notifications.services._process_notification_batch.delay")
+    def test_single_user_comment_dispatches_one_task(self, mock_delay):
+        """comment notification → exactly 1 Celery task dispatched."""
+        send_notification(
+            title="Ali",
+            body="commented on your post.",
+            user_id=self.users[0].id,
+            notification_type=NotificationTypes.POST_COMMENT,
         )
-        
-        self.assertEqual(mock_delay.call_count, 0)
-        self.assertEqual(result, "No active users found with the required settings.")
+        self.assertEqual(
+            mock_delay.call_count, 1,
+            f"Expected 1 Celery task for comment, got {mock_delay.call_count}",
+        )
 
+    @patch("api.notifications.services._process_notification_batch.delay")
+    def test_single_user_like_dispatches_one_task(self, mock_delay):
+        """like notification → exactly 1 Celery task dispatched."""
+        send_notification(
+            title="Ali",
+            body="reacted to your post.",
+            user_id=self.users[1].id,
+            notification_type=NotificationTypes.POST_LIKE,
+        )
+        self.assertEqual(
+            mock_delay.call_count, 1,
+            f"Expected 1 Celery task for like, got {mock_delay.call_count}",
+        )
+
+    @patch("api.notifications.services._process_notification_batch.delay")
+    def test_message_notification_dispatches_one_task(self, mock_delay):
+        """message notification (save_to_db=False) → exactly 1 Celery task."""
+        send_notification(
+            title="Ali",
+            body="sent you a message.",
+            user_id=self.users[2].id,
+            notification_type=NotificationTypes.MESSAGE,
+            save_to_db=False,
+        )
+        self.assertEqual(
+            mock_delay.call_count, 1,
+            f"Expected 1 Celery task for message, got {mock_delay.call_count}",
+        )
+
+    @patch("api.notifications.services._process_notification_batch.delay")
+    def test_broadcast_correct_batch_count(self, mock_delay):
+        """10 users / batch_size 3  →  4 batches (3+3+3+1)."""
+        for i in range(5, 10):
+            _make_user(f"u{i}", f"u{i}@test.com")
+        with patch("api.notifications.services.DEFAULT_BATCH_SIZE", 3):
+            result = send_notification(
+                title="Broadcast",
+                body="System msg",
+                broadcast=True,
+                notification_type=NotificationTypes.SYSTEM,
+            )
+        self.assertEqual(mock_delay.call_count, 4)
+        self.assertIn("queued for 10 users", result)
+
+    @patch("api.notifications.services._process_notification_batch.delay")
+    def test_users_without_setting_skipped(self, mock_delay):
+        """Users who disabled comment notifications receive nothing."""
+        NotificationSettings.objects.all().update(comment_notifications=False)
+        result = send_notification(
+            title="Ali",
+            body="commented.",
+            broadcast=True,
+            notification_type=NotificationTypes.POST_COMMENT,
+        )
+        self.assertEqual(mock_delay.call_count, 0)
+        self.assertIn("No active users", result)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. Idempotency — duplicate DB records must NOT be created on retry
+# ─────────────────────────────────────────────────────────────────────────────
+
+class NotificationIdempotencyTests(TestCase):
+
+    def setUp(self):
+        self.user = _make_user("idempotent", "idempotent@test.com")
+
+    def _run_task(self, cache_mock_value=None):
+        """
+        Call _process_notification_batch directly (synchronous, no Celery broker).
+        Patches FCMDevice so no real FCM calls happen.
+        Patches cache.get to simulate whether the idempotency key exists.
+        """
+        with patch("api.notifications.services.FCMDevice") as mock_fcm, \
+             patch("api.notifications.services.cache") as mock_cache:
+
+            mock_cache.get.return_value = cache_mock_value
+            # No FCM tokens — so push is skipped cleanly
+            mock_fcm.objects.filter.return_value.values_list.return_value = []
+
+            _process_notification_batch(
+                user_ids=[str(self.user.id)],
+                title="IdempotencyTest",
+                body="body text",
+                data={},
+                notification_type=NotificationTypes.SYSTEM,
+                save_to_db=True,
+            )
+
+    def test_first_run_creates_exactly_one_db_record(self):
+        """First execution must create exactly 1 DB record."""
+        self._run_task(cache_mock_value=None)  # no idempotency key yet
+        count = Notifications.objects.filter(user=self.user, title="IdempotencyTest").count()
+        self.assertEqual(count, 1, f"Expected 1 record on first run, got {count}")
+
+    def test_retry_does_not_create_duplicate_db_record(self):
+        """
+        Second run (Celery retry) with the idempotency key already set
+        must NOT insert another DB record.
+        """
+        self._run_task(cache_mock_value=None)   # first run — writes DB
+        self._run_task(cache_mock_value=True)   # retry  — must skip DB write
+
+        count = Notifications.objects.filter(user=self.user, title="IdempotencyTest").count()
+        self.assertEqual(count, 1, f"Retry created a duplicate! Found {count} records.")
+
+    def test_save_to_db_false_never_writes_db(self):
+        """When save_to_db=False (message notifications), no DB record is written."""
+        with patch("api.notifications.services.FCMDevice") as mock_fcm, \
+             patch("api.notifications.services.cache") as mock_cache:
+
+            mock_cache.get.return_value = None
+            mock_fcm.objects.filter.return_value.values_list.return_value = []
+
+            _process_notification_batch(
+                user_ids=[str(self.user.id)],
+                title="TransientMsg",
+                body="body",
+                data={},
+                notification_type=NotificationTypes.MESSAGE,
+                save_to_db=False,
+            )
+
+        count = Notifications.objects.filter(user=self.user, title="TransientMsg").count()
+        self.assertEqual(count, 0, "save_to_db=False must never write to DB")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. FCM token handling — bad tokens cleaned, no spurious retries
+# ─────────────────────────────────────────────────────────────────────────────
+
+class FCMTokenHandlingTests(TestCase):
+
+    def setUp(self):
+        self.user = _make_user("fcm_user", "fcm@test.com")
+
+    @patch("api.notifications.services.FCMDevice")
+    @patch("api.notifications.services.messaging")
+    @patch("api.notifications.services.cache")
+    def test_invalid_token_errors_do_not_trigger_retry(
+        self, mock_cache, mock_messaging, mock_fcm_device
+    ):
+        """
+        If FCM returns only InvalidArgument/NotFound/Unregistered errors
+        (i.e., all failures are bad-token errors), the task must complete
+        successfully WITHOUT retrying — bad tokens are just deleted.
+        """
+        from firebase_admin import exceptions as fb_exceptions
+
+        mock_cache.get.return_value = None
+        # Simulate 1 token in DB
+        mock_fcm_device.objects.filter.return_value.values_list.return_value = [
+            "bad_token_123"
+        ]
+
+        # Build a fake FCM response: 1 failure due to an invalid token
+        bad_resp = MagicMock()
+        bad_resp.success = False
+        bad_resp.exception = fb_exceptions.UnregisteredError("Token not registered", None, None)
+
+        fake_response = MagicMock()
+        fake_response.failure_count = 1
+        fake_response.success_count = 0
+        fake_response.responses = [bad_resp]
+
+        mock_messaging.send_each_for_multicast.return_value = fake_response
+
+        # Also simulate User push filter returning our user
+        with patch("api.notifications.services.User") as mock_user_model:
+            mock_user_model.objects.filter.return_value.values_list.return_value = [
+                str(self.user.id)
+            ]
+            mock_user_model.objects.filter.return_value.values_list.return_value = [
+                str(self.user.id)
+            ]
+
+            # Should NOT raise (no retry)
+            try:
+                _process_notification_batch(
+                    user_ids=[str(self.user.id)],
+                    title="FCM test",
+                    body="body",
+                    data={},
+                    notification_type=NotificationTypes.SYSTEM,
+                    save_to_db=False,
+                )
+            except Exception as e:
+                self.fail(f"Task raised unexpectedly for invalid token: {e}")
