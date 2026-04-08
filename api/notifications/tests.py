@@ -220,7 +220,7 @@ class FCMTokenHandlingTests(TestCase):
         # Build a fake FCM response: 1 failure due to an invalid token
         bad_resp = MagicMock()
         bad_resp.success = False
-        bad_resp.exception = fb_exceptions.UnregisteredError("Token not registered", None, None)
+        bad_resp.exception = fb_exceptions.NotFoundError("Token not registered", None, None)
 
         fake_response = MagicMock()
         fake_response.failure_count = 1

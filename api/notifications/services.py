@@ -207,22 +207,18 @@ def _process_notification_batch(
 
         response = messaging.send_each_for_multicast(fcm_message)
 
-        TOKEN_ERRORS = (
-            exceptions.InvalidArgumentError,
-            exceptions.NotFoundError,
-            exceptions.UnregisteredError,
-        )
         invalid_tokens = []
         transient_failures = 0
 
         if response.failure_count > 0:
             for idx, resp in enumerate(response.responses):
                 if not resp.success:
-                    if isinstance(resp.exception, TOKEN_ERRORS):
+                    err_name = type(resp.exception).__name__
+                    if err_name in ('InvalidArgumentError', 'NotFoundError', 'UnregisteredError', 'SenderIdMismatchError'):
                         invalid_tokens.append(tokens[idx])
                         logger.warning(
                             "[notify] Removing invalid FCM token (idx=%d): %s",
-                            idx, type(resp.exception).__name__,
+                            idx, err_name,
                         )
                     else:
                         transient_failures += 1
