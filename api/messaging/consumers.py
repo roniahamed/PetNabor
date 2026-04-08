@@ -153,7 +153,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         .filter(left_at__isnull=True)           # active only
                         .select_related("user__profile")
                         .only(
-                            "id", "thread_id", "user_id", "left_at",
+                            "id", "thread_id", "user_id", "left_at", "cleared_history_at",
                             "user__id", "user__username",
                             "user__first_name", "user__last_name",
                             "user__last_active",
@@ -222,15 +222,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
             parts = getattr(thread, "active_participants", [])
 
             other_user = None
+            my_cleared_at = None
             if thread.thread_type == "DIRECT":
                 for p in parts:
                     if p.user_id != me_id:
                         other_user = _user_dict(p)
-                        break
+                    else:
+                        my_cleared_at = p.cleared_history_at
 
             members = None
             if thread.thread_type == "GROUP":
-                members = [_user_dict(p) for p in parts]
+                members = []
+                for p in parts:
+                    members.append(_user_dict(p))
+                    if p.user_id == me_id:
+                        my_cleared_at = p.cleared_history_at
+
+            # Hide message for THIS user if they cleared their chat after it was sent.
+            last_text = thread.last_message_text
+            last_timestamp = thread.last_message_timestamp
+            
+            if my_cleared_at and last_timestamp and last_timestamp <= my_cleared_at:
+                last_text = None
+                last_timestamp = None
 
             result.append({
                 "id":                      str(thread.id),
@@ -239,10 +253,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "avatar_url":              thread.avatar_url,
                 "other_user":              other_user,
                 "members":                 members,
-                "last_message_text":       thread.last_message_text,
+                "last_message_text":       last_text,
                 "last_message_timestamp":  (
-                    thread.last_message_timestamp.isoformat()
-                    if thread.last_message_timestamp else None
+                    last_timestamp.isoformat()
+                    if last_timestamp else None
                 ),
                 "is_read":                 unread_map.get(str(thread.id), 0) == 0,
                 "created_at":              thread.created_at.isoformat(),

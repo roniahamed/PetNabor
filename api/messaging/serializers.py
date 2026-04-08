@@ -204,6 +204,8 @@ class ChatThreadSerializer(serializers.ModelSerializer):
     other_user = serializers.SerializerMethodField()
     members = serializers.SerializerMethodField()
     is_read = serializers.SerializerMethodField()
+    last_message_text = serializers.SerializerMethodField()
+    last_message_timestamp = serializers.SerializerMethodField()
 
     class Meta:
         model = ChatThread
@@ -247,6 +249,30 @@ class ChatThreadSerializer(serializers.ModelSerializer):
             if p.user_id != me_id:
                 return ParticipantUserSerializer(p.user, context=self.context).data
         return None
+
+    def _get_my_participant(self, thread):
+        request = self.context.get("request")
+        if not request:
+            return None
+        me_id = request.user.id
+        for p in self._get_all_participants(thread):
+            if p.user_id == me_id:
+                return p
+        return None
+
+    def get_last_message_text(self, thread):
+        my_p = self._get_my_participant(thread)
+        if my_p and my_p.cleared_history_at and thread.last_message_timestamp:
+            if thread.last_message_timestamp <= my_p.cleared_history_at:
+                return None
+        return thread.last_message_text
+
+    def get_last_message_timestamp(self, thread):
+        my_p = self._get_my_participant(thread)
+        if my_p and my_p.cleared_history_at and thread.last_message_timestamp:
+            if thread.last_message_timestamp <= my_p.cleared_history_at:
+                return None
+        return thread.last_message_timestamp
 
     def get_members(self, thread):
         """For GROUP threads: return simplified participant list."""
