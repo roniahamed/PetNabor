@@ -203,6 +203,7 @@ class ChatThreadSerializer(serializers.ModelSerializer):
 
     other_user = serializers.SerializerMethodField()
     members = serializers.SerializerMethodField()
+    is_read = serializers.SerializerMethodField()
 
     class Meta:
         model = ChatThread
@@ -215,6 +216,7 @@ class ChatThreadSerializer(serializers.ModelSerializer):
             "members",
             "last_message_text",
             "last_message_timestamp",
+            "is_read",
             "created_at",
         ]
 
@@ -253,6 +255,26 @@ class ChatThreadSerializer(serializers.ModelSerializer):
         return SimpleParticipantSerializer(
             self._get_active_participants(thread), many=True, context=self.context
         ).data
+
+    def get_is_read(self, thread):
+        """
+        True when the current user has no unread messages from others in this thread.
+        Reads the `unread_count` annotation injected by get_threads_for_user().
+        Falls back to a direct DB query if called outside the annotated queryset
+        (e.g. single-thread detail view).
+        """
+        unread = getattr(thread, "unread_count", None)
+        if unread is None:
+            # Fallback for non-annotated querysets (e.g. thread detail, group create)
+            request = self.context.get("request")
+            if request:
+                from .models import Message
+                unread = Message.objects.filter(
+                    thread=thread,
+                    is_read=False,
+                    is_deleted_for_everyone=False,
+                ).exclude(sender=request.user).count()
+        return (unread or 0) == 0
 
 
 class CreateDirectThreadSerializer(serializers.Serializer):

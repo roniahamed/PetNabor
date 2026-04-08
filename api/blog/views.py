@@ -5,8 +5,9 @@ from django.core.cache import cache
 from rest_framework import viewsets, permissions, status, filters, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle
 from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter, OpenApiTypes
+
+from api.users.throttles import PerUserPostLikeThrottle
 
 from .models import Blog, BlogComment
 from .serializers import (
@@ -244,11 +245,10 @@ class BlogViewSet(viewsets.ModelViewSet):
             }
         )}
     )
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated], throttle_classes=[ScopedRateThrottle])
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated], throttle_classes=[PerUserPostLikeThrottle])
     def like(self, request, slug=None):
         """Toggle like for this blog."""
         blog = self.get_object()
-        self.throttle_scope = 'post_like' # Assuming throttler named post_like or similar exists
         
         is_liked = BlogService.toggle_like(blog=blog, user=request.user)
         # Refresh from db to get fresh count

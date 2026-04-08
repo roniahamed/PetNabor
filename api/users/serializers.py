@@ -191,6 +191,7 @@ class Profile_Read(serializers.ModelSerializer):
         model = Profile
         fields = [
             "address_street",
+            "apartment",
             "city",
             "state",
             "zipcode",
@@ -280,6 +281,7 @@ class ProfileSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "address_street",
+            "apartment",
             "city",
             "state",
             "zipcode",

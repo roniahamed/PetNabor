@@ -122,17 +122,17 @@ class UserAdmin(UUIDSearchMixin, UnfoldModelAdmin):
 
     # ── Bulk actions ──────────────────────────────────────────────────────────
 
-    @admin.action(description="✅ Activate selected users")
+    @admin.action(description="Activate selected users")
     def activate_users(self, request, queryset):
         count = queryset.update(is_active=True)
         self.message_user(request, f"{count} user(s) activated.")
 
-    @admin.action(description="🚫 Deactivate selected users")
+    @admin.action(description="Deactivate selected users")
     def deactivate_users(self, request, queryset):
         count = queryset.update(is_active=False)
         self.message_user(request, f"{count} user(s) deactivated.")
 
-    @admin.action(description="🎉 Mark selected users as verified")
+    @admin.action(description="Mark selected users as verified")
     def mark_verified(self, request, queryset):
         count = queryset.update(is_verified=True, is_email_verified=True)
         self.message_user(request, f"{count} user(s) marked as verified.")

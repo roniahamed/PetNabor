@@ -10,8 +10,9 @@ import logging
 from rest_framework import status, views, serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle
 from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter, OpenApiTypes
+
+from api.users.throttles import PerUserMessagingThrottle
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -217,8 +218,7 @@ class MessageListCreateView(views.APIView):
     """
 
     permission_classes = [IsAuthenticated]
-    throttle_classes = [ScopedRateThrottle]
-    throttle_scope = "messaging_send"
+    throttle_classes = [PerUserMessagingThrottle]
 
     @extend_schema(
         parameters=[

@@ -1,1 +1,22 @@
 ngrok http --url=giving-sacred-minnow.ngrok-free.app 8001
+
+
+
+
+
+notification er title gulote first name and last_name hobe, 
+
+and body te se je kaj ta korse, oita thakbo, 
+
+jamn, kew message pathaile, title : first name and lastname, 
+
+body : message gulo, 
+
+commnet:
+title: Fist name and last name. 
+
+body:  comment on your post. 
+
+ei babeh sob gulo notification change koro. and grammertical thik  korbe. 
+
+fcm e eibabeh jaibo. 

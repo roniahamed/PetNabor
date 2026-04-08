@@ -65,10 +65,11 @@ def send_friend_request(sender, receiver_id):
 
         # Notify the original sender (receiver of this new request) that it was accepted.
         # Use accepter_id so the frontend can deeplink to the accepter's profile.
+        sender_display = f"{sender.first_name} {sender.last_name}".strip() or sender.username or "Someone"
         send_notification(
             user_id=receiver.id,
-            title="🎉 You have a new friend!",
-            body=f"{sender.first_name or sender.username} accepted your friend request.",
+            title=sender_display,
+            body="accepted your friend request.",
             notification_type=NotificationTypes.FRIEND_ACCEPT,
             data={"accepter_id": str(sender.id)},
         )
@@ -78,10 +79,11 @@ def send_friend_request(sender, receiver_id):
     freq = FriendRequest.objects.create(sender=sender, receiver=receiver, status="pending")
 
     # Notify the receiver about the new friend request (include IDs for frontend deeplink)
+    sender_display = f"{sender.first_name} {sender.last_name}".strip() or sender.username or "Someone"
     send_notification(
         user_id=receiver.id,
-        title="👋 New Friend Request",
-        body=f"{sender.first_name or sender.username} sent you a friend request. Tap to view!",
+        title=sender_display,
+        body="sent you a friend request.",
         notification_type=NotificationTypes.FRIEND_REQUEST,
         data={"sender_id": str(sender.id), "request_id": str(freq.id)},
     )
@@ -111,10 +113,11 @@ def accept_friend_request(user, friend_request):
 
     # Notify the sender that the request was accepted.
     # Use accepter_id so the frontend can deeplink to the accepter's profile.
+    accepter_display = f"{user.first_name} {user.last_name}".strip() or user.username or "Someone"
     send_notification(
         user_id=sender_id,
-        title="🎉 You have a new friend!",
-        body=f"{user.first_name or user.username} accepted your friend request.",
+        title=accepter_display,
+        body="accepted your friend request.",
         notification_type=NotificationTypes.FRIEND_ACCEPT,
         data={"accepter_id": str(user.id)},
     )

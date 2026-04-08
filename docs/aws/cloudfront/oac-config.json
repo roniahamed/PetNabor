@@ -1,7 +1,0 @@
-{
-    "Name": "petnabor-media-oac",
-    "Description": "Origin Access Control for PetNabor S3 media bucket",
-    "SigningProtocol": "sigv4",
-    "SigningBehavior": "always",
-    "OriginAccessControlOriginType": "s3"
-}

@@ -13,6 +13,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, inline_serializer
 
+from .throttles import (
+    IdentityBasedOTPSendThrottle,
+    IdentityBasedOTPVerifyThrottle,
+    IdentityBasedLoginThrottle,
+)
+
 from .models import Profile, User
 from .serializers import (
     ConfirmPasswordResetSerializer,
@@ -54,6 +60,7 @@ def _build_user_data(user):
         "is_verified": user.is_verified,
         "is_email_verified": user.is_email_verified,
         "is_phone_verified": user.is_phone_verified,
+        "agree_to_terms_and_conditions": user.agree_to_terms_and_conditions,
     }
 
 
@@ -65,7 +72,7 @@ class SignupView(APIView):
 
     permission_classes = [AllowAny]
     serializer_class = SignupSerializer
-    throttle_scope = "auth_login"
+    throttle_classes = [IdentityBasedOTPSendThrottle]
 
     @extend_schema(
         request=SignupSerializer,
@@ -126,7 +133,7 @@ class LoginView(APIView):
 
     permission_classes = [AllowAny]
     serializer_class = LoginSerializer
-    throttle_scope = "auth_login"
+    throttle_classes = [IdentityBasedLoginThrottle]
 
     @extend_schema(
         request=LoginSerializer,
@@ -174,7 +181,7 @@ class VerifyPhoneOTPView(APIView):
 
     permission_classes = [AllowAny]
     serializer_class = VerifyPhoneOTPSerializer
-    throttle_scope = "otp_verify"
+    throttle_classes = [IdentityBasedOTPVerifyThrottle]
 
     @extend_schema(
         request=VerifyPhoneOTPSerializer,
@@ -221,7 +228,7 @@ class VerifyEmailOTPView(APIView):
 
     permission_classes = [AllowAny]
     serializer_class = VerifyEmailOTPSerializer
-    throttle_scope = "otp_verify"
+    throttle_classes = [IdentityBasedOTPVerifyThrottle]
 
     @extend_schema(
         request=VerifyEmailOTPSerializer,
@@ -268,7 +275,7 @@ class ResendPhoneOTPView(APIView):
 
     permission_classes = [AllowAny]
     serializer_class = ResendOTPSerializer
-    throttle_scope = "otp_send"
+    throttle_classes = [IdentityBasedOTPSendThrottle]
 
     @extend_schema(
         request=ResendOTPSerializer,
@@ -300,7 +307,7 @@ class ResendEmailOTPView(APIView):
 
     permission_classes = [AllowAny]
     serializer_class = ResendEmailOTPSerializer
-    throttle_scope = "otp_send"
+    throttle_classes = [IdentityBasedOTPSendThrottle]
 
     @extend_schema(
         request=ResendEmailOTPSerializer,
@@ -332,7 +339,7 @@ class RequestPasswordResetView(APIView):
 
     permission_classes = [AllowAny]
     serializer_class = RequestPasswordResetSerializer
-    throttle_scope = "otp_send"
+    throttle_classes = [IdentityBasedOTPSendThrottle]
 
     @extend_schema(
         request=RequestPasswordResetSerializer,
@@ -376,7 +383,7 @@ class ConfirmPasswordResetView(APIView):
 
     permission_classes = [AllowAny]
     serializer_class = ConfirmPasswordResetSerializer
-    throttle_scope = "otp_verify"
+    throttle_classes = [IdentityBasedOTPVerifyThrottle]
 
     @extend_schema(
         request=ConfirmPasswordResetSerializer,
@@ -438,7 +445,7 @@ class FirebaseLoginView(APIView):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        tokens, user = firebase_login_service(
+        tokens, user , is_new_user= firebase_login_service(
             id_token=serializer.validated_data["id_token"],
             first_name=serializer.validated_data.get("first_name", ""),
             last_name=serializer.validated_data.get("last_name", ""),
@@ -458,6 +465,7 @@ class FirebaseLoginView(APIView):
                     "refresh_token": tokens["refresh"],
                     "user": _build_user_data(user),
                 },
+                "is_new_user": is_new_user,
             },
             status=status.HTTP_200_OK,
         )

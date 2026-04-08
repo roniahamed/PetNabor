@@ -33,9 +33,10 @@ class BlogService:
                 cache.delete("blog_popular_cache")
                 
                 if blog.author != user:
+                    sender_display = f"{user.first_name} {user.last_name}".strip() or user.username or "Someone"
                     send_notification(
-                        title="New Like on Your Blog",
-                        body=f"{user.first_name or user.username} liked your blog '{blog.title}'.",
+                        title=sender_display,
+                        body=f"liked your blog '{blog.title}'.",
                         user_id=blog.author.id,
                         notification_type=NotificationTypes.LIKE,
                         data={"blog_slug": blog.slug}
@@ -103,17 +104,19 @@ class BlogService:
 
             # Trigger notifications
             if parent_comment and parent_comment.user != user:
+                sender_display = f"{user.first_name} {user.last_name}".strip() or user.username or "Someone"
                 send_notification(
-                    title="New Reply",
-                    body=f"{user.first_name or user.username} replied to your comment on '{blog.title}'.",
+                    title=sender_display,
+                    body=f"replied to your comment on '{blog.title}'.",
                     user_id=parent_comment.user.id,
                     notification_type=NotificationTypes.COMMENT,
                     data={"blog_slug": blog.slug}
                 )
             elif blog.author != user:
+                sender_display = f"{user.first_name} {user.last_name}".strip() or user.username or "Someone"
                 send_notification(
-                    title="New Comment on Your Blog",
-                    body=f"{user.first_name or user.username} commented on your blog '{blog.title}'.",
+                    title=sender_display,
+                    body=f"commented on your blog '{blog.title}'.",
                     user_id=blog.author.id,
                     notification_type=NotificationTypes.COMMENT,
                     data={"blog_slug": blog.slug}

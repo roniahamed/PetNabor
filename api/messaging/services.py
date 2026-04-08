@@ -16,7 +16,7 @@ import logging
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models import Prefetch, Q
+from django.db.models import Count, IntegerField, OuterRef, Prefetch, Q, Subquery
 from django.utils import timezone
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
@@ -50,8 +50,9 @@ def invalidate_messaging_permission(user_a_id, user_b_id):
 
 
 def invalidate_inbox_cache(user_id):
-    """Invalidate the first page of the user's inbox cache."""
+    """Invalidate the first-page inbox cache and the WS thread-list cache."""
     cache.delete(f"user_inbox_{user_id}_page_1")
+    cache.delete(f"ws_threads_{user_id}")
 
 
 # ──────────────────────────────────────────────
@@ -199,29 +200,38 @@ def get_threads_for_user(user):
     """
     Return all active threads for `user`, most recent first.
     Uses prefetch_related for participants — no N+1.
+
+    Annotates each thread with `unread_count`: the number of unread messages
+    in that thread that were NOT sent by the current user.
+    This lets the serializer expose `is_read` at zero extra cost.
     """
     active_thread_ids = ThreadParticipant.objects.filter(
         user=user, left_at__isnull=True
     ).values_list("thread_id", flat=True)
 
-    latest_messages_prefetch = Prefetch(
-        "messages",
-        queryset=Message.objects.filter(
-            is_deleted_for_everyone=False
-        ).order_by("-created_at").select_related("sender"),
-        to_attr="recent_messages",
+    # Subquery: count unread messages in each thread not sent by the current user
+    unread_subquery = Subquery(
+        Message.objects.filter(
+            thread=OuterRef("pk"),
+            is_read=False,
+            is_deleted_for_everyone=False,
+        ).exclude(sender=user)
+        .values("thread")
+        .annotate(cnt=Count("id"))
+        .values("cnt"),
+        output_field=IntegerField(),
     )
 
     return (
         ChatThread.objects.filter(id__in=active_thread_ids)
         .prefetch_related(
-            latest_messages_prefetch,
             Prefetch(
                 "participants",
                 queryset=ThreadParticipant.objects.select_related("user__profile"),
                 to_attr="all_participants",
             ),
         )
+        .annotate(unread_count=unread_subquery)
         .order_by("-last_message_timestamp")
     )
 
@@ -385,11 +395,21 @@ def send_message(sender, thread_id, text_content=None, message_type=MessageTypes
             # Invalidate inbox cache for this participant
             invalidate_inbox_cache(p_id)
 
+            # 1) Deliver the new message to the open chat window
             async_to_sync(channel_layer.group_send)(
                 f"user_{str(p_id)}",   # str() prevents UUID serialization error
                 {
                     "type": "chat_message",
                     "message": ws_payload,
+                }
+            )
+
+            # 2) Signal the consumer to re-fetch and push the updated thread
+            #    list so the inbox re-orders instantly (thread bubbles to top).
+            async_to_sync(channel_layer.group_send)(
+                f"user_{str(p_id)}",
+                {
+                    "type": "thread_list_update",
                 }
             )
     except Exception:

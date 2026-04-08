@@ -70,12 +70,12 @@ class ReportAdmin(UUIDSearchMixin, UnfoldModelAdmin):
 
     actions = ["mark_resolved", "mark_unresolved"]
 
-    @admin.action(description="✅ Mark selected reports as resolved")
+    @admin.action(description="Mark selected reports as resolved")
     def mark_resolved(self, request, queryset):
         count = queryset.update(is_resolved=True)
         self.message_user(request, f"{count} report(s) marked as resolved.")
 
-    @admin.action(description="🔴 Mark selected reports as unresolved")
+    @admin.action(description="Mark selected reports as unresolved")
     def mark_unresolved(self, request, queryset):
         count = queryset.update(is_resolved=False)
         self.message_user(request, f"{count} report(s) marked as unresolved.")

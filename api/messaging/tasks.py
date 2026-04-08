@@ -35,8 +35,8 @@ def notify_new_message(self, message_id, thread_id, sender_id, recipient_ids, te
             logger.warning("notify_new_message: sender %s not found", sender_id)
             return
 
-        sender_display = sender.first_name or sender.username or sender.email or "Someone"
-        title = f"💬 New message from {sender_display}"
+        sender_display = f"{sender.first_name} {sender.last_name}".strip() or sender.username or sender.email or "Someone"
+        title = sender_display
         body = f"{text_preview}"
 
         send_notification(
@@ -44,6 +44,7 @@ def notify_new_message(self, message_id, thread_id, sender_id, recipient_ids, te
             title=title,
             body=body,
             notification_type=NotificationTypes.MESSAGE,
+            save_to_db=False,  # Message notifications are transient — FCM only, no DB record
             data={
                 "message_id": message_id,
                 "thread_id": thread_id,

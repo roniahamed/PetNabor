@@ -15,9 +15,12 @@ User = get_user_model()
 NOTIFICATION_SETTINGS_MAP = {
     NotificationTypes.FRIEND_REQUEST: "friend_request_notifications",
     NotificationTypes.FRIEND_ACCEPT: "friend_request_notifications",
-    NotificationTypes.LIKE: "like_notifications",
-    NotificationTypes.COMMENT: "comment_notifications",
-    NotificationTypes.MENTION: "mention_notifications",
+    NotificationTypes.POST_LIKE: "like_notifications",
+    NotificationTypes.STORY_LIKE: "like_notifications",
+    NotificationTypes.POST_COMMENT: "comment_notifications",
+    NotificationTypes.STORY_COMMENT: "comment_notifications",
+    NotificationTypes.POST_MENTION: "mention_notifications",
+    NotificationTypes.STORY_MENTION: "mention_notifications",
     NotificationTypes.MEETUP_INVITE: "meetup_notifications",
     NotificationTypes.MEETUP_UPDATE: "meetup_notifications",
     NotificationTypes.SYSTEM: "system_notifications",
@@ -41,6 +44,7 @@ def send_notification(
     data=None,
     notification_type=NotificationTypes.INFO,
     filters=None,
+    save_to_db=True,
 ):
     """
     Unified entrypoint for triggering notifications.
@@ -80,13 +84,13 @@ def send_notification(
         batch_ids.append(user_id)
         if len(batch_ids) >= batch_size:
             _process_notification_batch.delay(
-                batch_ids, title, body, data, notification_type
+                batch_ids, title, body, data, notification_type, save_to_db
             )
             batch_ids = []
 
     if batch_ids:
         _process_notification_batch.delay(
-            batch_ids, title, body, data, notification_type
+            batch_ids, title, body, data, notification_type, save_to_db
         )
 
     return f"Notification queued for {total_count} users."
@@ -94,33 +98,34 @@ def send_notification(
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=5)
 def _process_notification_batch(
-    self, user_ids, title, body, data=None, notification_type=NotificationTypes.INFO
+    self, user_ids, title, body, data=None, notification_type=NotificationTypes.INFO, save_to_db=True
 ):
     """Celery task to handle the actual creation of DB records and FCM sending."""
     try:
         # Filter out user_ids that do not exist in the DB to avoid ForeignKeyViolation
         existing_user_ids = set(User.objects.filter(id__in=user_ids).values_list("id", flat=True))
 
-        # Create In-App Notifications
-        notifications_to_create = []
-        for uid in existing_user_ids:
-            try:
-                notifications_to_create.append(
-                    Notifications(
-                        user_id=uid,
-                        title=title,
-                        body=body,
-                        data=data or {},
-                        notification_type=notification_type,
+        # Create In-App Notifications (skipped for transient notifications like messages)
+        if save_to_db:
+            notifications_to_create = []
+            for uid in existing_user_ids:
+                try:
+                    notifications_to_create.append(
+                        Notifications(
+                            user_id=uid,
+                            title=title,
+                            body=body,
+                            data=data or {},
+                            notification_type=notification_type,
+                        )
                     )
-                )
-            except Exception as e:
-                pass
+                except Exception as e:
+                    pass
 
-        if notifications_to_create:
-            Notifications.objects.bulk_create(
-                notifications_to_create, ignore_conflicts=True
-            )
+            if notifications_to_create:
+                Notifications.objects.bulk_create(
+                    notifications_to_create, ignore_conflicts=True
+                )
 
         users_with_push = User.objects.filter(
             id__in=user_ids, notification_settings__push_notifications=True

@@ -92,19 +92,19 @@ class BlogAdmin(UUIDSearchMixin, UnfoldModelAdmin):
 
     actions = ["publish_blogs", "unpublish_blogs", "soft_delete_blogs"]
 
-    @admin.action(description="📢 Publish selected blogs")
+    @admin.action(description="Publish selected blogs")
     def publish_blogs(self, request, queryset):
         from django.utils import timezone
 
         count = queryset.update(is_published=True, published_at=timezone.now())
         self.message_user(request, f"{count} blog(s) published.")
 
-    @admin.action(description="📦 Unpublish selected blogs")
+    @admin.action(description="Unpublish selected blogs")
     def unpublish_blogs(self, request, queryset):
         count = queryset.update(is_published=False)
         self.message_user(request, f"{count} blog(s) unpublished.")
 
-    @admin.action(description="🗑️ Soft-delete selected blogs")
+    @admin.action(description="Soft-delete selected blogs")
     def soft_delete_blogs(self, request, queryset):
         count = queryset.update(is_deleted=True, is_published=False)
         self.message_user(request, f"{count} blog(s) soft-deleted.")

@@ -128,12 +128,14 @@ class StoryService:
 
 class StoryFeedService:
     """
-    Builds the personalised story feed for the authenticated user.
+    Builds the story feed for the authenticated user.
 
     Feed algorithm (SQL-native, no ML needed):
-    1. Include stories from: self + friends (mutual Friendship rows).
-    2. Exclude expired stories.
-    3. Order by:
+    1. Include PUBLIC stories from ALL users (not just friends).
+    2. Include FRIENDS_ONLY stories from friends and self.
+    3. Exclude expired stories.
+    4. Exclude blocked users (both directions).
+    5. Order by:
        a. Has unseen story from this author? (unseen-first) — annotated boolean DESC
        b. Most recent story created_at DESC (recency)
 
@@ -145,16 +147,6 @@ class StoryFeedService:
     def get_story_feed(user: User) -> QuerySet:
         from api.friends.models import UserBlock
 
-        friend_pair_ids = Friendship.objects.filter(
-            Q(sender=user) | Q(receiver=user)
-        ).values_list("sender_id", "receiver_id")
-
-        # Flatten both sides of the friendship into one set (including self)
-        visible_author_ids: set = {user.id}
-        for sender_id, receiver_id in friend_pair_ids:
-            visible_author_ids.add(sender_id)
-            visible_author_ids.add(receiver_id)
-
         # Collect blocked user IDs (both directions) to exclude
         flat_blocked: set = set()
         for pair in UserBlock.objects.filter(
@@ -163,25 +155,32 @@ class StoryFeedService:
             flat_blocked.update(pair)
         flat_blocked.discard(user.id)  # never exclude self
 
-        # Base: active stories from visible authors, excluding blocked users
+        # Friend IDs (for FRIENDS_ONLY access)
+        friend_ids: set = {user.id}
+        for sender_id, receiver_id in Friendship.objects.filter(
+            Q(sender=user) | Q(receiver=user)
+        ).values_list("sender_id", "receiver_id"):
+            friend_ids.add(sender_id)
+            friend_ids.add(receiver_id)
+
+        # Base: all active stories, excluding blocked users
+        # Show PUBLIC stories from everyone + FRIENDS_ONLY stories from friends/self
         qs = (
             StoryService.get_active_queryset()
-            .filter(author_id__in=visible_author_ids)
             .exclude(author_id__in=flat_blocked)
+            .filter(
+                # Own stories (all privacy levels)
+                Q(author=user)
+                |
+                # Friends' stories (PUBLIC + FRIENDS_ONLY)
+                Q(author_id__in=friend_ids)
+                |
+                # Everyone else's PUBLIC stories
+                Q(privacy=StoryPrivacyChoices.PUBLIC)
+            )
             .exclude(
-                # Exclude FRIENDS_ONLY stories from people who are NOT friends
-                # (self is already excluded above via author_id check)
-                ~Q(author=user) & Q(privacy=StoryPrivacyChoices.FRIENDS_ONLY) &
-                ~Q(
-                    author_id__in=Friendship.objects.filter(
-                        Q(sender=user) | Q(receiver=user)
-                    ).values_list("sender_id", flat=True)
-                ) &
-                ~Q(
-                    author_id__in=Friendship.objects.filter(
-                        Q(sender=user) | Q(receiver=user)
-                    ).values_list("receiver_id", flat=True)
-                )
+                # Exclude FRIENDS_ONLY stories from non-friends (strangers)
+                ~Q(author_id__in=friend_ids) & Q(privacy=StoryPrivacyChoices.FRIENDS_ONLY)
             )
         )
 
@@ -348,11 +347,12 @@ def _notify_story_author_of_reaction(story: Story, reactor: User) -> None:
         from api.notifications.services import send_notification
         from api.notifications.models import NotificationTypes
 
+        sender_display = f"{reactor.first_name} {reactor.last_name}".strip() or reactor.username or "Someone"
         send_notification(
-            title="Story Reaction",
-            body=f"{reactor.first_name or reactor.username} reacted to your story.",
+            title=sender_display,
+            body="reacted to your story.",
             user_id=story.author_id,
-            notification_type=NotificationTypes.LIKE,
+            notification_type=NotificationTypes.STORY_LIKE,
             data={"story_id": str(story.id)},
         )
     except Exception:
@@ -367,11 +367,12 @@ def _notify_story_author_of_reply(story: Story, replier: User) -> None:
         from api.notifications.services import send_notification
         from api.notifications.models import NotificationTypes
 
+        sender_display = f"{replier.first_name} {replier.last_name}".strip() or replier.username or "Someone"
         send_notification(
-            title="Story Reply",
-            body=f"{replier.first_name or replier.username} replied to your story.",
+            title=sender_display,
+            body="replied to your story.",
             user_id=story.author_id,
-            notification_type=NotificationTypes.COMMENT,
+            notification_type=NotificationTypes.STORY_COMMENT,
             data={"story_id": str(story.id)},
         )
     except Exception:
