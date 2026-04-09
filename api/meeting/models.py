@@ -12,12 +12,6 @@ class Meeting(models.Model):
         ('COMPLETED', 'Completed'),
     )
     
-    REASON_CHOICES = (
-        ('Meet & Greet', 'Meet & Greet'),
-        ('PetPal Visit', 'PetPal Visit'),
-        ('Other', 'Other'),
-    )
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     sender = models.ForeignKey(User, related_name='meetings_sent', on_delete=models.CASCADE)
     receiver = models.ForeignKey(User, related_name='meetings_received', on_delete=models.CASCADE)
@@ -26,7 +20,7 @@ class Meeting(models.Model):
     visitor_phone = models.CharField(max_length=20)
     visit_date = models.DateField()
     visit_time = models.TimeField()
-    reason = models.CharField(max_length=50, choices=REASON_CHOICES)
+    reason = models.CharField(max_length=50)
     
     address_street = models.CharField(max_length=255)
     city = models.CharField(max_length=100)
