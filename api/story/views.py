@@ -23,7 +23,7 @@ import logging
 
 from rest_framework import permissions, status, viewsets, serializers
 from rest_framework.decorators import action
-from rest_framework.pagination import CursorPagination
+from rest_framework.pagination import CursorPagination, PageNumberPagination
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter, OpenApiTypes
 
@@ -36,6 +36,7 @@ from .serializers import (
     StoryReactionCreateSerializer,
     StoryReactionSerializer,
     StoryReplySerializer,
+    StoryUserGroupSerializer,
     StoryViewSerializer,
 )
 from .services import (
@@ -55,15 +56,18 @@ logger = logging.getLogger(__name__)
 
 
 class StoryCursorPagination(CursorPagination):
-    """Cursor-based pagination for story feeds — prevents deep-pagination abuse."""
-
     page_size = 12
     max_page_size = 50
     ordering = "-created_at"
 
-class StoryViewCursorPagination(CursorPagination):
-    """Specific ordering for StoryView which uses viewed_at instead of created_at."""
 
+class StoryGroupedFeedPagination(PageNumberPagination):
+    page_size = 20
+    max_page_size = 50
+    page_size_query_param = "page_size"
+
+
+class StoryViewCursorPagination(CursorPagination):
     page_size = 20
     max_page_size = 50
     ordering = "-viewed_at"
@@ -145,33 +149,21 @@ class StoryViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         parameters=[
-            OpenApiParameter(
-                name="cursor",
-                type=OpenApiTypes.STR,
-                location=OpenApiParameter.QUERY,
-                description="Cursor token for loading the next page of stories.",
-                required=False,
-            ),
-            OpenApiParameter(
-                name="page_size",
-                type=OpenApiTypes.INT,
-                location=OpenApiParameter.QUERY,
-                description="Number of stories per page.",
-                required=False,
-                default=12,
-            ),
+            OpenApiParameter(name="page", type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="page_size", type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, required=False, default=20),
         ],
-        responses=StoryListSerializer(many=True)
+        responses=StoryUserGroupSerializer(many=True)
     )
     @action(detail=False, methods=["get"])
     def feed(self, request):
-        """GET /stories/feed/ — stories from friends + self, unseen-first."""
-        qs = StoryFeedService.get_story_feed(request.user)
-        page = self.paginate_queryset(qs)
+        """GET /stories/feed/ — stories grouped by author, unseen-first."""
+        groups = StoryFeedService.get_grouped_story_feed(request.user)
+        paginator = StoryGroupedFeedPagination()
+        page = paginator.paginate_queryset(groups, request, view=self)
         if page is not None:
-            serializer = StoryListSerializer(page, many=True, context={"request": request})
-            return self.get_paginated_response(serializer.data)
-        serializer = StoryListSerializer(qs, many=True, context={"request": request})
+            serializer = StoryUserGroupSerializer(page, many=True, context={"request": request})
+            return paginator.get_paginated_response(serializer.data)
+        serializer = StoryUserGroupSerializer(groups, many=True, context={"request": request})
         return Response(serializer.data)
 
     # ── Public user stories ───────────────────────────────────────────────

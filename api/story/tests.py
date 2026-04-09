@@ -106,6 +106,7 @@ class StoryFeedAndListTestCase(StoryBaseTestCase):
         self.assertEqual(data[0]['text_content'], "Alice Story 1")
 
     def test_story_feed(self):
+        """Feed returns grouped results: one entry per user, stories nested inside."""
         Story.objects.create(author=self.alice, text_content="Alice Public", privacy="PUBLIC", expires_at=timezone.now() + timedelta(days=1))
         Story.objects.create(author=self.alice, text_content="Alice Friends Only", privacy="FRIENDS_ONLY", expires_at=timezone.now() + timedelta(days=1))
         Story.objects.create(author=self.bob, text_content="Bob Public", privacy="PUBLIC", expires_at=timezone.now() + timedelta(days=1))
@@ -113,15 +114,42 @@ class StoryFeedAndListTestCase(StoryBaseTestCase):
         self.client.force_authenticate(self.charlie)
         url = reverse('story-feed')
         response = self.client.get(url)
-        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Charlie has no friends yet — only PUBLIC stories show (alice + bob each 1 group)
+        # alice has PUBLIC + FRIENDS_ONLY, but charlie is not friend, so only PUBLIC
         data = self.get_data(response)
-        self.assertEqual(len(data), 0)
+        # bob public: 1 group, alice public: 1 group → 2 groups
+        self.assertEqual(len(data), 2)
 
         self.make_friends(self.alice, self.charlie)
         response = self.client.get(url)
         data = self.get_data(response)
-        # Should see both of alice's stories in feed (since they're friends)
+        # Alice is now friend: both alice stories + bob public → still 2 groups
         self.assertEqual(len(data), 2)
+        # Find alice's group
+        alice_group = next(g for g in data if g['user']['username'] == 'alice')
+        # Alice has 2 stories (PUBLIC + FRIENDS_ONLY) as friends
+        self.assertEqual(len(alice_group['stories']), 2)
+        self.assertIn('has_unseen', alice_group)
+        self.assertIn('latest_story_at', alice_group)
+
+    def test_feed_groups_same_user_stories(self):
+        """Multiple stories from the same user must appear as a single group."""
+        Story.objects.create(author=self.alice, text_content="Story 1", privacy="PUBLIC", expires_at=timezone.now() + timedelta(days=1))
+        Story.objects.create(author=self.alice, text_content="Story 2", privacy="PUBLIC", expires_at=timezone.now() + timedelta(days=1))
+        Story.objects.create(author=self.alice, text_content="Story 3", privacy="PUBLIC", expires_at=timezone.now() + timedelta(days=1))
+
+        self.client.force_authenticate(self.bob)
+        url = reverse('story-feed')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = self.get_data(response)
+        # All 3 alice stories → exactly 1 group
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]['user']['username'], 'alice')
+        self.assertEqual(len(data[0]['stories']), 3)
 
     def test_user_stories(self):
         Story.objects.create(author=self.alice, text_content="Alice Public", privacy="PUBLIC", expires_at=timezone.now() + timedelta(days=1))

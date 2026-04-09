@@ -13,6 +13,9 @@ from api.users.models import User
 from .models import Story, StoryMediaTypeChoices, StoryReaction, StoryReply, StoryView
 
 
+
+
+
 # ──────────────────────────────────────────────
 # Shared / Nested
 # ──────────────────────────────────────────────
@@ -216,3 +219,17 @@ class StoryReplySerializer(serializers.ModelSerializer):
         if not value:
             raise serializers.ValidationError("Reply text cannot be blank.")
         return value
+
+
+# ──────────────────────────────────────────────
+# Story Feed — Grouped
+# ──────────────────────────────────────────────
+
+
+class StoryUserGroupSerializer(serializers.Serializer):
+    """Grouped feed entry: one user with all their active stories."""
+
+    user = StoryAuthorSerializer(read_only=True)
+    has_unseen = serializers.BooleanField()
+    latest_story_at = serializers.DateTimeField()
+    stories = StoryListSerializer(many=True, read_only=True)

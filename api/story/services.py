@@ -185,8 +185,39 @@ class StoryFeedService:
         )
 
         return _annotate_story_queryset(qs, user).order_by(
-            "-has_unseen",   # Unseen stories float to top
-            "-created_at",   # Then by recency
+            "-has_unseen",
+            "-created_at",
+        )
+
+    @staticmethod
+    def get_grouped_story_feed(user: User) -> list:
+        """
+        Returns stories grouped by author for the feed.
+        Each entry: { user, has_unseen, latest_story_at, stories[] }
+        Groups with unseen stories come first, then by latest story recency.
+        """
+        qs = StoryFeedService.get_story_feed(user)
+
+        groups: dict = {}
+        for story in qs:
+            author_id = story.author_id
+            if author_id not in groups:
+                groups[author_id] = {
+                    "user": story.author,
+                    "has_unseen": False,
+                    "latest_story_at": story.created_at,
+                    "stories": [],
+                }
+            group = groups[author_id]
+            group["stories"].append(story)
+            if getattr(story, "has_unseen", False):
+                group["has_unseen"] = True
+            if story.created_at > group["latest_story_at"]:
+                group["latest_story_at"] = story.created_at
+
+        return sorted(
+            groups.values(),
+            key=lambda g: (not g["has_unseen"], -g["latest_story_at"].timestamp()),
         )
 
 
