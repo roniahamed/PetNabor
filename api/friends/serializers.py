@@ -40,11 +40,11 @@ class NearbyUserSerializer(serializers.Serializer):
         return None
 
     def get_location_point(self, obj):
-        """Returns [longitude, latitude] rounded to 4 decimal places."""
+        """Returns [latitude, longitude] to match frontend convention."""
         try:
             point = obj.profile.location_point
             if point:
-                return [round(point.x, 4), round(point.y, 4)]
+                return [round(point.y, 4), round(point.x, 4)]  # [lat, lng]
         except Exception:
             pass
         return None

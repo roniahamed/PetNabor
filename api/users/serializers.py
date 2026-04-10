@@ -207,13 +207,14 @@ class Profile_Read(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         """
-        Custom representation to return location_point as [lng, lat].
+        Returns location_point as [latitude, longitude].
+        GeoDjango stores as Point(x=longitude, y=latitude), so we return [y, x].
         """
         ret = super().to_representation(instance)
         if hasattr(instance, "location_point") and instance.location_point:
             ret["location_point"] = [
-                round(instance.location_point.x, 4),
-                round(instance.location_point.y, 4),
+                round(instance.location_point.y, 4),  # latitude
+                round(instance.location_point.x, 4),  # longitude
             ]
         return ret
 
@@ -306,31 +307,36 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     def validate_location_point(self, value):
         """
-        Custom validation for location_point to handle list format [lng, lat].
+        Accepts [latitude, longitude] from the client and stores as
+        Point(longitude, latitude) — the correct GeoDjango/PostGIS format (x=lng, y=lat).
         """
         if isinstance(value, (list, tuple)):
             if len(value) != 2:
                 raise serializers.ValidationError(
-                    "location_point must be a list or tuple of [longitude, latitude]."
+                    "location_point must be [latitude, longitude]."
                 )
             try:
-                # GeoDjango Point expects (x, y) which is (longitude, latitude)
-                return Point(float(value[0]), float(value[1]), srid=4326)
+                lat = float(value[0])
+                lng = float(value[1])
+                # GeoDjango Point(x, y) = Point(longitude, latitude)
+                return Point(lng, lat, srid=4326)
             except (TypeError, ValueError):
                 raise serializers.ValidationError(
                     "Invalid coordinates. Must be numeric."
                 )
         return value
+        return value
 
     def to_representation(self, instance):
         """
-        Custom representation to return location_point as [lng, lat].
+        Returns location_point as [latitude, longitude].
+        GeoDjango stores as Point(x=longitude, y=latitude), so we return [y, x].
         """
         ret = super().to_representation(instance)
         if instance.location_point:
             ret["location_point"] = [
-                round(instance.location_point.x, 4),
-                round(instance.location_point.y, 4),
+                round(instance.location_point.y, 4),  # latitude
+                round(instance.location_point.x, 4),  # longitude
             ]
         return ret
 
