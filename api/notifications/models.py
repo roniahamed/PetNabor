@@ -44,7 +44,7 @@ class FCMDevice(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return getattr(self.user, "email", str(self.user))
+        return self.user.email or self.user.phone or str(self.user.id)
 
 
 class NotificationTypes(models.TextChoices):
