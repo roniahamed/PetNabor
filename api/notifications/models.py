@@ -40,7 +40,7 @@ User = get_user_model()
 class FCMDevice(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="fcm_devices")
-    registration_id = models.CharField(max_length=255)
+    registration_id = models.CharField(max_length=500)  # FCM v1 tokens can exceed 255 chars
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

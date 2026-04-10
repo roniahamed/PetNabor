@@ -265,8 +265,11 @@ def get_nearby_users(
         )
 
     if user_point:
-        # Distance calculation — radius is in kilometers
-        if radius:
+        # When searching by name, skip radius — show results from all locations.
+        # When NO name search, apply the radius filter (distance-based discovery).
+        apply_radius = radius and not search_query
+
+        if apply_radius:
             users_query = users_query.filter(
                 profile__location_point__distance_lte=(user_point, D(km=radius))
             )
@@ -275,7 +278,7 @@ def get_nearby_users(
             distance=Distance("profile__location_point", user_point)
         ).order_by("distance")
     else:
-        # Global search — no location filter, order by join date for consistent pagination
+        # No location set — global search ordered by join date for consistent pagination
         return users_query.select_related("profile").order_by("date_joined")
 
 
