@@ -20,13 +20,14 @@ class NearbyUserSerializer(serializers.Serializer):
     location_point = serializers.SerializerMethodField()
 
     def get_distance(self, obj):
+        """Returns distance in kilometers, rounded to 2 decimal places."""
         distance = getattr(obj, "distance", None)
         if distance is None:
             return None
-        if hasattr(distance, "mi"):
-            return float(distance.mi)
+        if hasattr(distance, "km"):
+            return round(float(distance.km), 2)
         try:
-            return float(distance)
+            return round(float(distance), 2)
         except (TypeError, ValueError):
             return None
 

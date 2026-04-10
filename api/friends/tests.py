@@ -72,7 +72,7 @@ class FriendsAPITestCase(TestCase):
     def test_send_friend_request(self):
         self.client.force_authenticate(user=self.user1)
         url = reverse('friend-requests-list')
-        data = {'receiver_id': str(self.user2.id)}
+        data = {'user_id': str(self.user2.id)}
         response = self.client.post(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -81,7 +81,7 @@ class FriendsAPITestCase(TestCase):
     def test_send_friend_request_to_self(self):
         self.client.force_authenticate(user=self.user1)
         url = reverse('friend-requests-list')
-        data = {'receiver_id': str(self.user1.id)}
+        data = {'user_id': str(self.user1.id)}
         response = self.client.post(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -91,8 +91,8 @@ class FriendsAPITestCase(TestCase):
         req_id = req.id
 
         self.client.force_authenticate(user=self.user2)
-        url = reverse('friend-requests-accept', kwargs={'pk': req.id})
-        response = self.client.post(url)
+        url = reverse('friend-requests-accept')
+        response = self.client.post(url, {'user_id': str(self.user1.id)}, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # FriendRequest should be deleted after accept
@@ -107,8 +107,8 @@ class FriendsAPITestCase(TestCase):
         req = FriendRequest.objects.create(sender=self.user1, receiver=self.user2, status='pending')
         
         self.client.force_authenticate(user=self.user2)
-        url = reverse('friend-requests-reject', kwargs={'pk': req.id})
-        response = self.client.post(url)
+        url = reverse('friend-requests-reject')
+        response = self.client.post(url, {'user_id': str(self.user1.id)}, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(FriendRequest.objects.filter(id=req.id).exists())
@@ -117,8 +117,8 @@ class FriendsAPITestCase(TestCase):
         req = FriendRequest.objects.create(sender=self.user1, receiver=self.user2, status='pending')
         
         self.client.force_authenticate(user=self.user1)
-        url = reverse('friend-requests-cancel', kwargs={'pk': req.id})
-        response = self.client.post(url)
+        url = reverse('friend-requests-cancel')
+        response = self.client.post(url, {'user_id': str(self.user2.id)}, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(FriendRequest.objects.filter(id=req.id).exists())
@@ -188,9 +188,11 @@ class FriendsAPITestCase(TestCase):
         self.client.force_authenticate(user=self.user1)
         url = reverse('search-users')
         
-        response = self.client.get(url + '?type=patpal&radius=10')
+        # radius=1 means 1km. All users are at Point(0,0) so all are in range.
+        # include_friends=true by default. Self (user1) is also included.
+        # user1(patpal), user2(patpal), user4(patpal) → 3 results
+        response = self.client.get(url + '?type=patpal&radius=1')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # Now includes self, so should see user1, user2 and user4 (all PATPAL)
         self.assertEqual(len(response.data['results']), 3)
 
     def test_advanced_search_filters(self):
@@ -201,25 +203,24 @@ class FriendsAPITestCase(TestCase):
         self.client.force_authenticate(user=self.user1)
         url = reverse('search-users')
         
-        # 1. Test "All" users (no type specified)
-        # Should see user2(patpal), user3(patnabor), user4(patpal)
-        # include_friends=true by default. Now includes self.
-        response_all = self.client.get(url + '?radius=10')
+        # 1. Test "All" users — default include_friends=true, self is included.
+        # Should see user1(self), user2, user3, user4
+        response_all = self.client.get(url + '?radius=1')
         self.assertEqual(response_all.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response_all.data['results']), 4) 
+        self.assertEqual(len(response_all.data['results']), 4)
 
-        # 2. Test explicit friend exclusion
-        response_no_friends = self.client.get(url + '?radius=10&include_friends=false')
-        # Only user4 is not a friend. user2 and user3 are friends.
-        # user1 (self) is also not a "friend" of self, so shows up.
+        # 2. Test explicit friend exclusion (include_friends=false)
+        # Self is NOT a "friend" so self still shows. Friends excluded: user2, user3.
+        # Remaining: user1(self), user4
+        response_no_friends = self.client.get(url + '?radius=1&include_friends=false')
         self.assertEqual(len(response_no_friends.data['results']), 2)
         usernames = [u['username'] for u in response_no_friends.data['results']]
         self.assertIn('user4', usernames)
         self.assertIn('user1', usernames)
 
-        # 3. Test specific type with friends
-        response_nabors = self.client.get(url + '?type=patnabor&radius=10')
-        # user3 is patnabor and a friend. Should be included.
+        # 3. Test specific type with friends included (default)
+        response_nabors = self.client.get(url + '?type=patnabor&radius=1')
+        # user3 is patnabor and a friend — included by default.
         self.assertEqual(len(response_nabors.data['results']), 1)
         self.assertEqual(response_nabors.data['results'][0]['username'], 'user3')
 
@@ -227,8 +228,9 @@ class FriendsAPITestCase(TestCase):
         self.client.force_authenticate(user=self.user1)
         url = reverse('search-users')
         
-        # 1. Global search (radius=all)
-        # Should see all users: user1, user2, user3, user4
+        # Global search (radius=all) — no distance restriction.
+        # include_friends=true by default. Self is included.
+        # Should see user1, user2, user3, user4.
         response_all = self.client.get(url + '?radius=all')
         self.assertEqual(len(response_all.data['results']), 4)
 
@@ -236,9 +238,10 @@ class FriendsAPITestCase(TestCase):
         self.client.force_authenticate(user=self.user1)
         url = reverse('search-users')
         
-        # 2. Search by city (radius=all to ignore distance)
+        # City search — self (user1) is in Dhaka and is included.
+        # user1 and user2 are both in Dhaka.
         response_dhaka = self.client.get(url + '?radius=all&city=Dhaka')
-        self.assertEqual(len(response_dhaka.data['results']), 2) # user1 and user2 are in Dhaka
+        self.assertEqual(len(response_dhaka.data['results']), 2)  # user1 and user2
         usernames = [u['username'] for u in response_dhaka.data['results']]
         self.assertIn('user1', usernames)
         self.assertIn('user2', usernames)
@@ -252,7 +255,7 @@ class FriendsAPITestCase(TestCase):
         from api.notifications.models import NotificationTypes
         self.client.force_authenticate(user=self.user1)
         url = reverse('friend-requests-list')
-        data = {'receiver_id': str(self.user2.id)}
+        data = {'user_id': str(self.user2.id)}
         self.client.post(url, data, format='json')
 
         # Check if notification was sent to user2 with deeplink data
@@ -270,8 +273,8 @@ class FriendsAPITestCase(TestCase):
         req = FriendRequest.objects.create(sender=self.user1, receiver=self.user2, status='pending')
 
         self.client.force_authenticate(user=self.user2)
-        url = reverse('friend-requests-accept', kwargs={'pk': req.id})
-        self.client.post(url)
+        url = reverse('friend-requests-accept')
+        self.client.post(url, {'user_id': str(self.user1.id)}, format='json')
 
         # sender (user1) gets notified with deeplink data (accepter_id only, no request_id)
         self.assertEqual(mock_notify.call_count, 1)

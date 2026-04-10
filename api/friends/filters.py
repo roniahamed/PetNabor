@@ -15,14 +15,20 @@ class UserFilter:
         return None
 
     def get_radius(self):
-        """Returns the search radius in miles, or None for global search."""
+        """Returns the search radius in kilometers, or None for global search.
+        
+        Default: 1 km. Pass 'all' (or '0'/'none') for no distance restriction.
+        """
         val = self.params.get('radius')
-        if val in ['all', '0', 'none']:
+        if val in ['all', '0', 'none', None, '']:
             return None
         try:
-            return float(val or 50.0)
+            radius = float(val)
+            if radius <= 0:
+                return None
+            return radius
         except (ValueError, TypeError):
-            return 50.0
+            return 1.0  # Default: 1 km
 
     def get_city(self):
         """Returns the city to filter by."""
@@ -37,6 +43,8 @@ class UserFilter:
         return self.params.get('search', '').strip()
 
     def get_include_friends(self):
-        """Returns whether to include existing friends in search results."""
+        """Returns whether to include existing friends in search results.
+        Defaults to True (show friends) — callers can pass include_friends=false to exclude.
+        """
         val = self.params.get('include_friends', 'true').lower()
         return val == 'true'

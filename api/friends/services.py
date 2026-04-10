@@ -265,18 +265,18 @@ def get_nearby_users(
         )
 
     if user_point:
-        # Distance calculation
+        # Distance calculation — radius is in kilometers
         if radius:
             users_query = users_query.filter(
-                profile__location_point__distance_lte=(user_point, D(mi=radius))
+                profile__location_point__distance_lte=(user_point, D(km=radius))
             )
 
         return users_query.annotate(
             distance=Distance("profile__location_point", user_point)
         ).order_by("distance")
     else:
-        # Global search result
-        return users_query.select_related("profile")[:100]
+        # Global search — no location filter, order by join date for consistent pagination
+        return users_query.select_related("profile").order_by("date_joined")
 
 
 def get_suggested_friends(current_user, limit=20):
