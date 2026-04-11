@@ -1,7 +1,7 @@
 {
 	"info": {
 		"_postman_id": "9d2b8b1a-e87f-4f2b-9d4f-9e5c54c0b433",
-		"name": "PatNabor Meeting API",
+		"name": "PetNabor Meeting API",
 		"description": "API endpoints for the Meeting App including requests, upcoming/previous filters, and feedback.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},

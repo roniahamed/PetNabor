@@ -82,7 +82,7 @@ class UserAdmin(UUIDSearchMixin, UnfoldModelAdmin):
         (
             _("Account Type"),
             {
-                "fields": ("user_type", "is_patpal", "agree_to_terms_and_conditions"),
+                "fields": ("user_type", "is_petpal", "agree_to_terms_and_conditions"),
             },
         ),
         (
@@ -142,8 +142,8 @@ class UserAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     @display(
         description=_("User Type"),
         label={
-            "patnabor": "info",
-            "patpal": "success",
+            "petnabor": "info",
+            "petpal": "success",
             "vendor": "warning",
             "admin": "danger",
         },

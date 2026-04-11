@@ -23,7 +23,7 @@ class FriendsAPITestCase(TestCase):
             password="testpassword",
             first_name="User", 
             last_name="One",
-            user_type=UserTypes.PATPAL
+            user_type=UserTypes.PETPAL
         )
         self.user2 = User.objects.create_user(
             email="user2@example.com", 
@@ -32,7 +32,7 @@ class FriendsAPITestCase(TestCase):
             password="testpassword",
             first_name="User", 
             last_name="Two",
-            user_type=UserTypes.PATPAL
+            user_type=UserTypes.PETPAL
         )
         self.user3 = User.objects.create_user(
             email="user3@example.com", 
@@ -41,7 +41,7 @@ class FriendsAPITestCase(TestCase):
             password="testpassword",
             first_name="User", 
             last_name="Three",
-            user_type=UserTypes.PATNABOR
+            user_type=UserTypes.PETNABOR
         )
         self.user4 = User.objects.create_user(
             email="user4@example.com", 
@@ -50,7 +50,7 @@ class FriendsAPITestCase(TestCase):
             password="testpassword",
             first_name="User", 
             last_name="Four",
-            user_type=UserTypes.PATPAL
+            user_type=UserTypes.PETPAL
         )
         
         for user in [self.user1, self.user2, self.user3, self.user4]:
@@ -190,8 +190,8 @@ class FriendsAPITestCase(TestCase):
         
         # radius=1 means 1km. All users are at Point(0,0) so all are in range.
         # include_friends=true by default. Self (user1) is also included.
-        # user1(patpal), user2(patpal), user4(patpal) → 3 results
-        response = self.client.get(url + '?type=patpal&radius=1')
+        # user1(petpal), user2(petpal), user4(petpal) → 3 results
+        response = self.client.get(url + '?type=petpal&radius=1')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 3)
 
@@ -219,8 +219,8 @@ class FriendsAPITestCase(TestCase):
         self.assertIn('user1', usernames)
 
         # 3. Test specific type with friends included (default)
-        response_nabors = self.client.get(url + '?type=patnabor&radius=1')
-        # user3 is patnabor and a friend — included by default.
+        response_nabors = self.client.get(url + '?type=petnabor&radius=1')
+        # user3 is petnabor and a friend — included by default.
         self.assertEqual(len(response_nabors.data['results']), 1)
         self.assertEqual(response_nabors.data['results'][0]['username'], 'user3')
 
@@ -332,7 +332,7 @@ class FriendsAPITestCase(TestCase):
         # Create a 5th user
         user5 = User.objects.create_user(
             email="user5@example.com", username="user5", phone="555555555", password="test",
-            first_name="User", last_name="Five", user_type=UserTypes.PATPAL
+            first_name="User", last_name="Five", user_type=UserTypes.PETPAL
         )
         Profile.objects.update_or_create(user=user5, defaults={'location_point': Point(0.0, 0.0)})
         

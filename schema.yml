@@ -793,8 +793,8 @@ paths:
         schema:
           type: string
           enum:
-          - patnabor
-          - patpal
+          - petnabor
+          - petpal
         description: User type filter.
       tags:
       - friends
@@ -4274,7 +4274,7 @@ components:
         user_type:
           type: string
           minLength: 1
-          default: patnabor
+          default: petnabor
         agree_to_terms_and_conditions:
           type: boolean
           default: false
@@ -5498,7 +5498,7 @@ components:
           $ref: '#/components/schemas/UserTypeEnum'
         agree_to_terms_and_conditions:
           type: boolean
-        is_patpal:
+        is_petpal:
           type: boolean
         is_online:
           type: boolean
@@ -6644,7 +6644,7 @@ components:
         user_type:
           type: string
           minLength: 1
-          default: patnabor
+          default: petnabor
         agree_to_terms_and_conditions:
           type: boolean
           default: false
@@ -7146,7 +7146,7 @@ components:
           readOnly: true
         agree_to_terms_and_conditions:
           type: boolean
-        is_patpal:
+        is_petpal:
           type: boolean
         is_online:
           type: boolean
@@ -7238,7 +7238,7 @@ components:
           $ref: '#/components/schemas/UserTypeEnum'
         agree_to_terms_and_conditions:
           type: boolean
-        is_patpal:
+        is_petpal:
           type: boolean
         is_online:
           type: boolean
@@ -7248,14 +7248,14 @@ components:
           nullable: true
     UserTypeEnum:
       enum:
-      - patnabor
-      - patpal
+      - petnabor
+      - petpal
       - vendor
       - admin
       type: string
       description: |-
-        * `patnabor` - Patnabor
-        * `patpal` - Patpal
+        * `petnabor` - Petnabor
+        * `petpal` - Petpal
         * `vendor` - Vendor
         * `admin` - Admin
     VerifyEmailData:

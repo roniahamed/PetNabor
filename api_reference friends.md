@@ -1,6 +1,6 @@
 # Friend System API Professional Reference
 
-This document serves as the official integration and testing guide for the **PatNabor Friend System**. 
+This document serves as the official integration and testing guide for the **PetNabor Friend System**. 
 
 ## Global Configuration
 - **Base URL:** `{{baseUrl}}/api`
@@ -29,7 +29,7 @@ Find candidates based on location and type.
 - **Method:** `GET`
 - **Path:** `/friends/search/`
 - **Params:**
-    - [type](file:///home/roni/Desktop/PatNabor/api/friends/filters.py#10-16): `patpal` or `patnabor` (Optional, omit for all)
+    - [type](file:///home/roni/Desktop/PatNabor/api/friends/filters.py#10-16): `petpal` or `petnabor` (Optional, omit for all)
     - [radius](file:///home/roni/Desktop/PatNabor/api/friends/filters.py#17-26): distance in miles (Use [all](file:///home/roni/Desktop/PatNabor/api/notifications/views.py#86-90) or `none` for global search)
     - [search](file:///home/roni/Desktop/PatNabor/api/friends/tests.py#226-238): name/username filter
     - [city](file:///home/roni/Desktop/PatNabor/api/friends/filters.py#27-30): Filter by city name (e.g., `Dhaka`)

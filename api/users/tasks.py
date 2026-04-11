@@ -47,7 +47,7 @@ def send_otp_sms_task(self, phone, otp_code, expiry_minutes):
 
         client = Client(account_sid, auth_token)
         client.messages.create(
-            body=f"Your PatNabor verification code is: {otp_code}. It expires in {expiry_minutes} minutes.",
+            body=f"Your PetNabor verification code is: {otp_code}. It expires in {expiry_minutes} minutes.",
             from_=from_number,
             to=phone,
         )

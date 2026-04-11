@@ -97,7 +97,7 @@ CACHES = {
         "OPTIONS": {
             "db": "1",
         },
-        "KEY_PREFIX": "patnabor",
+        "KEY_PREFIX": "petnabor",
         "TIMEOUT": 300,
     }
 }

@@ -376,13 +376,13 @@ class FriendListView(generics.ListAPIView):
             # We filter based on the type of the friend (the other user)
             if friend_type == "petpals":
                 queryset = queryset.filter(
-                    Q(sender=user, receiver__user_type="patpal")
-                    | Q(receiver=user, sender__user_type="patpal")
+                    Q(sender=user, receiver__user_type="petpal")
+                    | Q(receiver=user, sender__user_type="petpal")
                 )
             elif friend_type == "petnabors":
                 queryset = queryset.filter(
-                    Q(sender=user, receiver__user_type="patnabor")
-                    | Q(receiver=user, sender__user_type="patnabor")
+                    Q(sender=user, receiver__user_type="petnabor")
+                    | Q(receiver=user, sender__user_type="petnabor")
                 )
 
         return queryset
@@ -406,7 +406,7 @@ class UserSearchView(views.APIView):
                 location=OpenApiParameter.QUERY,
                 description="User type filter.",
                 required=False,
-                enum=["patpal", "patnabor"],
+                enum=["petpal", "petnabor"],
             ),
             OpenApiParameter(
                 name="radius",

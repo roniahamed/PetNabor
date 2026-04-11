@@ -49,8 +49,8 @@ class CustomUserManager(BaseUserManager):
 
 
 class UserTypes(models.TextChoices):
-    PATNABOR = "patnabor", "Patnabor"
-    PATPAL = "patpal", "Patpal"
+    PETNABOR = "petnabor", "Petnabor"
+    PETPAL = "petpal", "Petpal"
     VENDOR = "vendor", "Vendor"
     ADMIN = "admin", "Admin"
 
@@ -71,7 +71,7 @@ class User(AbstractUser):
     last_name = models.CharField(max_length=150, blank=True, null=True)
 
     user_type = models.CharField(
-        max_length=20, choices=UserTypes.choices, default=UserTypes.PATNABOR
+        max_length=20, choices=UserTypes.choices, default=UserTypes.PETNABOR
     )
     agree_to_terms_and_conditions = models.BooleanField(default=False)
     firebase_uid = models.CharField(max_length=255, unique=True, null=True, blank=True)
@@ -85,7 +85,7 @@ class User(AbstractUser):
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
 
-    is_patpal = models.BooleanField(default=False)
+    is_petpal = models.BooleanField(default=False)
     is_online = models.BooleanField(default=False)
     last_active = models.DateTimeField(null=True, blank=True)
 

@@ -28,7 +28,7 @@ class SignupSerializer(serializers.Serializer):
     password = serializers.CharField(required=True, write_only=True, min_length=8)
     first_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
     last_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
-    user_type = serializers.CharField(required=False, default="patnabor")
+    user_type = serializers.CharField(required=False, default="petnabor")
     agree_to_terms_and_conditions = serializers.BooleanField(
         required=False, default=False
     )
@@ -166,7 +166,7 @@ class FirebaseTokenSerializer(serializers.Serializer):
     id_token = serializers.CharField(required=True, help_text="Firebase ID Token")
     first_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
     last_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
-    user_type = serializers.CharField(required=False, default="patnabor")
+    user_type = serializers.CharField(required=False, default="petnabor")
     agree_to_terms_and_conditions = serializers.BooleanField(
         required=False, default=False
     )
@@ -239,7 +239,7 @@ class UserSerializer(serializers.ModelSerializer):
             "is_superuser",
             "created_at",
             "agree_to_terms_and_conditions",
-            "is_patpal",
+            "is_petpal",
             "is_online",
             "last_active",
             "firebase_uid",

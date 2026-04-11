@@ -102,7 +102,7 @@ class SignupView(APIView):
             password=data.get("password"),
             first_name=data.get("first_name", ""),
             last_name=data.get("last_name", ""),
-            user_type=data.get("user_type", "patnabor"),
+            user_type=data.get("user_type", "petnabor"),
             agree_to_terms_and_conditions=data.get("agree_to_terms_and_conditions", False),
             referred_by_code=data.get("referred_by_code"),
         )
@@ -449,7 +449,7 @@ class FirebaseLoginView(APIView):
             id_token=serializer.validated_data["id_token"],
             first_name=serializer.validated_data.get("first_name", ""),
             last_name=serializer.validated_data.get("last_name", ""),
-            user_type=serializer.validated_data.get("user_type", "patnabor"),
+            user_type=serializer.validated_data.get("user_type", "petnabor"),
             agree_to_terms_and_conditions=serializer.validated_data.get(
                 "agree_to_terms_and_conditions", False
             ),

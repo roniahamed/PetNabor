@@ -1066,7 +1066,7 @@ CREATE TABLE public.users_user (
     is_active boolean NOT NULL,
     is_staff boolean NOT NULL,
     is_superuser boolean NOT NULL,
-    is_patpal boolean NOT NULL,
+    is_petpal boolean NOT NULL,
     is_online boolean NOT NULL,
     last_active timestamp with time zone,
     created_at timestamp with time zone NOT NULL,

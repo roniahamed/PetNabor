@@ -10,7 +10,7 @@ class UserFilter:
     def get_user_type(self):
         """Returns the user type to filter by, or None for all."""
         u_type = self.params.get('type')
-        if u_type in ['patpal', 'patnabor']:
+        if u_type in ['petpal', 'petnabor']:
             return u_type
         return None
 

@@ -174,7 +174,7 @@ def signup_user(
     password=None,
     first_name="",
     last_name="",
-    user_type="patnabor",
+    user_type="petnabor",
     agree_to_terms_and_conditions=False,
     referred_by_code=None,
 ):
@@ -398,7 +398,7 @@ def firebase_login_service(
     id_token,
     first_name="",
     last_name="",
-    user_type="patnabor",
+    user_type="petnabor",
     agree_to_terms_and_conditions=False,
     referred_by_code=None,
 ):

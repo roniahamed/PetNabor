@@ -40,15 +40,15 @@ class EmailService:
             return False
 
     @classmethod
-    def send_otp_email(cls, email, otp_code, expiry_minutes, subject="Your PatNabor Verification Code"):
+    def send_otp_email(cls, email, otp_code, expiry_minutes, subject="Your PetNabor Verification Code"):
         """
-        Specialized method for sending OTP emails with PatNabor branding.
+        Specialized method for sending OTP emails with PetNabor branding.
         """
         html_message = f"""
         <html>
         <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; text-align: center;">
-                <h1 style="color: white; margin: 0;">PatNabor</h1>
+                <h1 style="color: white; margin: 0;">PetNabor</h1>
             </div>
             <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 10px 10px;">
                 <h2 style="color: #333;">Security Verification</h2>
@@ -80,12 +80,12 @@ class EmailService:
         """
         Specialized method for sending password reset emails.
         """
-        subject = "Reset Your PatNabor Password"
+        subject = "Reset Your PetNabor Password"
         html_message = f"""
         <html>
         <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; text-align: center;">
-                <h1 style="color: white; margin: 0;">PatNabor</h1>
+                <h1 style="color: white; margin: 0;">PetNabor</h1>
             </div>
             <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 10px 10px;">
                 <h2 style="color: #333;">Reset Your Password</h2>
