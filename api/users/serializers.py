@@ -310,6 +310,18 @@ class ProfileSerializer(serializers.ModelSerializer):
         Accepts [latitude, longitude] from the client and stores as
         Point(longitude, latitude) — the correct GeoDjango/PostGIS format (x=lng, y=lat).
         """
+        if not value:
+            return None
+
+        if isinstance(value, str):
+            import json
+            try:
+                # Handles cases where multipart/form-data sends lists as stringified JSON "[lat, lng]"
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                # If they passed a raw string that isn't a JSON list, reject gracefully
+                raise serializers.ValidationError("location_point must be a valid JSON array [latitude, longitude].")
+
         if isinstance(value, (list, tuple)):
             if len(value) != 2:
                 raise serializers.ValidationError(
@@ -324,8 +336,11 @@ class ProfileSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Invalid coordinates. Must be numeric."
                 )
-        return value
-        return value
+
+        if hasattr(value, 'geom_type') and value.geom_type == 'Point':
+            return value
+
+        raise serializers.ValidationError("location_point must be an array [latitude, longitude].")
 
     def to_representation(self, instance):
         """
