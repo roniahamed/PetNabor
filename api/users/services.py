@@ -280,9 +280,15 @@ def login_user(email_or_phone, password):
             .first()
         )
     else:
+        # Handles URL-encoded '+' symbols which get converted to ' ' by HTTP automatically
+        normalized_phone = email_or_phone.strip().replace(" ", "+")
+        # Ensure it has a plus sign if it's missing but looks like an international number
+        if not normalized_phone.startswith("+") and normalized_phone.isdigit():
+            normalized_phone = "+" + normalized_phone
+            
         user = (
             User.objects.select_related("profile")
-            .filter(phone=email_or_phone.strip())
+            .filter(phone=normalized_phone)
             .first()
         )
 
