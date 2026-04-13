@@ -29,6 +29,11 @@ class NotificationSettings(models.Model):
     product_interest_notifications = models.BooleanField(default=True)
     system_notifications = models.BooleanField(default=True)
     marketing_notifications = models.BooleanField(default=True)
+    
+    membership_expiry_alerts = models.BooleanField(default=True)
+    low_balance_alerts = models.BooleanField(default=False)
+    new_order_notifications = models.BooleanField(default=True)
+    weekly_performance_report = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -82,6 +87,11 @@ class NotificationTypes(models.TextChoices):
     PROMOTION = "promotion", _("Special Promotion")
     MARKETING = "marketing", _("Marketing Message")
     INFO = "info", _("General Information")
+
+    MEMBERSHIP_EXPIRY = "membership_expiry", _("Membership Expiry Alert")
+    LOW_BALANCE = "low_balance", _("Low Balance Alert")
+    NEW_ORDER = "new_order", _("New Order Notification")
+    WEEKLY_REPORT = "weekly_report", _("Weekly Performance Report")
 
 
 class Notifications(models.Model):

@@ -1,0 +1,186 @@
+{
+	"info": {
+		"_postman_id": "vendor-app-id-12345",
+		"name": "PetNabor Vendor API",
+		"description": "End-to-End API collection for the newly created Vendor Module.\nVariables expected in your environment:\n- `base_urls`: http://localhost:8001/api\n- `token`: Bearer authentication token for a vendor user",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "List Vendors",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_urls}}/vendor/",
+					"host": [
+						"{{base_urls}}"
+					],
+					"path": [
+						"vendor",
+						""
+					]
+				},
+				"description": "Fetch all publicly listed vendor profiles."
+			},
+			"response": []
+		},
+		{
+			"name": "Create Vendor",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var responseJson = pm.response.json();",
+							"if (pm.response.code === 201) {",
+							"    // Store the newly created vendor id inside the postman environment variables automatically",
+							"    pm.environment.set(\"vendor_id\", responseJson.id);",
+							"    console.log(\"Stored Vendor ID: \" + responseJson.id);",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"business_name\": \"Happy Tails Grooming\",\n    \"descriptions\": \"We provide the best dog grooming services in town!\",\n    \"contact_number\": \"+1-202-555-0199\",\n    \"whatsapp_number\": \"+1-202-555-0199\",\n    \"website_link\": \"https://happytails.example.com\",\n    \"city\": \"New York\",\n    \"state\": \"NY\",\n    \"zipcode\": \"10001\",\n    \"longitude\": -73.935242,\n    \"latitude\": 40.730610\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_urls}}/vendor/",
+					"host": [
+						"{{base_urls}}"
+					],
+					"path": [
+						"vendor",
+						""
+					]
+				},
+				"description": "Create a new vendor profile. Make sure you are authenticated using a user_type tagged as 'vendor'."
+			},
+			"response": []
+		},
+		{
+			"name": "Retrieve Specific Vendor",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_urls}}/vendor/{{vendor_id}}/",
+					"host": [
+						"{{base_urls}}"
+					],
+					"path": [
+						"vendor",
+						"{{vendor_id}}",
+						""
+					]
+				},
+				"description": "Get detailed info and location points for a single generic vendor profile based on the loaded environment ID."
+			},
+			"response": []
+		},
+		{
+			"name": "Update Vendor Profile",
+			"request": {
+				"method": "PATCH",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"descriptions\": \"Updated description mapping for our brand new seasonal services.\",\n    \"plan\": \"premium\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_urls}}/vendor/{{vendor_id}}/",
+					"host": [
+						"{{base_urls}}"
+					],
+					"path": [
+						"vendor",
+						"{{vendor_id}}",
+						""
+					]
+				},
+				"description": "Modify the contents of your own vendor profile seamlessly."
+			},
+			"response": []
+		},
+		{
+			"name": "Delete Vendor",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 204) {",
+							"    pm.environment.unset(\"vendor_id\");",
+							"    console.log(\"Vendor ID Cleared properly.\");",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{base_urls}}/vendor/{{vendor_id}}/",
+					"host": [
+						"{{base_urls}}"
+					],
+					"path": [
+						"vendor",
+						"{{vendor_id}}",
+						""
+					]
+				},
+				"description": "Permanently tear down one of your own business profiles."
+			},
+			"response": []
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{token}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}
