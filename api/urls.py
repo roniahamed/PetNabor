@@ -12,6 +12,6 @@ urlpatterns = [
     path("story/", include("api.story.urls")),
     path("blog/", include("api.blog.urls")),
     path("vendor/", include("api.vendor.urls")),
-    path("meetings/", include("api.meeting.urls")),
     path("referral/", include("api.referral.urls")),
+    path("settings/", include("api.site_settings.urls")),
 ]

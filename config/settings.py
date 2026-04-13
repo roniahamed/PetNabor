@@ -71,6 +71,8 @@ INSTALLED_APPS = [
     "api.meeting",
     "api.referral",
     "api.product",
+    "api.site_settings",
+    "api.wishlist",
 ]
 
 MIDDLEWARE = [
@@ -174,8 +176,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # django-unfold Admin Configuration
 UNFOLD = {
-    "SITE_TITLE": "PetNabor Admin",
-    "SITE_HEADER": "PetNabor",
+    "SITE_TITLE": "api.site_settings.admin_utils.site_title_callback",
+    "SITE_HEADER": "api.site_settings.admin_utils.site_header_callback",
     "SITE_SUBHEADER": "Social Media Dashboard",
     "SITE_URL": "/",
     "SITE_SYMBOL": "pets",
