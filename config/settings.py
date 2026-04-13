@@ -479,6 +479,31 @@ UNFOLD = {
                         "icon": "subscriptions",
                         "link": "/admin/vendor/vendorsubscription/",
                     },
+                    {
+                        "title": "Products",
+                        "icon": "inventory_2",
+                        "link": "/admin/product/product/",
+                    },
+                    {
+                        "title": "Categories",
+                        "icon": "category",
+                        "link": "/admin/product/categories/",
+                    },
+                    {
+                        "title": "Brands",
+                        "icon": "verified",
+                        "link": "/admin/product/brand/",
+                    },
+                    {
+                        "title": "Wishlists",
+                        "icon": "favorite",
+                        "link": "/admin/wishlist/productwishlist/",
+                    },
+                    {
+                        "title": "Product Events",
+                        "icon": "analytics",
+                        "link": "/admin/product/productevent/",
+                    },
                 ],
             },
             {

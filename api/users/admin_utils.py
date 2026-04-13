@@ -104,6 +104,40 @@ def dashboard_callback(request, context: dict) -> dict:
         recent_reports = []
         flagged_posts = []
 
+    try:
+        from api.product.models import Product, ProductEvent
+        total_products = Product.objects.count()
+        
+        event_qs = (
+            ProductEvent.objects.filter(created_at__gte=month_ago)
+            .annotate(day=TruncDate("created_at"))
+            .values("day")
+            .annotate(count=Count("id"))
+            .order_by("day")
+        )
+        pe_labels = [str(row["day"]) for row in event_qs]
+        pe_data = [row["count"] for row in event_qs]
+    except Exception:
+        total_products = 0
+        pe_labels, pe_data = [], []
+
+    try:
+        from api.vendor.models import Vendor
+        total_vendors = Vendor.objects.count()
+        
+        plan_qs = Vendor.objects.values("plan__name").annotate(count=Count("id")).order_by("-count")
+        plan_labels = [row["plan__name"] or "No Plan" for row in plan_qs]
+        plan_data = [row["count"] for row in plan_qs]
+    except Exception:
+        total_vendors = 0
+        plan_labels, plan_data = [], []
+
+    try:
+        from api.wishlist.models import ProductWishlist
+        total_wishlists = ProductWishlist.objects.count()
+    except Exception:
+        total_wishlists = 0
+
 
     # ── User registrations — last 30 days (for line chart) ────────────────────
     registration_qs = (
@@ -198,6 +232,24 @@ def dashboard_callback(request, context: dict) -> dict:
                     "color": "red",
                     "positive": False,
                 },
+                {
+                    "title": "Total Vendors",
+                    "metric": f"{total_vendors:,}",
+                    "icon": "storefront",
+                    "color": "teal",
+                },
+                {
+                    "title": "Total Products",
+                    "metric": f"{total_products:,}",
+                    "icon": "inventory_2",
+                    "color": "indigo",
+                },
+                {
+                    "title": "Total Wishlists",
+                    "metric": f"{total_wishlists:,}",
+                    "icon": "favorite",
+                    "color": "pink",
+                },
             ],
             # Charts data (consumed by the dashboard template)
             "registration_chart": {
@@ -215,6 +267,14 @@ def dashboard_callback(request, context: dict) -> dict:
             "friend_request_chart": {
                 "labels": fr_labels,
                 "data": fr_data,
+            },
+            "vendor_plan_chart": {
+                "labels": plan_labels,
+                "data": plan_data,
+            },
+            "product_event_chart": {
+                "labels": pe_labels,
+                "data": pe_data,
             },
             # Activity feed
             "recent_users": recent_users,

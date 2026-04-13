@@ -148,6 +148,21 @@
             </div>
           </div>
         </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-10 mt-10">
+          <div class="glass-card-v3">
+            <h3 class="text-lg font-black text-gray-900 dark:text-white mb-8">Vendor Plans</h3>
+            <div class="h-[280px]">
+              <canvas id="vendorPlanChart"></canvas>
+            </div>
+          </div>
+          <div class="glass-card-v3">
+            <h3 class="text-lg font-black text-gray-900 dark:text-white mb-8">Product Events</h3>
+            <div class="h-[280px]">
+              <canvas id="productEventChart"></canvas>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Feed Side -->
@@ -288,7 +303,66 @@
         plugins: { legend: { display: false } },
         scales: {
           x: { grid: { display: false }, border: { display: false } },
-          y: { grid: { display: false }, border: { display: false }, beginAtZero: true }
+          y: { grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }, border: { display: false }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  // Vendor Plans
+  const vpCtx = document.getElementById('vendorPlanChart')?.getContext('2d');
+  if (vpCtx) {
+    new Chart(vpCtx, {
+      type: 'doughnut',
+      data: {
+        labels: {{ vendor_plan_chart.labels|safe|default:"[]" }},
+        datasets: [{
+          data: {{ vendor_plan_chart.data|safe|default:"[]" }},
+          backgroundColor: ['#ec4899', '#6366f1', '#8b5cf6', '#10b981'],
+          borderWidth: 0,
+          borderRadius: 20,
+          spacing: 10
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '85%',
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 30, usePointStyle: true, boxWidth: 6, font: { weight: '800' } } }
+        }
+      }
+    });
+  }
+
+  // Product Events
+  const peCtx = document.getElementById('productEventChart')?.getContext('2d');
+  if (peCtx) {
+    new Chart(peCtx, {
+      type: 'line',
+      data: {
+        labels: {{ product_event_chart.labels|safe|default:"[]" }},
+        datasets: [{
+          data: {{ product_event_chart.data|safe|default:"[]" }},
+          borderColor: '#10b981',
+          borderWidth: 5,
+          backgroundColor: setGradient(peCtx, '#10b981'),
+          fill: true,
+          tension: 0.4,
+          pointRadius: 0,
+          pointHoverRadius: 10,
+          pointHoverBackgroundColor: '#10b981',
+          pointHoverBorderColor: '#fff',
+          pointHoverBorderWidth: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, border: { display: false } },
+          y: { grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }, border: { display: false }, beginAtZero: true }
         }
       }
     });
