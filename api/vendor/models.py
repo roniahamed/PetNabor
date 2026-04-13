@@ -105,6 +105,14 @@ class Vendor(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def save(self, *args, **kwargs):
+        from api.media_utils import should_process_media_field, compress_image_to_webp
+        if should_process_media_field(self, 'logo', kwargs.get('update_fields')):
+            compressed = compress_image_to_webp(self.logo)
+            if compressed:
+                self.logo = compressed
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.business_name
 

@@ -32,6 +32,13 @@ class Categories(models.Model):
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
+            
+        from api.media_utils import should_process_media_field, compress_image_to_webp
+        if should_process_media_field(self, 'image', kwargs.get('update_fields')):
+            compressed = compress_image_to_webp(self.image)
+            if compressed:
+                self.image = compressed
+                
         super().save(*args, **kwargs)
 
 
@@ -58,6 +65,13 @@ class Brand(models.Model):
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
+            
+        from api.media_utils import should_process_media_field, compress_image_to_webp
+        if should_process_media_field(self, 'image', kwargs.get('update_fields')):
+            compressed = compress_image_to_webp(self.image)
+            if compressed:
+                self.image = compressed
+                
         super().save(*args, **kwargs)
 
 
@@ -128,6 +142,23 @@ class ProductMedia(models.Model):
 
     def __str__(self):
         return f"Media for {self.product.name} ({'primary' if self.is_primary else 'secondary'})"
+
+    def save(self, *args, **kwargs):
+        from api.media_utils import should_process_media_field, compress_image_to_webp, generate_video_thumbnail
+        
+        if should_process_media_field(self, 'file', kwargs.get('update_fields')):
+            if self.type == MediaType.VIDEO:
+                # generate thumbnail
+                thumb = generate_video_thumbnail(self.file)
+                if thumb:
+                    self.thumbnail = thumb
+            else:
+                # compress image
+                compressed = compress_image_to_webp(self.file)
+                if compressed:
+                    self.file = compressed
+                    
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name        = 'Product Media'

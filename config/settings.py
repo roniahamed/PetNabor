@@ -458,6 +458,38 @@ UNFOLD = {
                     },
                 ],
             },
+            {
+                "title": "Vendor & Store",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Vendors",
+                        "icon": "storefront",
+                        "link": "/admin/vendor/vendor/",
+                    },
+                    {
+                        "title": "Vendor Plans",
+                        "icon": "card_membership",
+                        "link": "/admin/vendor/vendorplan/",
+                    },
+                    {
+                        "title": "Subscriptions",
+                        "icon": "subscriptions",
+                        "link": "/admin/vendor/vendorsubscription/",
+                    },
+                ],
+            },
+            {
+                "title": "Site Configuration",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Global Settings",
+                        "icon": "settings_applications",
+                        "link": "/admin/site_settings/sitesettings/",
+                    },
+                ],
+            },
         ],
     },
     "TABS": [],

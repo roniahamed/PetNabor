@@ -37,9 +37,28 @@ class ProductViewSet(viewsets.ModelViewSet):
     ordering_fields = ['price', 'created_at']
     ordering = ['-created_at']
     pagination_class = StandardCursorPagination
-    
+
+    def get_queryset(self):
+        # Order by vendor plan priority first, then by the default orderings
+        return Product.objects.all().order_by('-vendor__plan__has_category_top_slot', '-created_at')
+
     def perform_create(self, serializer):
-        serializer.save(vendor=self.request.user.vendor, user=self.request.user)
+        vendor = self.request.user.vendor_profiles.first()
+        if not vendor:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You must be a vendor to create products.")
+
+        # Check vendor plan product limit
+        active_plan = vendor.plan
+        if active_plan:
+            max_products = active_plan.max_products
+            if max_products > 0:
+                current_count = Product.objects.filter(vendor=vendor, is_active=True).count()
+                if current_count >= max_products:
+                    from rest_framework.exceptions import ValidationError
+                    raise ValidationError({'detail': f'Product limit ({max_products}) reached for your current plan.'})
+
+        serializer.save(vendor=vendor)
     
     @action(detail=True, methods=['post'], permission_classes=[IsVendorOrReadOnly])
     def deactivate(self, request, pk=None):

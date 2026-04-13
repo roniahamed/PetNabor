@@ -4,6 +4,8 @@ from typing import Optional
 
 from django.conf import settings
 from django.core.files.base import ContentFile
+import tempfile
+import subprocess
 from PIL import Image, UnidentifiedImageError
 
 
@@ -93,3 +95,45 @@ def compress_image_to_webp(uploaded_file, max_dim: Optional[tuple[int, int]] = N
         return ContentFile(output.read(), name=f"{base_name}.webp")
     except (UnidentifiedImageError, OSError, ValueError):
         return None
+
+def generate_video_thumbnail(uploaded_file):
+    """
+    Extract a frame from a video file and return it as a compressed WebP ContentFile.
+    """
+    if not uploaded_file:
+        return None
+
+    try:
+        # Save uploaded file to temp file so ffmpeg can read it
+        with tempfile.NamedTemporaryFile(suffix=".mp4") as tmp_video:
+            if hasattr(uploaded_file, "seek"):
+                uploaded_file.seek(0)
+            
+            # Write chunks
+            for chunk in uploaded_file.chunks() if hasattr(uploaded_file, "chunks") else [uploaded_file.read()]:
+                tmp_video.write(chunk)
+            tmp_video.flush()
+            
+            # Run ffmpeg to extract the first frame
+            cmd = [
+                "ffmpeg", "-i", tmp_video.name,
+                "-vframes", "1",
+                "-f", "image2pipe",
+                "-vcodec", "mjpeg",
+                "-"
+            ]
+            process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            
+            if process.returncode != 0:
+                print("FFmepg error generating thumbnail")
+                return None
+            
+            # Pass the extracted frame through our image compressor
+            img_io = BytesIO(process.stdout)
+            img_io.name = "frame.jpg"
+            img_io.content_type = "image/jpeg"
+            return compress_image_to_webp(img_io)
+    except Exception as e:
+        print("Error generating video thumbnail:", e)
+        return None
+
