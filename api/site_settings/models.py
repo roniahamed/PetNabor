@@ -22,12 +22,6 @@ class SiteSettings(models.Model):
         default='PetNabor',
         help_text='Displayed in email templates and the admin header.',
     )
-    site_logo = models.ImageField(
-        upload_to='site_settings/',
-        null=True,
-        blank=True,
-        help_text='Main site logo used in emails and frontend.',
-    )
     contact_email = models.EmailField(
         default='',
         blank=True,

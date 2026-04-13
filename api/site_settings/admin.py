@@ -10,7 +10,7 @@ class SiteSettingsAdmin(ModelAdmin):
 
     fieldsets = (
         ('Branding', {
-            'fields': ('site_name', 'site_logo', 'contact_email'),
+            'fields': ('site_name', 'contact_email'),
         }),
         ('Platform Toggles', {
             'fields': ('maintenance_mode', 'allow_vendor_registration', 'allow_user_registration'),
