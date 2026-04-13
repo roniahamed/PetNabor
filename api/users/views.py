@@ -501,10 +501,15 @@ class ProfileDetailView(RetrieveUpdateAPIView):
     def perform_update(self, serializer):
         profile = serializer.save()
 
+        from django.db import transaction
         from .tasks import process_profile_media_task
 
         if "profile_picture" in self.request.FILES:
-            process_profile_media_task.delay(str(profile.id), "profile_picture")
+            transaction.on_commit(
+                lambda: process_profile_media_task.delay(str(profile.id), "profile_picture")
+            )
 
         if "cover_photo" in self.request.FILES:
-            process_profile_media_task.delay(str(profile.id), "cover_photo")
+            transaction.on_commit(
+                lambda: process_profile_media_task.delay(str(profile.id), "cover_photo")
+            )
