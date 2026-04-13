@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     "api.post",
     "api.report",
     "api.story",
+    "api.vendor",
     "api.blog",
     "api.meeting",
     "api.referral",
