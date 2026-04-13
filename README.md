@@ -191,12 +191,6 @@ python manage.py test
 - Recommended targets include AWS EC2/ECS, Railway, Render, or any container-compatible platform.
 - Place a reverse proxy/load balancer in front of the application and terminate TLS at the edge.
 
-## Contributing
-1. Fork the repository.
-2. Create a feature branch (`git checkout -b feature/your-feature-name`).
-3. Commit your changes with clear messages.
-4. Run tests and verify migrations.
-5. Open a Pull Request with implementation details.
 
 ## License
 All Rights Reserved - View Only.
