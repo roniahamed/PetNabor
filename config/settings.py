@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     "api.blog",
     "api.meeting",
     "api.referral",
+    "api.product",
 ]
 
 MIDDLEWARE = [
