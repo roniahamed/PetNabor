@@ -1,6 +1,17 @@
-# Project Title
+# PetNabor — Social Network for Pet Lovers
 
-PetNabor is a Django REST Framework backend for a pet-focused social platform with user onboarding, social interactions, messaging, content sharing, meetings, notifications, moderation, and referrals.
+PetNabor is a complete backend platform that powers a vibrant social network where pet parents can connect, share, and build meaningful relationships around their furry friends.
+It allows users to create detailed profiles for themselves and their pets, share photos and stories, post updates with privacy controls, send messages, create stories that disappear after 24 hours, and even schedule real-life pet meetups. With smart friend suggestions, instant notifications, and a seamless messaging system, PetNabor makes it easy to find like-minded pet lovers nearby and grow your pet community.
+Key user benefits include:
+
+Easy onboarding with email, phone, or Google login
+Beautiful pet profiles with medical and vaccination records
+Share posts, stories, and blogs with reactions, comments, and hashtags
+Real-time chat and meeting requests with feedback system
+Referral rewards to invite friends and earn benefits
+Safe environment with content reporting and moderation tools
+
+Whether you're looking to find playdates for your dog, share adorable pet moments, discover local pet events, or simply connect with other passionate pet owners, PetNabor delivers a joyful, secure, and feature-rich experience tailored for the pet-loving community.
 
 ## Live Demo
 [Live API](https://backend.petnabor.com/api/swagger/)  
