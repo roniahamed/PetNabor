@@ -126,6 +126,15 @@ class PersonaInitView(APIView):
 
     def post(self, request):
         user = request.user
+
+        # SECURITY: Prevent hitting Persona's API (and wasting money) if the user hasn't paid yet!
+        if not user.is_app_verified:
+            logger.warning(f"User {user.id} tried to init Persona without paying.")
+            return Response(
+                {"detail": "You must pay for the verification badge before starting the ID scan."}, 
+                status=status.HTTP_402_PAYMENT_REQUIRED
+            )
+
         api_key = os.getenv("PERSONA_API_KEY")
         template_id = os.getenv("PERSONA_TEMPLATE_ID")
 
