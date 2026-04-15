@@ -15,6 +15,8 @@ from api.notifications.models import NotificationTypes
 
 from .models import VerificationConfig
 from .serializers import VerificationConfigSerializer
+from django.conf import settings
+import os
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -42,7 +44,9 @@ class AppVerificationStatusView(APIView):
         user = request.user
         return Response({
             "is_app_verified": user.is_app_verified,
-            "app_verified_at": user.app_verified_at
+            "app_verified_at": user.app_verified_at,
+            "is_identity_verified": user.is_identity_verified,
+            "persona_status": user.persona_status
         }, status=status.HTTP_200_OK)
 
 
@@ -55,6 +59,13 @@ class RevenueCatWebhookView(APIView):
 
     def post(self, request):
         try:
+            expected_secret = os.getenv("REVENUECAT_WEBHOOK_SECRET")
+            if expected_secret:
+                auth_header = request.headers.get("Authorization")
+                if auth_header != f"Bearer {expected_secret}":
+                    logger.warning("RevenueCat webhook: Unauthorized request")
+                    return Response({"detail": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+
             event = request.data.get("event", {})
             if not event:
                 event = request.data
@@ -102,3 +113,89 @@ class RevenueCatWebhookView(APIView):
         except Exception as e:
             logger.error(f"Error processing RevenueCat webhook: {e}")
             return Response({"detail": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+import hmac
+import hashlib
+
+class PersonaWebhookView(APIView):
+    """
+    Handles webhooks specifically from withpersona.com.
+    Persona sends inquiry.completed or inquiry.failed webhooks when real KYC finishes.
+    """
+    permission_classes = [AllowAny]
+
+    def verify_signature(self, signature_header, body_bytes, secret):
+        if not signature_header or not secret:
+            return False
+        try:
+            parts = dict(part.split("=") for part in signature_header.split(","))
+            t = parts.get("t")
+            v1 = parts.get("v1")
+            
+            payload = f"{t}.".encode('utf-8') + body_bytes
+            computed_sig = hmac.new(secret.encode('utf-8'), payload, hashlib.sha256).hexdigest()
+            return hmac.compare_digest(v1, computed_sig)
+        except Exception as e:
+            logger.error(f"Persona signature verification failed parsing: {e}")
+            return False
+
+    def post(self, request):
+        secret = os.getenv("PERSONA_WEBHOOK_SECRET")
+        if secret:
+            signature_header = request.headers.get("X-Persona-Signature")
+            # For DRF, request.body holds the raw bytes needed for HMAC verification.
+            if not self.verify_signature(signature_header, request.body, secret):
+                logger.warning("Persona webhook: Invalid or missing X-Persona-Signature")
+                return Response({"detail": "Invalid signature"}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            event = request.data.get("data", {})
+            event_attributes = event.get("attributes", {})
+            event_name = event_attributes.get("name", "")
+            
+            payload_data = event_attributes.get("payload", {}).get("data", {})
+            inquiry_id = payload_data.get("id")
+            inquiry_attributes = payload_data.get("attributes", {})
+            
+            app_user_id = inquiry_attributes.get("reference_id")
+            new_status = inquiry_attributes.get("status")
+
+            if not app_user_id:
+                logger.warning("Persona webhook: Missing reference_id (app_user_id)")
+                return Response({"status": "no reference_id"}, status=status.HTTP_200_OK)
+
+            try:
+                user = User.objects.get(id=app_user_id)
+            except User.DoesNotExist:
+                logger.error(f"Persona webhook: User not found for reference_id={app_user_id}")
+                return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+            if event_name in ["inquiry.completed", "inquiry.approved"]:
+                user.is_identity_verified = True
+                user.persona_status = "approved"
+                user.persona_inquiry_id = inquiry_id
+                user.save(update_fields=['is_identity_verified', 'persona_status', 'persona_inquiry_id'])
+                logger.info(f"User {user.id} identity successfully verified via Persona.")
+                
+                send_notification(
+                    title="ID Verification Successful!",
+                    body="Your ID documents have been approved by Persona.",
+                    user_id=user.id,
+                    notification_type=NotificationTypes.SYSTEM,
+                    data={"type": "persona_success"}
+                )
+            
+            elif event_name in ["inquiry.failed", "inquiry.declined"]:
+                user.is_identity_verified = False
+                user.persona_status = "declined"
+                user.persona_inquiry_id = inquiry_id
+                user.save(update_fields=['is_identity_verified', 'persona_status', 'persona_inquiry_id'])
+                logger.info(f"User {user.id} identity verification failed via Persona.")
+
+            return Response({"status": "received"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error processing Persona webhook: {e}")
+            return Response({"detail": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

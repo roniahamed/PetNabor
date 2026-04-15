@@ -82,6 +82,11 @@ class User(AbstractUser):
     is_phone_verified = models.BooleanField(default=False)
     is_app_verified = models.BooleanField(default=False, help_text="Paid persona verification badge")
     app_verified_at = models.DateTimeField(null=True, blank=True)
+    
+    # Persona KYC 
+    is_identity_verified = models.BooleanField(default=False, help_text="Passed Persona ID KYC")
+    persona_status = models.CharField(max_length=50, default='pending', help_text="Persona Inquiry Status")
+    persona_inquiry_id = models.CharField(max_length=255, null=True, blank=True, help_text="Persona Inquiry ID")
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

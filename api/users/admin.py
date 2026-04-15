@@ -48,6 +48,7 @@ class UserAdmin(UUIDSearchMixin, UnfoldModelAdmin):
         "display_user_type",
         "display_verified",
         "display_app_verified",
+        "display_identity_verified",
         "display_online",
         "is_staff",
         "is_active",
@@ -60,6 +61,8 @@ class UserAdmin(UUIDSearchMixin, UnfoldModelAdmin):
         "is_email_verified",
         "is_phone_verified",
         "is_app_verified",
+        "is_identity_verified",
+        "persona_status",
         "user_type",
     )
     search_fields = ("id", "username", "email", "phone", "first_name", "last_name")
@@ -96,6 +99,9 @@ class UserAdmin(UUIDSearchMixin, UnfoldModelAdmin):
                     "is_phone_verified",
                     "is_app_verified",
                     "app_verified_at",
+                    "is_identity_verified",
+                    "persona_status",
+                    "persona_inquiry_id",
                     "firebase_uid",
                 ),
             },
@@ -171,6 +177,14 @@ class UserAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     )
     def display_app_verified(self, obj):
         return obj.is_app_verified
+
+    @display(
+        description=_("ID Verified"),
+        label={True: "success", False: "danger"},
+        boolean=True,
+    )
+    def display_identity_verified(self, obj):
+        return obj.is_identity_verified
 
     @display(
         description=_("Online"), label={True: "success", False: "warning"}, boolean=True
