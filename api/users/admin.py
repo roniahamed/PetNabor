@@ -47,6 +47,7 @@ class UserAdmin(UUIDSearchMixin, UnfoldModelAdmin):
         "phone",
         "display_user_type",
         "display_verified",
+        "display_app_verified",
         "display_online",
         "is_staff",
         "is_active",
@@ -58,11 +59,12 @@ class UserAdmin(UUIDSearchMixin, UnfoldModelAdmin):
         "is_verified",
         "is_email_verified",
         "is_phone_verified",
+        "is_app_verified",
         "user_type",
     )
     search_fields = ("id", "username", "email", "phone", "first_name", "last_name")
     ordering = ("-created_at",)
-    readonly_fields = ("id", "created_at", "updated_at", "firebase_uid")
+    readonly_fields = ("id", "created_at", "updated_at", "firebase_uid", "app_verified_at")
     inlines = [ProfileInline]
 
     fieldsets = (
@@ -92,6 +94,8 @@ class UserAdmin(UUIDSearchMixin, UnfoldModelAdmin):
                     "is_verified",
                     "is_email_verified",
                     "is_phone_verified",
+                    "is_app_verified",
+                    "app_verified_at",
                     "firebase_uid",
                 ),
             },
@@ -161,6 +165,14 @@ class UserAdmin(UUIDSearchMixin, UnfoldModelAdmin):
         return obj.is_verified
 
     @display(
+        description=_("App Verified"),
+        label={True: "success", False: "danger"},
+        boolean=True,
+    )
+    def display_app_verified(self, obj):
+        return obj.is_app_verified
+
+    @display(
         description=_("Online"), label={True: "success", False: "warning"}, boolean=True
     )
     def display_online(self, obj):
@@ -215,3 +227,4 @@ class OTPVerificationAdmin(UUIDSearchMixin, UnfoldModelAdmin):
     )
     def display_used(self, obj):
         return obj.is_used
+

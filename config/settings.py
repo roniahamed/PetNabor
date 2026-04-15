@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "drf_spectacular",
+    "api.app_verify",
     "api.users",
     "api.notifications",
     "api.pet",

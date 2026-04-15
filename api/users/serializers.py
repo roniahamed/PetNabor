@@ -234,6 +234,8 @@ class UserSerializer(serializers.ModelSerializer):
             "is_verified",
             "is_email_verified",
             "is_phone_verified",
+            "is_app_verified",
+            "app_verified_at",
             "is_active",
             "is_staff",
             "is_superuser",
@@ -252,6 +254,8 @@ class UserSerializer(serializers.ModelSerializer):
             "is_verified",
             "is_email_verified",
             "is_phone_verified",
+            "is_app_verified",
+            "app_verified_at",
             "is_active",
             "is_staff",
             "is_superuser",
@@ -369,3 +373,4 @@ class ProfileSerializer(serializers.ModelSerializer):
 
         # Update profile fields
         return super().update(instance, validated_data)
+

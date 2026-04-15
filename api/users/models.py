@@ -80,6 +80,8 @@ class User(AbstractUser):
     is_verified = models.BooleanField(default=False)
     is_email_verified = models.BooleanField(default=False)
     is_phone_verified = models.BooleanField(default=False)
+    is_app_verified = models.BooleanField(default=False, help_text="Paid persona verification badge")
+    app_verified_at = models.DateTimeField(null=True, blank=True)
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -203,5 +205,3 @@ class OTPVerification(models.Model):
     @property
     def is_expired(self):
         return timezone.now() > self.expires_at
-
-
