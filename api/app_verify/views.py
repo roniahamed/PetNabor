@@ -17,6 +17,7 @@ from .models import VerificationConfig
 from .serializers import VerificationConfigSerializer
 from django.conf import settings
 import os
+import requests
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -113,6 +114,62 @@ class RevenueCatWebhookView(APIView):
         except Exception as e:
             logger.error(f"Error processing RevenueCat webhook: {e}")
             return Response({"detail": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class PersonaInitView(APIView):
+    """
+    Initializes a Persona Inquiry securely from the backend.
+    Takes the authenticated user's ID and securely bounds it to the inquiry as reference_id.
+    Ensures that the frontend cannot tamper with the reference_id.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        api_key = os.getenv("PERSONA_API_KEY")
+        template_id = os.getenv("PERSONA_TEMPLATE_ID")
+
+        if not api_key or not template_id:
+            logger.error("Persona setup is incomplete: Missing PERSONA_API_KEY or PERSONA_TEMPLATE_ID")
+            return Response(
+                {"detail": "Persona configuration is missing on the server."}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        url = "https://withpersona.com/api/v1/inquiries"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Persona-Version": "2023-01-05",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        
+        payload = {
+            "data": {
+                "attributes": {
+                    "template-id": template_id,
+                    "reference-id": str(user.id)
+                }
+            }
+        }
+
+        try:
+            response = requests.post(url, json=payload, headers=headers)
+            if response.status_code == 201:
+                data = response.json()
+                inquiry_id = data.get("data", {}).get("id")
+                
+                user.persona_inquiry_id = inquiry_id
+                user.persona_status = "pending"
+                user.save(update_fields=['persona_inquiry_id', 'persona_status'])
+                
+                return Response({"inquiry_id": inquiry_id}, status=status.HTTP_201_CREATED)
+            else:
+                logger.error(f"Persona API Error: {response.text}")
+                return Response({"detail": "Failed to initialize Persona inquiry"}, status=status.HTTP_502_BAD_GATEWAY)
+        except Exception as e:
+            logger.error(f"Exception calling Persona: {e}")
+            return Response({"detail": "Server error while communicating with Persona"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 import hmac

@@ -53,6 +53,35 @@
 			},
 			"response": []
 		},
+        {
+			"name": "Persona Session Initialization (Secure)",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{ACCESS_TOKEN}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{BASE_URL}}/verification/persona-init/",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"verification",
+						"persona-init",
+						""
+					]
+				}
+			},
+			"response": []
+		},
 		{
 			"name": "RevenueCat Webhook Simulation",
 			"request": {
