@@ -4,7 +4,7 @@ from .models import VerificationConfig
 
 @admin.register(VerificationConfig)
 class VerificationConfigAdmin(UnfoldModelAdmin):
-    list_display = ('verification_price', 'is_active', 'updated_at')
+    list_display = ('verification_price', 'max_persona_attempts', 'is_active', 'updated_at')
     readonly_fields = ('created_at', 'updated_at')
 
     def has_add_permission(self, request):

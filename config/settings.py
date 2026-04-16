@@ -516,6 +516,11 @@ UNFOLD = {
                         "icon": "settings_applications",
                         "link": "/admin/site_settings/sitesettings/",
                     },
+                    {
+                        "title": "Verification Setup",
+                        "icon": "verified_user",
+                        "link": "/admin/app_verify/verificationconfig/",
+                    },
                 ],
             },
         ],

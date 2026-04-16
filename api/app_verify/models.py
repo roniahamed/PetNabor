@@ -10,6 +10,10 @@ class VerificationConfig(models.Model):
         default=9.99,
         help_text="Price for the one-time app verification badge."
     )
+    max_persona_attempts = models.IntegerField(
+        default=3, 
+        help_text="Max times a user can attempt Persona ID verification before being permanently blocked."
+    )
     is_active = models.BooleanField(
         default=True, 
         help_text="Toggle to enable/disable the paid verification feature entirely."

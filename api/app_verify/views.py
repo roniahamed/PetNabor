@@ -135,6 +135,14 @@ class PersonaInitView(APIView):
                 status=status.HTTP_402_PAYMENT_REQUIRED
             )
 
+        config = VerificationConfig.get_instance()
+        if user.persona_verification_attempts >= config.max_persona_attempts:
+            logger.warning(f"User {user.id} blocked from Persona Init. Reached max attempts.")
+            return Response(
+                {"detail": f"You have reached the maximum allowed attempts ({config.max_persona_attempts}). Please contact support."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         api_key = os.getenv("PERSONA_API_KEY")
         template_id = os.getenv("PERSONA_TEMPLATE_ID")
 
@@ -256,8 +264,9 @@ class PersonaWebhookView(APIView):
                 user.is_identity_verified = False
                 user.persona_status = "declined"
                 user.persona_inquiry_id = inquiry_id
-                user.save(update_fields=['is_identity_verified', 'persona_status', 'persona_inquiry_id'])
-                logger.info(f"User {user.id} identity verification failed via Persona.")
+                user.persona_verification_attempts += 1
+                user.save(update_fields=['is_identity_verified', 'persona_status', 'persona_inquiry_id', 'persona_verification_attempts'])
+                logger.info(f"User {user.id} identity verification failed via Persona. Attempts: {user.persona_verification_attempts}")
 
             return Response({"status": "received"}, status=status.HTTP_200_OK)
 

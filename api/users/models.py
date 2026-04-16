@@ -87,6 +87,7 @@ class User(AbstractUser):
     is_identity_verified = models.BooleanField(default=False, help_text="Passed Persona ID KYC")
     persona_status = models.CharField(max_length=50, default='pending', help_text="Persona Inquiry Status")
     persona_inquiry_id = models.CharField(max_length=255, null=True, blank=True, help_text="Persona Inquiry ID")
+    persona_verification_attempts = models.IntegerField(default=0, help_text="Failed ID scan limits")
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

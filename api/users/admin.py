@@ -102,6 +102,7 @@ class UserAdmin(UUIDSearchMixin, UnfoldModelAdmin):
                     "is_identity_verified",
                     "persona_status",
                     "persona_inquiry_id",
+                    "persona_verification_attempts",
                     "firebase_uid",
                 ),
             },
