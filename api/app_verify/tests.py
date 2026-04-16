@@ -24,7 +24,7 @@ class AppVerifyTests(TestCase):
         url = reverse('verification-config')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(Decimal(response.data['verification_price']), self.config.verification_price)
+        self.assertEqual(str(response.data['verification_price']), str(self.config.verification_price))
 
     def test_status_view_unauthenticated(self):
         """Test status endpoint blocks unauthorized access"""
