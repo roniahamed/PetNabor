@@ -45,33 +45,75 @@ class EmailService:
         Specialized method for sending OTP emails with PetNabor branding.
         """
         html_message = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; text-align: center;">
-                <h1 style="color: white; margin: 0;">PetNabor</h1>
-            </div>
-            <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 10px 10px;">
-                <h2 style="color: #333;">Security Verification</h2>
-                <p style="color: #666; font-size: 16px;">
-                    Use the following code to complete your verification:
-                </p>
-                <div style="text-align: center; margin: 30px 0;">
-                    <div style="background: #fff; border: 2px dashed #667eea; border-radius: 10px;
-                                padding: 20px; display: inline-block; min-width: 200px;">
-                        <span style="font-size: 36px; font-weight: bold; letter-spacing: 12px; color: #333;">
-                            {otp_code}
-                        </span>
-                    </div>
-                </div>
-                <p style="color: #999; font-size: 14px;">
-                    This code expires in {expiry_minutes} minutes.
-                </p>
-                <p style="color: #999; font-size: 14px;">
-                    If you didn't request this, you can safely ignore this email.
-                </p>
-            </div>
-        </body>
-        </html>
+        <!DOCTYPE html>
+            <html lang="en">
+            <body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: Arial, sans-serif;">
+            
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 30px 0;">
+            <tr>
+            <td align="center">
+            <table width="520" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;">
+            
+                    <!-- Header: Logo -->
+            <tr>
+            <td style="padding: 20px 30px 16px 30px; border-bottom: 1px solid #eeeeee;">
+            <img src="https://res.cloudinary.com/dicqtpu0g/image/upload/v1776276079/logo.png_3_gr4tnd.png" alt="PetNabor" style="height: 48px; display: block;" />
+            </td>
+            </tr>
+            
+                    <!-- Body -->
+            <tr>
+            <td style="padding: 30px 30px 10px 30px;">
+            <h2 style="margin: 0 0 20px 0; font-size: 18px; font-weight: bold; color: #222222; text-align: center;">
+                            Your PetNabor Verification Code
+            </h2>
+            
+                        <p style="margin: 0 0 6px 0; font-size: 15px; color: #333333;">Hi there,</p>
+            <p style="margin: 0 0 24px 0; font-size: 15px; color: #333333; line-height: 1.5;">
+                            Please use the 4-digit code below to verify your email address for PetNabor.
+            </p>
+            
+                        <!-- OTP Box -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 24px;">
+            <tr>
+            <td align="center">
+            <table cellpadding="0" cellspacing="0">
+            <tr>
+            <td style="border: 1px solid #cccccc; border-radius: 4px; padding: 10px 24px;">
+            <span style="font-size: 22px; font-weight: bold; color: #222222; letter-spacing: 4px;">
+                                        {otp_code}
+            </span>
+            </td>
+            </tr>
+            </table>
+            </td>
+            </tr>
+            </table>
+            
+                        <p style="margin: 0 0 16px 0; font-size: 14px; color: #444444; line-height: 1.6;">
+                            This code expires in {expiry_minutes} minutes. If you didn't request this, you can safely ignore this email.
+            </p>
+            
+                        <p style="margin: 0; font-size: 14px; color: #333333; line-height: 1.6;">
+                            Thank you,<br>
+                            The PetNabor team
+            </p>
+            </td>
+            </tr>
+            
+                    <!-- Footer spacer -->
+            <tr>
+            <td style="padding: 20px 30px;">
+            </td>
+            </tr>
+            
+                    </table>
+            </td>
+            </tr>
+            </table>
+            
+            </body>
+            </html>
         """
         return cls.send_html_email(subject, html_message, [email])
 
@@ -82,32 +124,73 @@ class EmailService:
         """
         subject = "Reset Your PetNabor Password"
         html_message = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; text-align: center;">
-                <h1 style="color: white; margin: 0;">PetNabor</h1>
-            </div>
-            <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 10px 10px;">
-                <h2 style="color: #333;">Reset Your Password</h2>
-                <p style="color: #666; font-size: 16px;">
-                    Use the following code to reset your password:
-                </p>
-                <div style="text-align: center; margin: 30px 0;">
-                    <div style="background: #fff; border: 2px dashed #e74c3c; border-radius: 10px;
-                                padding: 20px; display: inline-block; min-width: 200px;">
-                        <span style="font-size: 36px; font-weight: bold; letter-spacing: 12px; color: #333;">
-                            {otp_code}
-                        </span>
-                    </div>
-                </div>
-                <p style="color: #999; font-size: 14px;">
-                    This code expires in {expiry_minutes} minutes.
-                </p>
-                <p style="color: #999; font-size: 14px;">
-                    If you didn't request a password reset, please secure your account immediately.
-                </p>
-            </div>
-        </body>
-        </html>
+        <!DOCTYPE html>
+            <html lang="en">
+            <body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: Arial, sans-serif;">
+            
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 30px 0;">
+            <tr>
+            <td align="center">
+            <table width="520" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;">
+            
+                    <!-- Header: Logo -->
+            <tr>
+            <td style="padding: 20px 30px 16px 30px; border-bottom: 1px solid #eeeeee;">
+            <img src="https://res.cloudinary.com/dicqtpu0g/image/upload/v1776276079/logo.png_3_gr4tnd.png" alt="PetNabor" style="height: 48px; display: block;" />
+            </td>
+            </tr>
+            
+                    <!-- Body -->
+            <tr>
+            <td style="padding: 30px 30px 10px 30px;">
+            <h2 style="margin: 0 0 20px 0; font-size: 18px; font-weight: bold; color: #222222; text-align: center;">
+                            Reset Your Password
+            </h2>
+            
+                        <p style="margin: 0 0 6px 0; font-size: 15px; color: #333333;">Hi there,</p>
+            <p style="margin: 0 0 24px 0; font-size: 15px; color: #333333; line-height: 1.5;">
+                            Use the following code to reset your password for PetNabor.
+            </p>
+            
+                        <!-- OTP Box -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 24px;">
+            <tr>
+            <td align="center">
+            <table cellpadding="0" cellspacing="0">
+            <tr>
+            <td style="border: 1px solid #cccccc; border-radius: 4px; padding: 10px 24px;">
+            <span style="font-size: 22px; font-weight: bold; color: #222222; letter-spacing: 4px;">
+                                        {otp_code}
+            </span>
+            </td>
+            </tr>
+            </table>
+            </td>
+            </tr>
+            </table>
+            
+                        <p style="margin: 0 0 16px 0; font-size: 14px; color: #444444; line-height: 1.6;">
+                            This code expires in {expiry_minutes} minutes. If you didn't request a password reset, please secure your account immediately.
+            </p>
+            
+                        <p style="margin: 0; font-size: 14px; color: #333333; line-height: 1.6;">
+                            Thank you,<br>
+                            The PetNabor team
+            </p>
+            </td>
+            </tr>
+            
+                    <!-- Footer spacer -->
+            <tr>
+            <td style="padding: 20px 30px;"></td>
+            </tr>
+            
+                    </table>
+            </td>
+            </tr>
+            </table>
+            
+            </body>
+            </html>
         """
         return cls.send_html_email(subject, html_message, [email])
