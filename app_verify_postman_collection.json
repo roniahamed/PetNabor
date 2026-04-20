@@ -11,9 +11,9 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{BASE_URL}}/verification/config/",
+					"raw": "{{base_urls}}/verification/config/",
 					"host": [
-						"{{BASE_URL}}"
+						"{{base_urls}}"
 					],
 					"path": [
 						"verification",
@@ -40,9 +40,9 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{BASE_URL}}/verification/status/",
+					"raw": "{{base_urls}}/verification/status/",
 					"host": [
-						"{{BASE_URL}}"
+						"{{base_urls}}"
 					],
 					"path": [
 						"verification",
@@ -53,7 +53,7 @@
 			},
 			"response": []
 		},
-        {
+		{
 			"name": "Persona Session Initialization (Secure)",
 			"request": {
 				"auth": {
@@ -69,9 +69,9 @@
 				"method": "POST",
 				"header": [],
 				"url": {
-					"raw": "{{BASE_URL}}/verification/persona-init/",
+					"raw": "{{base_urls}}/verification/persona-init/",
 					"host": [
-						"{{BASE_URL}}"
+						"{{base_urls}}"
 					],
 					"path": [
 						"verification",
@@ -107,9 +107,9 @@
 					}
 				},
 				"url": {
-					"raw": "{{BASE_URL}}/verification/webhook/",
+					"raw": "{{base_urls}}/verification/webhook/",
 					"host": [
-						"{{BASE_URL}}"
+						"{{base_urls}}"
 					],
 					"path": [
 						"verification",
@@ -120,7 +120,7 @@
 			},
 			"response": []
 		},
-        {
+		{
 			"name": "Persona Webhook Simulation",
 			"request": {
 				"method": "POST",
@@ -129,7 +129,7 @@
 						"key": "X-Persona-Signature",
 						"value": "t=123456789,v1=",
 						"type": "string",
-                        "description": "Leave v1 blank locally to bypass, or ensure PERSONA_WEBHOOK_SECRET is empty locally"
+						"description": "Leave v1 blank locally to bypass, or ensure PERSONA_WEBHOOK_SECRET is empty locally"
 					}
 				],
 				"body": {
@@ -142,9 +142,9 @@
 					}
 				},
 				"url": {
-					"raw": "{{BASE_URL}}/verification/persona-webhook/",
+					"raw": "{{base_urls}}/verification/persona-webhook/",
 					"host": [
-						"{{BASE_URL}}"
+						"{{base_urls}}"
 					],
 					"path": [
 						"verification",
@@ -178,7 +178,7 @@
 	],
 	"variable": [
 		{
-			"key": "BASE_URL",
+			"key": "base_urls",
 			"value": "http://localhost:8001/api",
 			"type": "string"
 		},
