@@ -56,7 +56,9 @@ def create_connect_account(user):
 
     # Build metadata for the Express account
     email = user.email or ""
-    base_url = getattr(settings, "FRONTEND_BASE_URL", "https://petnabor.com")
+    frontend_url = getattr(settings, "FRONTEND_BASE_URL", "petnabor://")
+    # Stripe requires a valid HTTPS URL for business_profile.url
+    business_url = getattr(settings, "BUSINESS_URL", "https://petnabor.com")
 
     account = s.Account.create(
         type="express",
@@ -65,7 +67,7 @@ def create_connect_account(user):
         business_profile={
             # MCC 7299 = "Other personal services" — fits peer tipping on a pet social app
             "mcc": "7299",
-            "url": base_url,
+            "url": business_url,
         },
         capabilities={
             "card_payments": {"requested": True},
@@ -86,13 +88,17 @@ def create_connect_account(user):
 def _get_account_link(account_id, return_url=None, refresh_url=None):
     """
     Generate a short-lived Stripe Account Link URL for onboarding.
+
+    For mobile apps, FRONTEND_BASE_URL should be a deep link scheme
+    (e.g. 'petnabor://'), so redirect URLs become 'petnabor://tip/onboard/return'.
+    The mobile app must handle this deep link to dismiss the webview.
     """
     s = _stripe()
-    base = getattr(settings, "FRONTEND_BASE_URL", "https://petnabor.com")
+    base = getattr(settings, "FRONTEND_BASE_URL", "petnabor://")
     link = s.AccountLink.create(
         account=account_id,
-        refresh_url=refresh_url or f"{base}/tip/onboard/refresh/",
-        return_url=return_url or f"{base}/tip/onboard/return/",
+        refresh_url=refresh_url or f"{base}tip/onboard/refresh",
+        return_url=return_url or f"{base}tip/onboard/return",
         type="account_onboarding",
     )
     return link.url
