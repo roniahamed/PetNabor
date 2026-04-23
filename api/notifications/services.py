@@ -34,6 +34,8 @@ NOTIFICATION_SETTINGS_MAP = {
     NotificationTypes.REFERRAL_BONUS: "marketing_notifications",
     NotificationTypes.STREAK_BONUS: "marketing_notifications",
     NotificationTypes.MESSAGE: "message_notifications",
+    NotificationTypes.TIP_RECEIVED: "system_notifications",
+    NotificationTypes.TIP_ENABLE_REQUEST: "system_notifications",
 }
 
 DEFAULT_BATCH_SIZE = 500

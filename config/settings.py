@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     "api.product",
     "api.site_settings",
     "api.wishlist",
+    "api.tip",
 ]
 
 MIDDLEWARE = [
@@ -507,6 +508,32 @@ UNFOLD = {
                 ],
             },
             {
+                "title": "Tip & Payments",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Tip Settings",
+                        "icon": "tune",
+                        "link": "/admin/tip/tipsettings/",
+                    },
+                    {
+                        "title": "Connect Accounts",
+                        "icon": "account_balance",
+                        "link": "/admin/tip/stripeconnectaccount/",
+                    },
+                    {
+                        "title": "Tips",
+                        "icon": "volunteer_activism",
+                        "link": "/admin/tip/tip/",
+                    },
+                    {
+                        "title": "Withdrawals",
+                        "icon": "payments",
+                        "link": "/admin/tip/tipwithdrawal/",
+                    },
+                ],
+            },
+            {
                 "title": "Site Configuration",
                 "separator": True,
                 "items": [
@@ -595,6 +622,14 @@ initialize_firebase()
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
+
+# ─── Stripe Configuration ──────────────────────────────────────────────────
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+
+# Base URL for Stripe Connect redirect URLs
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "https://petnabor.com")
 
 # Email Configuration (Gmail SMTP)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

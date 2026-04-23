@@ -14,4 +14,5 @@ urlpatterns = [
     path("vendor/", include("api.vendor.urls")),
     path("referral/", include("api.referral.urls")),
     path("settings/", include("api.site_settings.urls")),
+    path("tip/", include("api.tip.urls")),
 ]
