@@ -13,6 +13,7 @@ from .views import (
     WithdrawHistoryView,
     TipSettingsView,
     StripeWebhookView,
+    OnboardBridgeView,
 )
 
 app_name = "tip"
@@ -21,6 +22,7 @@ urlpatterns = [
     # Stripe Connect onboarding
     path("connect/onboard/", ConnectOnboardView.as_view(), name="connect-onboard"),
     path("connect/status/", ConnectStatusView.as_view(), name="connect-status"),
+    path("onboard/bridge/", OnboardBridgeView.as_view(), name="onboard-bridge"),
 
     # Tipping
     path("send/", SendTipView.as_view(), name="send-tip"),

@@ -105,6 +105,45 @@ class ConnectStatusView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+class OnboardBridgeView(APIView):
+    """
+    GET /tip/onboard/bridge/?status=return|refresh
+    A simple HTTPS bridge that redirects the browser to the mobile app's deep link.
+    This is required because Stripe does not allow direct deep links as redirect URLs.
+    """
+    permission_classes = [AllowAny]
+
+    @extend_schema(exclude=True)
+    def get(self, request):
+        status_param = request.query_params.get("status", "return")
+        frontend_base = getattr(settings, "FRONTEND_BASE_URL", "petnabor://")
+
+        # Construct the deep link (e.g. petnabor://tip/onboard/return)
+        deep_link = f"{frontend_base}tip/onboard/{status_param}"
+
+        # Simple HTML redirect template
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Redirecting to App...</title>
+            <meta http-equiv="refresh" content="0; url={deep_link}">
+            <script type="text/javascript">
+                window.location.href = "{deep_link}";
+            </script>
+        </head>
+        <body>
+            <div style="text-align: center; margin-top: 50px; font-family: sans-serif;">
+                <h2>Onboarding {status_param.capitalize()}</h2>
+                <p>If you are not redirected automatically, <a href="{deep_link}">click here to return to the app</a>.</p>
+            </div>
+        </body>
+        </html>
+        """
+        from django.http import HttpResponse
+        return HttpResponse(html_content)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Send Tip
 # ──────────────────────────────────────────────────────────────────────────────
