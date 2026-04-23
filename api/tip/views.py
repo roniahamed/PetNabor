@@ -9,7 +9,7 @@ import stripe
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.conf import settings
-from rest_framework import status
+from rest_framework import status, generics
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -27,6 +27,7 @@ from .serializers import (
     TipWithdrawalSerializer,
 )
 from . import services
+from .paginations import StandardResultsSetPagination
 
 logger = logging.getLogger(__name__)
 
@@ -249,37 +250,38 @@ class SendTipView(APIView):
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-class TipHistoryView(APIView):
+class TipHistoryView(generics.ListAPIView):
     """
     GET /tip/history/?direction=sent|received
     Returns tip history for the current user with optional direction filter.
     """
     permission_classes = [IsAuthenticated]
+    serializer_class = TipSerializer
+    pagination_class = StandardResultsSetPagination
 
     @extend_schema(
         summary="Get tip history",
         responses={200: TipSerializer(many=True)},
         tags=["Tip"],
     )
-    def get(self, request):
-        direction = request.query_params.get("direction", "all")  # sent | received | all
+    def get_queryset(self):
+        direction = self.request.query_params.get("direction", "all")  # sent | received | all
 
         qs = Tip.objects.select_related("tipper", "recipient", "meeting")
 
         if direction == "sent":
-            qs = qs.filter(tipper=request.user)
+            qs = qs.filter(tipper=self.request.user)
         elif direction == "received":
-            qs = qs.filter(recipient=request.user)
+            qs = qs.filter(recipient=self.request.user)
         else:
-            qs = qs.filter(tipper=request.user) | qs.filter(recipient=request.user)
+            qs = qs.filter(tipper=self.request.user) | qs.filter(recipient=self.request.user)
             qs = qs.order_by("-created_at")
 
-        status_filter = request.query_params.get("status")
+        status_filter = self.request.query_params.get("status")
         if status_filter and status_filter in TipStatus.values:
             qs = qs.filter(status=status_filter)
 
-        serializer = TipSerializer(qs, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return qs
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -364,22 +366,22 @@ class WithdrawView(APIView):
         )
 
 
-class WithdrawHistoryView(APIView):
+class WithdrawHistoryView(generics.ListAPIView):
     """
     GET /tip/withdraw/history/
     Returns withdrawal history for the current user.
     """
     permission_classes = [IsAuthenticated]
+    serializer_class = TipWithdrawalSerializer
+    pagination_class = StandardResultsSetPagination
 
     @extend_schema(
         summary="Get withdrawal history",
         responses={200: TipWithdrawalSerializer(many=True)},
         tags=["Tip"],
     )
-    def get(self, request):
-        withdrawals = TipWithdrawal.objects.filter(user=request.user).order_by("-created_at")
-        serializer = TipWithdrawalSerializer(withdrawals, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    def get_queryset(self):
+        return TipWithdrawal.objects.filter(user=self.request.user).order_by("-created_at")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
