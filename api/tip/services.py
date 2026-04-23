@@ -161,75 +161,85 @@ def create_tip_payment_intent(
     tipper, recipient, amount: Decimal, meeting=None, note=""
 ):
     """
-    Create a Stripe PaymentIntent with application_fee_amount representing
-    the platform commission. Returns the Tip DB object and the client_secret.
+    Create a Stripe PaymentIntent for a tip.
 
-    The PaymentIntent uses `transfer_data` to route funds to the recipient's
-    Connected Account after the charge. The `application_fee_amount` is the
-    platform's cut, retained on the platform Stripe account.
+    TWO FLOWS:
+    1. Recipient HAS verified Connect account:
+       → PaymentIntent with transfer_data + application_fee_amount
+       → Money goes directly to recipient's account after payment
+       → Tip status = PENDING
+
+    2. Recipient does NOT have a verified Connect account:
+       → PaymentIntent WITHOUT transfer_data (money held on platform)
+       → Tip status = HELD
+       → Recipient gets a push notification to connect their account
+       → When they connect, release_held_tips() transfers the money automatically
     """
     s = _stripe()
     tip_settings = TipSettings.get_instance()
 
-    # Validate recipient has a verified connect account
-    try:
-        connect = recipient.stripe_connect_account
-    except StripeConnectAccount.DoesNotExist:
-        # Notify the recipient that someone tried to tip them
-        send_notification(
-            title="Enable your tip service",
-            body=(
-                f"{tipper.first_name or 'Someone'} wanted to send you a tip! "
-                "Connect your Stripe account to start receiving tips."
-            ),
-            user_id=recipient.id,
-            notification_type=NotificationTypes.TIP_ENABLE_REQUEST,
-            data={"action": "connect_stripe"},
-        )
-        raise ValueError(
-            "This user has not enabled tip receiving yet. "
-            "We've notified them to set it up."
-        )
-
-    if not connect.is_fully_verified:
-        # Notify the recipient their account setup is incomplete
-        send_notification(
-            title="Complete your tip setup",
-            body=(
-                f"{tipper.first_name or 'Someone'} tried to send you a tip, "
-                "but your Stripe verification is not complete yet. "
-                "Finish the setup to receive tips."
-            ),
-            user_id=recipient.id,
-            notification_type=NotificationTypes.TIP_ENABLE_REQUEST,
-            data={"action": "complete_stripe_onboarding"},
-        )
-        raise ValueError(
-            "This user hasn't completed their tip setup yet. "
-            "We've notified them to finish verification."
-        )
-
     commission_pct = tip_settings.commission_percentage
     commission_amount, recipient_amount = calculate_commission(amount, commission_pct)
 
-    # Stripe works in cents (integers)
     amount_cents = int(amount * 100)
     commission_cents = int(commission_amount * 100)
 
-    intent = s.PaymentIntent.create(
-        amount=amount_cents,
-        currency="usd",
-        application_fee_amount=commission_cents,
-        transfer_data={
-            "destination": connect.stripe_account_id,
-        },
-        metadata={
-            "tipper_id": str(tipper.id),
-            "recipient_id": str(recipient.id),
-            "meeting_id": str(meeting.id) if meeting else "",
-        },
-        automatic_payment_methods={"enabled": True},
-    )
+    # Check if recipient has a verified connect account
+    connect = None
+    has_verified_account = False
+    try:
+        connect = recipient.stripe_connect_account
+        has_verified_account = connect.is_fully_verified
+    except StripeConnectAccount.DoesNotExist:
+        pass
+
+    if has_verified_account:
+        # ── Direct transfer flow ──────────────────────────────────────────────
+        intent = s.PaymentIntent.create(
+            amount=amount_cents,
+            currency="usd",
+            application_fee_amount=commission_cents,
+            transfer_data={"destination": connect.stripe_account_id},
+            metadata={
+                "tipper_id": str(tipper.id),
+                "recipient_id": str(recipient.id),
+                "meeting_id": str(meeting.id) if meeting else "",
+                "flow": "direct",
+            },
+            automatic_payment_methods={"enabled": True},
+        )
+        tip_status = TipStatus.PENDING
+
+    else:
+        # ── Hold flow: charge platform, transfer later ────────────────────────
+        intent = s.PaymentIntent.create(
+            amount=amount_cents,
+            currency="usd",
+            # No transfer_data — money stays on platform until recipient connects
+            metadata={
+                "tipper_id": str(tipper.id),
+                "recipient_id": str(recipient.id),
+                "meeting_id": str(meeting.id) if meeting else "",
+                "flow": "held",
+            },
+            automatic_payment_methods={"enabled": True},
+        )
+        tip_status = TipStatus.HELD
+
+        # Notify recipient to connect their Stripe account
+        try:
+            send_notification(
+                title="Someone sent you a tip!",
+                body=(
+                    f"{tipper.first_name or 'Someone'} sent you a "
+                    f"${amount:.2f} tip! Connect your bank account to receive it."
+                ),
+                user_id=recipient.id,
+                notification_type=NotificationTypes.TIP_ENABLE_REQUEST,
+                data={"action": "connect_stripe", "amount": str(amount)},
+            )
+        except Exception as exc:
+            logger.warning("Failed to notify recipient about held tip: %s", exc)
 
     tip = Tip.objects.create(
         tipper=tipper,
@@ -240,7 +250,7 @@ def create_tip_payment_intent(
         commission_amount=commission_amount,
         recipient_amount=recipient_amount,
         stripe_payment_intent_id=intent.id,
-        status=TipStatus.PENDING,
+        status=tip_status,
         note=note,
         currency="usd",
     )
@@ -249,12 +259,129 @@ def create_tip_payment_intent(
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Hold & Release
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def transfer_held_tip(tip, connect):
+    """
+    Transfer a single held tip to the recipient's Connect account.
+
+    When a recipient connects their Stripe account, we create a Stripe Transfer
+    using the original charge as source_transaction. The platform keeps the
+    commission (difference between charge amount and transfer amount).
+    """
+    s = _stripe()
+
+    if not tip.stripe_charge_id:
+        logger.warning(
+            "Cannot release held tip %s — no charge_id yet (payment not confirmed)", tip.id
+        )
+        return False
+
+    recipient_cents = int(tip.recipient_amount * 100)
+
+    try:
+        transfer = s.Transfer.create(
+            amount=recipient_cents,
+            currency="usd",
+            destination=connect.stripe_account_id,
+            source_transaction=tip.stripe_charge_id,
+            metadata={"tip_id": str(tip.id), "tipper_id": str(tip.tipper_id)},
+        )
+    except Exception as exc:
+        logger.error("Stripe transfer failed for held tip %s: %s", tip.id, str(exc))
+        return False
+
+    with transaction.atomic():
+        tip.status = TipStatus.SUCCEEDED
+        tip.stripe_transfer_id = transfer.id
+        tip.save(update_fields=["status", "stripe_transfer_id", "updated_at"])
+
+    logger.info(
+        "Released held tip %s → Transfer %s to %s",
+        tip.id, transfer.id, connect.stripe_account_id,
+    )
+
+    # Notify both parties
+    try:
+        send_notification(
+            title="Tip received!",
+            body=f"${tip.amount:.2f} tip has been added to your account.",
+            user_id=tip.recipient_id,
+            notification_type=NotificationTypes.TIP_RECEIVED,
+            data={"tip_id": str(tip.id)},
+        )
+        send_notification(
+            title="Your tip was delivered!",
+            body=(
+                f"Your ${tip.amount:.2f} tip has been sent to "
+                f"{tip.recipient.first_name or 'the recipient'}."
+            ),
+            user_id=tip.tipper_id,
+            notification_type=NotificationTypes.TIP_SENT,
+            data={"tip_id": str(tip.id)},
+        )
+    except Exception as exc:
+        logger.warning("Notification failed after tip release: %s", exc)
+
+    return True
+
+
+def release_held_tips(user):
+    """
+    Release all held tips for a user who has just connected their Stripe account.
+    Called from handle_account_updated when the account becomes fully verified.
+
+    Only releases tips where payment has already been confirmed (charge_id exists).
+    Tips that are still PENDING payment will be handled by handle_payment_intent_succeeded.
+    """
+    try:
+        connect = user.stripe_connect_account
+    except StripeConnectAccount.DoesNotExist:
+        return
+
+    if not connect.is_fully_verified:
+        return
+
+    held_tips = Tip.objects.filter(
+        recipient=user,
+        status=TipStatus.HELD,
+        stripe_charge_id__isnull=False,  # Payment confirmed, waiting for account
+    ).select_related("tipper", "recipient")
+
+    if not held_tips.exists():
+        logger.info("No held tips to release for user %s", user.id)
+        return
+
+    logger.info(
+        "Releasing %d held tip(s) for user %s (account: %s)",
+        held_tips.count(), user.id, connect.stripe_account_id,
+    )
+
+    for tip in held_tips:
+        try:
+            transfer_held_tip(tip, connect)
+        except Exception as exc:
+            logger.error(
+                "Failed to release held tip %s for user %s: %s",
+                tip.id, user.id, str(exc),
+            )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Webhook Handlers
 # ──────────────────────────────────────────────────────────────────────────────
 
 
 def handle_payment_intent_succeeded(payment_intent):
-    """Mark the tip as succeeded and capture the charge ID."""
+    """Mark the tip as succeeded and capture the charge ID.
+
+    Special case for HELD tips:
+    - If tip is HELD, only update the charge_id (money is on platform).
+    - The actual transfer happens in release_held_tips() when user connects.
+    - If tip is PENDING (direct flow), mark it SUCCEEDED normally.
+    """
     pi_id = payment_intent["id"]
     charge_id = payment_intent.get("latest_charge") or payment_intent.get(
         "charges", {}
@@ -268,9 +395,35 @@ def handle_payment_intent_succeeded(payment_intent):
             return
 
         if tip.status == TipStatus.SUCCEEDED:
-            # Idempotent — already processed
+            return  # Idempotent
+
+        if tip.status == TipStatus.HELD:
+            # Payment confirmed but recipient has no account yet.
+            # Store charge_id so we can transfer later when they connect.
+            tip.stripe_charge_id = charge_id
+            tip.save(update_fields=["stripe_charge_id", "updated_at"])
+            logger.info(
+                "Held tip %s payment confirmed (charge: %s) — awaiting recipient account",
+                tip.id, charge_id,
+            )
+
+            # Re-notify recipient that a real payment is waiting
+            try:
+                send_notification(
+                    title="Payment confirmed — waiting for you!",
+                    body=(
+                        f"A ${tip.amount:.2f} tip is ready for you. "
+                        "Connect your bank account to receive it immediately."
+                    ),
+                    user_id=tip.recipient_id,
+                    notification_type=NotificationTypes.TIP_ENABLE_REQUEST,
+                    data={"action": "connect_stripe", "tip_id": str(tip.id)},
+                )
+            except Exception as exc:
+                logger.warning("Notification failed for held tip: %s", exc)
             return
 
+        # Normal PENDING → SUCCEEDED
         tip.status = TipStatus.SUCCEEDED
         tip.stripe_charge_id = charge_id
         tip.save(update_fields=["status", "stripe_charge_id", "updated_at"])
@@ -327,7 +480,11 @@ def handle_charge_refunded(charge):
 
 
 def handle_account_updated(account):
-    """Sync Stripe Connect account status when account.updated fires."""
+    """Sync Stripe Connect account status when account.updated fires.
+
+    When an account becomes fully verified for the first time,
+    automatically release any HELD tips waiting for this user.
+    """
     account_id = account["id"]
 
     try:
@@ -335,6 +492,8 @@ def handle_account_updated(account):
     except StripeConnectAccount.DoesNotExist:
         logger.warning("Webhook: StripeConnectAccount not found for %s", account_id)
         return
+
+    was_verified = connect.is_fully_verified
 
     connect.is_charges_enabled = account.get("charges_enabled", False)
     connect.is_payouts_enabled = account.get("payouts_enabled", False)
@@ -355,6 +514,19 @@ def handle_account_updated(account):
         connect.is_charges_enabled,
         connect.is_payouts_enabled,
     )
+
+    # If account JUST became fully verified, release any held tips
+    if not was_verified and connect.is_fully_verified:
+        logger.info(
+            "Account %s just verified — releasing held tips for user %s",
+            account_id, connect.user_id,
+        )
+        try:
+            release_held_tips(connect.user)
+        except Exception as exc:
+            logger.error(
+                "Error releasing held tips for user %s: %s", connect.user_id, str(exc)
+            )
 
 
 def handle_payout_paid(payout):

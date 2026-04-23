@@ -370,28 +370,56 @@ class SendTipTests(TestCase):
         })
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    @patch("api.tip.services._stripe")
     @patch("api.tip.services.send_notification")
-    def test_recipient_no_connect_account_rejected(self, mock_notify):
+    def test_recipient_no_connect_account_creates_held_tip(self, mock_notify, mock_stripe):
+        """When recipient has no Stripe account, tip is created with HELD status."""
+        mock_s = MagicMock()
+        mock_stripe.return_value = mock_s
+        mock_intent = MagicMock()
+        mock_intent.id = "pi_held_no_account"
+        mock_intent.client_secret = "secret_held"
+        mock_s.PaymentIntent.create.return_value = mock_intent
+
         other = make_user("noconnect@test.com")
         response = self._post({
             "recipient_id": str(other.id),
             "amount": "10.00",
         })
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("not enabled tip receiving", response.data["detail"])
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        # Tip must be HELD, not blocked
+        tip = Tip.objects.get(stripe_payment_intent_id="pi_held_no_account")
+        self.assertEqual(tip.status, TipStatus.HELD)
+        # PaymentIntent created WITHOUT transfer_data
+        call_kwargs = mock_s.PaymentIntent.create.call_args.kwargs
+        self.assertNotIn("transfer_data", call_kwargs)
+        self.assertNotIn("application_fee_amount", call_kwargs)
+        # Recipient notified
         mock_notify.assert_called_once()
+        # Serializer flag
+        self.assertTrue(response.data["tip"]["is_held"])
 
+    @patch("api.tip.services._stripe")
     @patch("api.tip.services.send_notification")
-    def test_recipient_unverified_account_rejected(self, mock_notify):
+    def test_recipient_unverified_account_creates_held_tip(self, mock_notify, mock_stripe):
+        """When recipient's account is unverified, tip is still held not rejected."""
+        mock_s = MagicMock()
+        mock_stripe.return_value = mock_s
+        mock_intent = MagicMock()
+        mock_intent.id = "pi_held_unverified"
+        mock_intent.client_secret = "secret_held2"
+        mock_s.PaymentIntent.create.return_value = mock_intent
+
         unverified = make_user("unverified@test.com")
         make_connect_account(unverified, verified=False)
         response = self._post({
             "recipient_id": str(unverified.id),
             "amount": "10.00",
         })
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("completed their tip setup", response.data["detail"])
-        mock_notify.assert_called_once()
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        tip = Tip.objects.get(stripe_payment_intent_id="pi_held_unverified")
+        self.assertEqual(tip.status, TipStatus.HELD)
+        self.assertTrue(response.data["tip"]["is_held"])
 
     def test_amount_below_minimum_rejected(self):
         tip_settings = TipSettings.get_instance()
@@ -848,3 +876,459 @@ class TipSettingsAPITests(TestCase):
         self.client.force_authenticate(user=None)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Hold & Release Tests
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@override_settings(
+    STRIPE_SECRET_KEY="sk_test_fake",
+    STRIPE_PUBLISHABLE_KEY="pk_test_fake",
+    STRIPE_WEBHOOK_SECRET="whsec_fake",
+)
+class HoldAndReleaseTests(TestCase):
+    """
+    Tests for the payment hold & release system.
+
+    Flow:
+    1. Tipper sends a tip to a recipient with no Stripe account.
+    2. Tip created as HELD, PaymentIntent has no transfer_data.
+    3. Webhook: payment_intent.succeeded -> charge_id stored, status stays HELD.
+    4. Recipient connects Stripe -> account.updated webhook fires.
+    5. release_held_tips() runs, Stripe Transfer created, status -> SUCCEEDED.
+    """
+
+    def setUp(self):
+        self.tipper = make_user("hold_tipper@test.com")
+        self.recipient = make_user("hold_recipient@test.com")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.tipper)
+        self.webhook_url = reverse("tip:stripe-webhook")
+        self.send_url = reverse("tip:send-tip")
+
+    def _make_held_tip(self, charge_id=None):
+        """Create a HELD tip directly in DB (bypasses Stripe)."""
+        tip_settings = TipSettings.get_instance()
+        commission_pct = tip_settings.commission_percentage
+        commission, recipient_amount = services.calculate_commission(
+            Decimal("20.00"), commission_pct
+        )
+        return Tip.objects.create(
+            tipper=self.tipper,
+            recipient=self.recipient,
+            amount=Decimal("20.00"),
+            commission_percentage=commission_pct,
+            commission_amount=commission,
+            recipient_amount=recipient_amount,
+            stripe_payment_intent_id=f"pi_{uuid.uuid4().hex[:14]}",
+            stripe_charge_id=charge_id,
+            status=TipStatus.HELD,
+        )
+
+    def _post_webhook(self, event_type, data_object, mock_construct):
+        mock_event = {
+            "id": f"evt_{uuid.uuid4().hex[:16]}",
+            "type": event_type,
+            "data": {"object": data_object},
+        }
+        mock_construct.return_value = mock_event
+        payload = json.dumps({"type": event_type}).encode()
+        return self.client.post(
+            self.webhook_url,
+            data=payload,
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="t=123,v1=fakesig",
+        )
+
+    # ------------------------------------------------------------------
+    # 1. PaymentIntent creation: held flow vs direct flow
+    # ------------------------------------------------------------------
+
+    @patch("api.tip.services._stripe")
+    @patch("api.tip.services.send_notification")
+    def test_held_tip_created_when_no_connect_account(self, mock_notify, mock_stripe):
+        """Tip to user without Stripe account -> HELD, no transfer_data sent to Stripe."""
+        mock_s = MagicMock()
+        mock_stripe.return_value = mock_s
+        mock_intent = MagicMock()
+        mock_intent.id = "pi_hold_001"
+        mock_intent.client_secret = "secret_hold_001"
+        mock_s.PaymentIntent.create.return_value = mock_intent
+
+        response = self.client.post(self.send_url, {
+            "recipient_id": str(self.recipient.id),
+            "amount": "20.00",
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        tip = Tip.objects.get(stripe_payment_intent_id="pi_hold_001")
+        self.assertEqual(tip.status, TipStatus.HELD)
+
+        # Stripe must NOT receive transfer_data or application_fee_amount
+        call_kwargs = mock_s.PaymentIntent.create.call_args.kwargs
+        self.assertNotIn("transfer_data", call_kwargs)
+        self.assertNotIn("application_fee_amount", call_kwargs)
+        self.assertEqual(call_kwargs["metadata"]["flow"], "held")
+
+        # Recipient must be notified
+        mock_notify.assert_called_once()
+
+    @patch("api.tip.services._stripe")
+    def test_direct_tip_created_when_account_verified(self, mock_stripe):
+        """Tip to verified recipient -> PENDING with transfer_data."""
+        connect = make_connect_account(self.recipient, verified=True)
+        mock_s = MagicMock()
+        mock_stripe.return_value = mock_s
+        mock_intent = MagicMock()
+        mock_intent.id = "pi_direct_001"
+        mock_intent.client_secret = "secret_direct"
+        mock_s.PaymentIntent.create.return_value = mock_intent
+
+        response = self.client.post(self.send_url, {
+            "recipient_id": str(self.recipient.id),
+            "amount": "20.00",
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        tip = Tip.objects.get(stripe_payment_intent_id="pi_direct_001")
+        self.assertEqual(tip.status, TipStatus.PENDING)
+        self.assertFalse(response.data["tip"]["is_held"])
+
+        call_kwargs = mock_s.PaymentIntent.create.call_args.kwargs
+        self.assertIn("transfer_data", call_kwargs)
+        self.assertEqual(call_kwargs["transfer_data"]["destination"], connect.stripe_account_id)
+        self.assertIn("application_fee_amount", call_kwargs)
+        self.assertEqual(call_kwargs["metadata"]["flow"], "direct")
+
+    # ------------------------------------------------------------------
+    # 2. Webhook: payment confirmed on a HELD tip
+    # ------------------------------------------------------------------
+
+    @patch("api.tip.services.construct_stripe_event")
+    @patch("api.tip.services.send_notification")
+    def test_webhook_confirms_held_tip_without_marking_succeeded(
+        self, mock_notify, mock_construct
+    ):
+        """
+        payment_intent.succeeded for a HELD tip:
+        - charge_id must be saved
+        - status must remain HELD (not SUCCEEDED)
+        - recipient must be re-notified
+        """
+        tip = self._make_held_tip()  # no charge_id yet
+
+        response = self._post_webhook(
+            "payment_intent.succeeded",
+            {
+                "id": tip.stripe_payment_intent_id,
+                "latest_charge": "ch_held_confirmed",
+            },
+            mock_construct,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        tip.refresh_from_db()
+        self.assertEqual(tip.status, TipStatus.HELD)   # still HELD
+        self.assertEqual(tip.stripe_charge_id, "ch_held_confirmed")  # charge stored
+        mock_notify.assert_called_once()  # re-notification sent
+
+    @patch("api.tip.services.construct_stripe_event")
+    def test_webhook_succeeded_on_pending_tip_marks_succeeded(self, mock_construct):
+        """Normal PENDING tip -> SUCCEEDED on payment_intent.succeeded."""
+        connect = make_connect_account(self.recipient)
+        tip = make_tip(self.tipper, self.recipient, status=TipStatus.PENDING)
+
+        self._post_webhook(
+            "payment_intent.succeeded",
+            {"id": tip.stripe_payment_intent_id, "latest_charge": "ch_direct_ok"},
+            mock_construct,
+        )
+
+        tip.refresh_from_db()
+        self.assertEqual(tip.status, TipStatus.SUCCEEDED)
+        self.assertEqual(tip.stripe_charge_id, "ch_direct_ok")
+
+    # ------------------------------------------------------------------
+    # 3. transfer_held_tip: service unit test
+    # ------------------------------------------------------------------
+
+    @patch("api.tip.services._stripe")
+    @patch("api.tip.services.send_notification")
+    def test_transfer_held_tip_succeeds(self, mock_notify, mock_stripe):
+        """transfer_held_tip creates a Stripe Transfer and marks the tip SUCCEEDED."""
+        connect = make_connect_account(self.recipient, account_id="acct_release_test")
+        tip = self._make_held_tip(charge_id="ch_to_release")
+
+        mock_s = MagicMock()
+        mock_stripe.return_value = mock_s
+        mock_transfer = MagicMock()
+        mock_transfer.id = "tr_released_001"
+        mock_s.Transfer.create.return_value = mock_transfer
+
+        result = services.transfer_held_tip(tip, connect)
+
+        self.assertTrue(result)
+        tip.refresh_from_db()
+        self.assertEqual(tip.status, TipStatus.SUCCEEDED)
+        self.assertEqual(tip.stripe_transfer_id, "tr_released_001")
+
+        # Verify Stripe Transfer call
+        call_kwargs = mock_s.Transfer.create.call_args.kwargs
+        self.assertEqual(call_kwargs["destination"], "acct_release_test")
+        self.assertEqual(call_kwargs["source_transaction"], "ch_to_release")
+        # Only recipient_amount transferred (commission stays on platform)
+        self.assertEqual(call_kwargs["amount"], int(tip.recipient_amount * 100))
+
+        # Both parties notified
+        self.assertEqual(mock_notify.call_count, 2)
+
+    @patch("api.tip.services._stripe")
+    @patch("api.tip.services.send_notification")
+    def test_transfer_held_tip_returns_false_when_no_charge_id(
+        self, mock_notify, mock_stripe
+    ):
+        """If charge_id is missing, transfer cannot proceed."""
+        connect = make_connect_account(self.recipient)
+        tip = self._make_held_tip(charge_id=None)  # payment not confirmed yet
+
+        result = services.transfer_held_tip(tip, connect)
+
+        self.assertFalse(result)
+        tip.refresh_from_db()
+        self.assertEqual(tip.status, TipStatus.HELD)  # unchanged
+        mock_stripe.return_value.Transfer.create.assert_not_called()
+
+    @patch("api.tip.services._stripe")
+    @patch("api.tip.services.send_notification")
+    def test_transfer_held_tip_returns_false_on_stripe_error(
+        self, mock_notify, mock_stripe
+    ):
+        """If Stripe Transfer fails, tip stays HELD and False is returned."""
+        import stripe as stripe_lib
+        connect = make_connect_account(self.recipient)
+        tip = self._make_held_tip(charge_id="ch_fail_transfer")
+
+        mock_s = MagicMock()
+        mock_stripe.return_value = mock_s
+        mock_s.Transfer.create.side_effect = stripe_lib.error.StripeError("Transfer failed")
+
+        result = services.transfer_held_tip(tip, connect)
+
+        self.assertFalse(result)
+        tip.refresh_from_db()
+        self.assertEqual(tip.status, TipStatus.HELD)  # unchanged
+
+    # ------------------------------------------------------------------
+    # 4. release_held_tips: service unit test
+    # ------------------------------------------------------------------
+
+    @patch("api.tip.services._stripe")
+    @patch("api.tip.services.send_notification")
+    def test_release_held_tips_releases_all_pending(self, mock_notify, mock_stripe):
+        """release_held_tips processes all HELD tips with a charge_id."""
+        connect = make_connect_account(self.recipient, account_id="acct_batch_release")
+
+        tip1 = self._make_held_tip(charge_id="ch_batch_1")
+        tip2 = self._make_held_tip(charge_id="ch_batch_2")
+        tip3 = self._make_held_tip(charge_id=None)  # not confirmed yet, must be skipped
+
+        mock_s = MagicMock()
+        mock_stripe.return_value = mock_s
+        mock_transfer = MagicMock()
+        mock_transfer.id = "tr_batch"
+        mock_s.Transfer.create.return_value = mock_transfer
+
+        services.release_held_tips(self.recipient)
+
+        tip1.refresh_from_db()
+        tip2.refresh_from_db()
+        tip3.refresh_from_db()
+
+        self.assertEqual(tip1.status, TipStatus.SUCCEEDED)
+        self.assertEqual(tip2.status, TipStatus.SUCCEEDED)
+        self.assertEqual(tip3.status, TipStatus.HELD)  # skipped, no charge_id
+        self.assertEqual(mock_s.Transfer.create.call_count, 2)
+
+    @patch("api.tip.services._stripe")
+    def test_release_held_tips_skips_unverified_account(self, mock_stripe):
+        """If account is not fully verified, release_held_tips does nothing."""
+        make_connect_account(self.recipient, verified=False)
+        tip = self._make_held_tip(charge_id="ch_skip_unverified")
+
+        services.release_held_tips(self.recipient)
+
+        tip.refresh_from_db()
+        self.assertEqual(tip.status, TipStatus.HELD)  # unchanged
+        mock_stripe.return_value.Transfer.create.assert_not_called()
+
+    @patch("api.tip.services._stripe")
+    def test_release_held_tips_no_connect_account_is_safe(self, mock_stripe):
+        """Calling release for a user with no connect account must not crash."""
+        tip = self._make_held_tip(charge_id="ch_no_connect")
+        services.release_held_tips(self.recipient)  # should return silently
+        tip.refresh_from_db()
+        self.assertEqual(tip.status, TipStatus.HELD)
+
+    # ------------------------------------------------------------------
+    # 5. account.updated webhook triggers auto-release
+    # ------------------------------------------------------------------
+
+    @patch("api.tip.services._stripe")
+    @patch("api.tip.services.send_notification")
+    @patch("api.tip.services.construct_stripe_event")
+    def test_account_updated_triggers_release_on_first_verification(
+        self, mock_construct, mock_notify, mock_stripe
+    ):
+        """
+        When account.updated fires and the account becomes verified for the
+        first time, all confirmed HELD tips for that user must be released.
+        """
+        # Account starts unverified
+        connect = make_connect_account(self.recipient, account_id="acct_trigger", verified=False)
+        tip = self._make_held_tip(charge_id="ch_trigger")
+
+        mock_s = MagicMock()
+        mock_stripe.return_value = mock_s
+        mock_transfer = MagicMock()
+        mock_transfer.id = "tr_triggered"
+        mock_s.Transfer.create.return_value = mock_transfer
+
+        # Webhook: account becomes verified
+        response = self._post_webhook(
+            "account.updated",
+            {
+                "id": "acct_trigger",
+                "charges_enabled": True,
+                "payouts_enabled": True,
+                "details_submitted": True,
+            },
+            mock_construct,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        tip.refresh_from_db()
+        self.assertEqual(tip.status, TipStatus.SUCCEEDED)
+        self.assertEqual(tip.stripe_transfer_id, "tr_triggered")
+        mock_s.Transfer.create.assert_called_once()
+
+    @patch("api.tip.services._stripe")
+    @patch("api.tip.services.construct_stripe_event")
+    def test_account_updated_does_not_release_if_already_verified(
+        self, mock_construct, mock_stripe
+    ):
+        """
+        If account was already verified before this webhook fired,
+        release_held_tips must NOT run again (avoid double transfer).
+        """
+        # Account already verified
+        connect = make_connect_account(self.recipient, account_id="acct_already_ver", verified=True)
+        tip = self._make_held_tip(charge_id="ch_already_ver")
+
+        mock_s = MagicMock()
+        mock_stripe.return_value = mock_s
+
+        # Webhook fires again (e.g. Stripe resend)
+        self._post_webhook(
+            "account.updated",
+            {
+                "id": "acct_already_ver",
+                "charges_enabled": True,
+                "payouts_enabled": True,
+                "details_submitted": True,
+            },
+            mock_construct,
+        )
+
+        tip.refresh_from_db()
+        # Tip must remain HELD since was_verified=True: no double transfer
+        self.assertEqual(tip.status, TipStatus.HELD)
+        mock_s.Transfer.create.assert_not_called()
+
+    # ------------------------------------------------------------------
+    # 6. Commission integrity
+    # ------------------------------------------------------------------
+
+    @patch("api.tip.services._stripe")
+    @patch("api.tip.services.send_notification")
+    def test_held_tip_commission_amounts_correct(self, mock_notify, mock_stripe):
+        """
+        For a $20 tip at 20% commission:
+        - commission_amount = $4.00
+        - recipient_amount  = $16.00
+        - Transfer amount   = 1600 cents (platform keeps $4)
+        """
+        connect = make_connect_account(self.recipient, account_id="acct_comm_check")
+        tip = self._make_held_tip(charge_id="ch_comm_check")
+
+        mock_s = MagicMock()
+        mock_stripe.return_value = mock_s
+        mock_transfer = MagicMock()
+        mock_transfer.id = "tr_comm"
+        mock_s.Transfer.create.return_value = mock_transfer
+
+        services.transfer_held_tip(tip, connect)
+
+        call_kwargs = mock_s.Transfer.create.call_args.kwargs
+        # Transfer only recipient_amount (commission stays on platform implicitly)
+        self.assertEqual(call_kwargs["amount"], 1600)  # $16 in cents
+        self.assertEqual(tip.commission_amount, Decimal("4.00"))
+        self.assertEqual(tip.recipient_amount, Decimal("16.00"))
+
+    # ------------------------------------------------------------------
+    # 7. Serializer is_held flag
+    # ------------------------------------------------------------------
+
+    def test_is_held_true_for_held_status(self):
+        from .serializers import TipSerializer
+        tip = self._make_held_tip(charge_id="ch_flag")
+        data = TipSerializer(tip).data
+        self.assertTrue(data["is_held"])
+        self.assertEqual(data["status"], "held")
+
+    def test_is_held_false_for_succeeded_status(self):
+        from .serializers import TipSerializer
+        connect = make_connect_account(self.recipient)
+        tip = make_tip(self.tipper, self.recipient, status=TipStatus.SUCCEEDED)
+        data = TipSerializer(tip).data
+        self.assertFalse(data["is_held"])
+
+    def test_is_held_false_for_pending_status(self):
+        from .serializers import TipSerializer
+        tip = make_tip(self.tipper, self.recipient, status=TipStatus.PENDING)
+        data = TipSerializer(tip).data
+        self.assertFalse(data["is_held"])
+
+    # ------------------------------------------------------------------
+    # 8. History includes held tips
+    # ------------------------------------------------------------------
+
+    def test_held_tips_appear_in_history(self):
+        """
+        HELD tips must be visible in both sender and recipient histories.
+        """
+        self._make_held_tip()
+
+        # Tipper view
+        self.client.force_authenticate(user=self.tipper)
+        response = self.client.get(reverse("tip:tip-history"), {"direction": "sent"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["status"], "held")
+
+        # Recipient view
+        self.client.force_authenticate(user=self.recipient)
+        response = self.client.get(reverse("tip:tip-history"), {"direction": "received"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+
+    def test_filter_by_held_status(self):
+        make_tip(self.tipper, self.recipient, status=TipStatus.SUCCEEDED)
+        self._make_held_tip()
+        self.client.force_authenticate(user=self.tipper)
+        response = self.client.get(
+            reverse("tip:tip-history"), {"direction": "sent", "status": "held"}
+        )
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["status"], "held")

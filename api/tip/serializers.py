@@ -101,6 +101,9 @@ class TipSerializer(serializers.ModelSerializer):
     tipper = TipUserSerializer(read_only=True)
     recipient = TipUserSerializer(read_only=True)
     meeting_id = serializers.UUIDField(source="meeting.id", read_only=True, allow_null=True)
+    is_held = serializers.SerializerMethodField(
+        help_text="True when payment is confirmed but recipient hasn't connected their account yet."
+    )
 
     class Meta:
         model = Tip
@@ -115,12 +118,17 @@ class TipSerializer(serializers.ModelSerializer):
             "recipient_amount",
             "note",
             "status",
+            "is_held",
             "currency",
             "stripe_payment_intent_id",
+            "stripe_transfer_id",
             "created_at",
             "updated_at",
         ]
         read_only_fields = fields
+
+    def get_is_held(self, obj):
+        return obj.status == "held"
 
 
 # ──────────────────────────────────────────────────────────────────────────────

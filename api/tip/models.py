@@ -125,6 +125,7 @@ class StripeConnectAccount(models.Model):
 
 class TipStatus(models.TextChoices):
     PENDING = "pending", "Pending"
+    HELD = "held", "Held — Awaiting Recipient Account"
     SUCCEEDED = "succeeded", "Succeeded"
     FAILED = "failed", "Failed"
     REFUNDED = "refunded", "Refunded"
@@ -197,6 +198,14 @@ class Tip(models.Model):
         null=True,
         blank=True,
         db_index=True,
+    )
+    stripe_transfer_id = models.CharField(
+        max_length=255,
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Stripe Transfer ID — set when a held tip is released to the recipient.",
     )
 
     status = models.CharField(
