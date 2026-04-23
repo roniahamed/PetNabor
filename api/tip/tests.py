@@ -1136,9 +1136,13 @@ class HoldAndReleaseTests(TestCase):
 
         mock_s = MagicMock()
         mock_stripe.return_value = mock_s
-        mock_transfer = MagicMock()
-        mock_transfer.id = "tr_batch"
-        mock_s.Transfer.create.return_value = mock_transfer
+
+        # Each Transfer.create call must return a unique transfer ID
+        transfer1 = MagicMock()
+        transfer1.id = "tr_batch_1"
+        transfer2 = MagicMock()
+        transfer2.id = "tr_batch_2"
+        mock_s.Transfer.create.side_effect = [transfer1, transfer2]
 
         services.release_held_tips(self.recipient)
 

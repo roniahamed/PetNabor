@@ -94,6 +94,7 @@ class NotificationTypes(models.TextChoices):
     WEEKLY_REPORT = "weekly_report", _("Weekly Performance Report")
 
     TIP_RECEIVED = "tip_received", _("Tip Received")
+    TIP_SENT = "tip_sent", _("Tip Sent")
     TIP_ENABLE_REQUEST = "tip_enable_request", _("Enable Tip Service")
 
 
