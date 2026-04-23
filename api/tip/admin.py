@@ -3,7 +3,7 @@ Tip System Admin — Unfold-styled admin registration.
 """
 
 from django.contrib import admin
-from django.utils.html import format_html
+from django.utils.html import format_html, mark_safe
 from unfold.admin import ModelAdmin
 
 from .models import TipSettings, StripeConnectAccount, Tip, TipWithdrawal
@@ -67,10 +67,10 @@ class StripeConnectAccountAdmin(ModelAdmin):
     @admin.display(description="Onboarding")
     def onboarding_status_badge(self, obj):
         if obj.is_fully_verified:
-            return format_html('<span style="color:#16a34a;font-weight:600;">✓ Verified</span>')
+            return mark_safe('<span style="color:#16a34a;font-weight:600;">Verified</span>')
         elif obj.is_onboarding_complete:
-            return format_html('<span style="color:#d97706;font-weight:600;">⚠ Partial</span>')
-        return format_html('<span style="color:#dc2626;font-weight:600;">✗ Pending</span>')
+            return mark_safe('<span style="color:#d97706;font-weight:600;">Partial</span>')
+        return mark_safe('<span style="color:#dc2626;font-weight:600;">Pending</span>')
 
 
 @admin.register(Tip)
@@ -145,11 +145,8 @@ class TipAdmin(ModelAdmin):
             "cancelled": "#6b7280",
         }
         color = colors.get(obj.status, "#6b7280")
-        return format_html(
-            '<span style="color:{};font-weight:600;">{}</span>',
-            color,
-            obj.get_status_display(),
-        )
+        label = obj.get_status_display()
+        return mark_safe(f'<span style="color:{color};font-weight:600;">{label}</span>')
 
 
 @admin.register(TipWithdrawal)
@@ -203,8 +200,5 @@ class TipWithdrawalAdmin(ModelAdmin):
             "cancelled": "#6b7280",
         }
         color = colors.get(obj.status, "#6b7280")
-        return format_html(
-            '<span style="color:{};font-weight:600;">{}</span>',
-            color,
-            obj.get_status_display(),
-        )
+        label = obj.get_status_display()
+        return mark_safe(f'<span style="color:{color};font-weight:600;">{label}</span>')

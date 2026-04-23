@@ -59,6 +59,7 @@ def create_connect_account(user):
     account = s.Account.create(
         type="express",
         email=email,
+        business_type="individual",
         capabilities={
             "card_payments": {"requested": True},
             "transfers": {"requested": True},
