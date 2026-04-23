@@ -89,20 +89,11 @@ def _get_account_link(account_id, return_url=None, refresh_url=None):
     """
     Generate a short-lived Stripe Account Link URL for onboarding.
 
-    IMPORTANT: Stripe requires HTTPS URLs for redirections. We use the backend
-    server as a bridge. The backend will then redirect to the mobile app's deep link.
+    Stripe requires HTTPS URLs. We use the backend as a bridge which then
+    redirects to the mobile app's deep link (petnabor://).
     """
     s = _stripe()
-    # Use the current site domain or ngrok for the bridge (must be HTTPS)
-    # We'll use the API's own URL structure
-    from django.contrib.sites.models import Site
-    try:
-        # Try to get domain from Site framework if it exists
-        domain = f"https://{Site.objects.get_current().domain}"
-    except:
-        # Fallback to a setting or hardcoded fallback for dev
-        domain = getattr(settings, "BACKEND_BASE_URL", "https://backend.petnabor.com")
-
+    domain = getattr(settings, "BACKEND_BASE_URL", "https://backend.petnabor.com")
     link = s.AccountLink.create(
         account=account_id,
         refresh_url=refresh_url or f"{domain}/api/tip/onboard/bridge/?status=refresh",
