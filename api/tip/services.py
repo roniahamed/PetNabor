@@ -19,8 +19,11 @@ from .models import (
     TipWithdrawal,
     WithdrawalStatus,
 )
+from api.notifications.services import send_notification
+from api.notifications.models import NotificationTypes
 
 logger = logging.getLogger(__name__)
+
 
 # Configure stripe key lazily to respect settings load order
 def _stripe():
@@ -113,12 +116,14 @@ def get_connect_account_status(user):
     connect.is_onboarding_complete = (
         account.details_submitted and account.charges_enabled
     )
-    connect.save(update_fields=[
-        "is_charges_enabled",
-        "is_payouts_enabled",
-        "is_onboarding_complete",
-        "updated_at",
-    ])
+    connect.save(
+        update_fields=[
+            "is_charges_enabled",
+            "is_payouts_enabled",
+            "is_onboarding_complete",
+            "updated_at",
+        ]
+    )
     return connect
 
 
@@ -139,7 +144,9 @@ def calculate_commission(amount: Decimal, commission_percentage: Decimal):
     return commission, recipient
 
 
-def create_tip_payment_intent(tipper, recipient, amount: Decimal, meeting=None, note=""):
+def create_tip_payment_intent(
+    tipper, recipient, amount: Decimal, meeting=None, note=""
+):
     """
     Create a Stripe PaymentIntent with application_fee_amount representing
     the platform commission. Returns the Tip DB object and the client_secret.
@@ -155,10 +162,39 @@ def create_tip_payment_intent(tipper, recipient, amount: Decimal, meeting=None, 
     try:
         connect = recipient.stripe_connect_account
     except StripeConnectAccount.DoesNotExist:
-        raise ValueError("Recipient has not connected their Stripe account.")
+        # Notify the recipient that someone tried to tip them
+        send_notification(
+            title="Enable your tip service",
+            body=(
+                f"{tipper.first_name or 'Someone'} wanted to send you a tip! "
+                "Connect your Stripe account to start receiving tips."
+            ),
+            user_id=recipient.id,
+            notification_type=NotificationTypes.TIP_ENABLE_REQUEST,
+            data={"action": "connect_stripe"},
+        )
+        raise ValueError(
+            "This user has not enabled tip receiving yet. "
+            "We've notified them to set it up."
+        )
 
     if not connect.is_fully_verified:
-        raise ValueError("Recipient's Stripe account is not fully verified yet.")
+        # Notify the recipient their account setup is incomplete
+        send_notification(
+            title="Complete your tip setup",
+            body=(
+                f"{tipper.first_name or 'Someone'} tried to send you a tip, "
+                "but your Stripe verification is not complete yet. "
+                "Finish the setup to receive tips."
+            ),
+            user_id=recipient.id,
+            notification_type=NotificationTypes.TIP_ENABLE_REQUEST,
+            data={"action": "complete_stripe_onboarding"},
+        )
+        raise ValueError(
+            "This user hasn't completed their tip setup yet. "
+            "We've notified them to finish verification."
+        )
 
     commission_pct = tip_settings.commission_percentage
     commission_amount, recipient_amount = calculate_commission(amount, commission_pct)
@@ -207,7 +243,9 @@ def create_tip_payment_intent(tipper, recipient, amount: Decimal, meeting=None, 
 def handle_payment_intent_succeeded(payment_intent):
     """Mark the tip as succeeded and capture the charge ID."""
     pi_id = payment_intent["id"]
-    charge_id = payment_intent.get("latest_charge") or payment_intent.get("charges", {}).get("data", [{}])[0].get("id")
+    charge_id = payment_intent.get("latest_charge") or payment_intent.get(
+        "charges", {}
+    ).get("data", [{}])[0].get("id")
 
     with transaction.atomic():
         try:
@@ -290,12 +328,14 @@ def handle_account_updated(account):
     connect.is_onboarding_complete = (
         account.get("details_submitted", False) and connect.is_charges_enabled
     )
-    connect.save(update_fields=[
-        "is_charges_enabled",
-        "is_payouts_enabled",
-        "is_onboarding_complete",
-        "updated_at",
-    ])
+    connect.save(
+        update_fields=[
+            "is_charges_enabled",
+            "is_payouts_enabled",
+            "is_onboarding_complete",
+            "updated_at",
+        ]
+    )
     logger.info(
         "Connect account %s synced: charges=%s payouts=%s",
         account_id,
@@ -332,14 +372,23 @@ def handle_payout_failed(payout):
                 stripe_payout_id=payout_id
             )
         except TipWithdrawal.DoesNotExist:
-            logger.warning("Webhook: TipWithdrawal not found for failed payout %s", payout_id)
+            logger.warning(
+                "Webhook: TipWithdrawal not found for failed payout %s", payout_id
+            )
             return
 
-        failure_msg = payout.get("failure_message") or payout.get("failure_code", "Unknown failure")
+        failure_msg = payout.get("failure_message") or payout.get(
+            "failure_code", "Unknown failure"
+        )
         withdrawal.status = WithdrawalStatus.FAILED
         withdrawal.failure_message = failure_msg
         withdrawal.save(update_fields=["status", "failure_message", "updated_at"])
-        logger.info("Withdrawal %s failed (payout: %s): %s", withdrawal.id, payout_id, failure_msg)
+        logger.info(
+            "Withdrawal %s failed (payout: %s): %s",
+            withdrawal.id,
+            payout_id,
+            failure_msg,
+        )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -386,7 +435,9 @@ def create_withdrawal(user, amount: Decimal):
         raise ValueError("You must connect your Stripe account before withdrawing.")
 
     if not connect.is_fully_verified:
-        raise ValueError("Your Stripe account is not fully verified. Please complete onboarding.")
+        raise ValueError(
+            "Your Stripe account is not fully verified. Please complete onboarding."
+        )
 
     # Validate minimum amount
     if amount < tip_settings.minimum_withdrawal_amount:

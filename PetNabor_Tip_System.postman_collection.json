@@ -1,0 +1,349 @@
+{
+  "info": {
+    "name": "PetNabor — Tip System",
+    "_postman_id": "petnabor-tip-system-v1",
+    "description": "All API endpoints for the PetNabor Tip System (Stripe Connect onboarding, sending tips, balance, withdrawal, settings, and webhook).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_urls",
+      "value": "http://localhost:8000",
+      "type": "string",
+      "description": "Base URL of the API server. Change to your staging/prod URL as needed."
+    },
+    {
+      "key": "access_token",
+      "value": "YOUR_JWT_ACCESS_TOKEN_HERE",
+      "type": "string",
+      "description": "Bearer access token obtained from the auth endpoint."
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Stripe Connect",
+      "description": "Endpoints for creating and checking a user's Stripe Express Connected Account (needed before receiving tips).",
+      "item": [
+        {
+          "name": "Start / Refresh Onboarding",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_urls}}/api/tip/connect/onboard/",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "api",
+                "tip",
+                "connect",
+                "onboard",
+                ""
+              ]
+            },
+            "description": "Creates a Stripe Express account for the current user (if not yet created) and returns a short-lived onboarding URL. If the account already exists, returns a fresh URL.\n\n**Auth:** Bearer token required.\n\n**Response:**\n```json\n{\n  \"account\": {\n    \"stripe_account_id\": \"acct_xxx\",\n    \"is_onboarding_complete\": false,\n    \"is_charges_enabled\": false,\n    \"is_payouts_enabled\": false,\n    \"is_fully_verified\": false,\n    \"created_at\": \"2024-01-01T00:00:00Z\",\n    \"updated_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"onboarding_url\": \"https://connect.stripe.com/...\"\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Connect Account Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_urls}}/api/tip/connect/status/",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "api",
+                "tip",
+                "connect",
+                "status",
+                ""
+              ]
+            },
+            "description": "Fetches and syncs the current user's Stripe Connect account status from Stripe. Returns 404 if no account exists.\n\n**Auth:** Bearer token required.\n\n**Response:**\n```json\n{\n  \"stripe_account_id\": \"acct_xxx\",\n  \"is_onboarding_complete\": true,\n  \"is_charges_enabled\": true,\n  \"is_payouts_enabled\": true,\n  \"is_fully_verified\": true,\n  \"created_at\": \"2024-01-01T00:00:00Z\",\n  \"updated_at\": \"2024-01-01T00:00:00Z\"\n}\n```"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Tip",
+      "description": "Endpoints for sending tips, viewing tip history, checking balance, and reading platform settings.",
+      "item": [
+        {
+          "name": "Send a Tip",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipient_id\": \"<UUID of the user to tip>\",\n  \"meeting_id\": \"<UUID of the associated meeting — optional>\",\n  \"amount\": \"10.00\",\n  \"note\": \"Great session, thank you!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_urls}}/api/tip/send/",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "api",
+                "tip",
+                "send",
+                ""
+              ]
+            },
+            "description": "Creates a Stripe PaymentIntent for the tip. The mobile SDK uses the returned `client_secret` to complete the payment on the client side.\n\n**Auth:** Bearer token required.\n\n**Business Rules:**\n- Cannot tip yourself\n- Amount must be between `minimum_tip_amount` and `maximum_tip_amount` (see `/tip/settings/`)\n- Recipient must have a fully verified Stripe Connect account\n- If `meeting_id` is provided, both tipper and recipient must be participants of that meeting\n\n**Response (201):**\n```json\n{\n  \"tip\": {\n    \"id\": \"uuid\",\n    \"tipper\": { \"id\": \"uuid\", \"first_name\": \"John\", \"last_name\": \"Doe\", \"email\": \"john@example.com\" },\n    \"recipient\": { \"id\": \"uuid\", \"first_name\": \"Jane\", \"last_name\": \"Doe\", \"email\": \"jane@example.com\" },\n    \"meeting_id\": \"uuid or null\",\n    \"amount\": \"10.00\",\n    \"commission_percentage\": \"20.00\",\n    \"commission_amount\": \"2.00\",\n    \"recipient_amount\": \"8.00\",\n    \"note\": \"Great session!\",\n    \"status\": \"pending\",\n    \"currency\": \"usd\",\n    \"stripe_payment_intent_id\": \"pi_xxx\",\n    \"created_at\": \"...\",\n    \"updated_at\": \"...\"\n  },\n  \"client_secret\": \"pi_xxx_secret_xxx\",\n  \"publishable_key\": \"pk_live_xxx\"\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Tip History — All",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_urls}}/api/tip/history/?direction=all",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "api",
+                "tip",
+                "history",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "direction",
+                  "value": "all",
+                  "description": "Filter by direction: 'sent', 'received', or 'all' (default)"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "Optional. Filter by status: pending | succeeded | failed | refunded | cancelled",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns tip history for the current user.\n\n**Auth:** Bearer token required.\n\n**Query Params:**\n| Param | Values | Default |\n|---|---|---|\n| `direction` | `sent`, `received`, `all` | `all` |\n| `status` | `pending`, `succeeded`, `failed`, `refunded`, `cancelled` | *(all statuses)* |"
+          },
+          "response": []
+        },
+        {
+          "name": "Tip History — Sent",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_urls}}/api/tip/history/?direction=sent",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "api",
+                "tip",
+                "history",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "direction",
+                  "value": "sent"
+                }
+              ]
+            },
+            "description": "Tip history filtered to tips the current user has **sent**."
+          },
+          "response": []
+        },
+        {
+          "name": "Tip History — Received",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_urls}}/api/tip/history/?direction=received",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "api",
+                "tip",
+                "history",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "direction",
+                  "value": "received"
+                }
+              ]
+            },
+            "description": "Tip history filtered to tips the current user has **received**."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Available Balance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_urls}}/api/tip/balance/",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "api",
+                "tip",
+                "balance",
+                ""
+              ]
+            },
+            "description": "Returns the user's available USD balance on their Stripe Connected Account (i.e., earnings ready to withdraw).\n\n**Auth:** Bearer token required.\n\n**Response:**\n```json\n{\n  \"available_balance\": \"42.50\",\n  \"currency\": \"usd\",\n  \"minimum_withdrawal\": \"10.00\"\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Tip Settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_urls}}/api/tip/settings/",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "api",
+                "tip",
+                "settings",
+                ""
+              ]
+            },
+            "description": "Returns the platform-wide tip configuration set by the admin.\n\n**Auth:** Bearer token required.\n\n**Response:**\n```json\n{\n  \"commission_percentage\": \"20.00\",\n  \"minimum_tip_amount\": \"1.00\",\n  \"maximum_tip_amount\": \"500.00\",\n  \"minimum_withdrawal_amount\": \"10.00\"\n}\n```"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Withdrawal",
+      "description": "Endpoints for requesting a payout of earned tips and viewing withdrawal history.",
+      "item": [
+        {
+          "name": "Request Withdrawal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": \"25.00\"\n}"
+            },
+            "url": {
+              "raw": "{{base_urls}}/api/tip/withdraw/",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "api",
+                "tip",
+                "withdraw",
+                ""
+              ]
+            },
+            "description": "Initiates a Stripe Payout to the user's bank account via their Connected Account. The withdrawal is created in `pending` status and updated to `paid` or `failed` by a Stripe webhook.\n\n**Auth:** Bearer token required.\n\n**Business Rules:**\n- User must have a fully verified Stripe Connect account\n- Amount must be ≥ `minimum_withdrawal_amount`\n- Amount must not exceed available balance\n\n**Response (201):**\n```json\n{\n  \"id\": \"uuid\",\n  \"amount\": \"25.00\",\n  \"currency\": \"usd\",\n  \"status\": \"pending\",\n  \"stripe_payout_id\": \"po_xxx\",\n  \"failure_message\": \"\",\n  \"created_at\": \"...\",\n  \"updated_at\": \"...\"\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Withdrawal History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_urls}}/api/tip/withdraw/history/",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "api",
+                "tip",
+                "withdraw",
+                "history",
+                ""
+              ]
+            },
+            "description": "Returns all withdrawal requests for the current user ordered by most recent first.\n\n**Auth:** Bearer token required."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Webhook (Stripe → Server)",
+      "description": "Stripe-facing webhook. Do NOT call this manually in production — it is called by Stripe only.",
+      "item": [
+        {
+          "name": "Stripe Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Stripe-Signature",
+                "value": "t=...,v1=...",
+                "description": "Computed HMAC signature sent by Stripe. Required for signature verification."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"evt_xxx\",\n  \"type\": \"payment_intent.succeeded\",\n  \"data\": {\n    \"object\": {\n      \"id\": \"pi_xxx\",\n      \"latest_charge\": \"ch_xxx\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_urls}}/api/tip/webhook/",
+              "host": [
+                "{{base_urls}}"
+              ],
+              "path": [
+                "api",
+                "tip",
+                "webhook",
+                ""
+              ]
+            },
+            "description": "Called by Stripe to notify the server of payment events. **No auth token needed** — verified via `Stripe-Signature` header HMAC.\n\n**Handled events:**\n- `payment_intent.succeeded`\n- `payment_intent.payment_failed`\n- `payment_intent.canceled`\n- `charge.refunded`\n- `account.updated`\n- `payout.paid`\n- `payout.failed`"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

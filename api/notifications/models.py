@@ -93,6 +93,9 @@ class NotificationTypes(models.TextChoices):
     NEW_ORDER = "new_order", _("New Order Notification")
     WEEKLY_REPORT = "weekly_report", _("Weekly Performance Report")
 
+    TIP_RECEIVED = "tip_received", _("Tip Received")
+    TIP_ENABLE_REQUEST = "tip_enable_request", _("Enable Tip Service")
+
 
 class Notifications(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

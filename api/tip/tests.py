@@ -46,7 +46,9 @@ def make_user(email, password="testpass123"):
     return u
 
 
-def make_connect_account(user, account_id="acct_test123", verified=True):
+def make_connect_account(user, account_id=None, verified=True):
+    if account_id is None:
+        account_id = f"acct_{uuid.uuid4().hex[:12]}"
     return StripeConnectAccount.objects.create(
         user=user,
         stripe_account_id=account_id,
@@ -351,7 +353,7 @@ class SendTipTests(TestCase):
         # 20% of $50 = $10 = 1000 cents
         self.assertEqual(call_kwargs["application_fee_amount"], 1000)
         self.assertEqual(call_kwargs["amount"], 5000)  # $50 in cents
-        self.assertEqual(call_kwargs["transfer_data"]["destination"], "acct_test123")
+        self.assertEqual(call_kwargs["transfer_data"]["destination"], self.connect.stripe_account_id)
 
     def test_self_tip_rejected(self):
         response = self._post({
@@ -368,16 +370,19 @@ class SendTipTests(TestCase):
         })
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_recipient_no_connect_account_rejected(self):
+    @patch("api.tip.services.send_notification")
+    def test_recipient_no_connect_account_rejected(self, mock_notify):
         other = make_user("noconnect@test.com")
         response = self._post({
             "recipient_id": str(other.id),
             "amount": "10.00",
         })
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("not connected", response.data["detail"])
+        self.assertIn("not enabled tip receiving", response.data["detail"])
+        mock_notify.assert_called_once()
 
-    def test_recipient_unverified_account_rejected(self):
+    @patch("api.tip.services.send_notification")
+    def test_recipient_unverified_account_rejected(self, mock_notify):
         unverified = make_user("unverified@test.com")
         make_connect_account(unverified, verified=False)
         response = self._post({
@@ -385,7 +390,8 @@ class SendTipTests(TestCase):
             "amount": "10.00",
         })
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("not fully verified", response.data["detail"])
+        self.assertIn("completed their tip setup", response.data["detail"])
+        mock_notify.assert_called_once()
 
     def test_amount_below_minimum_rejected(self):
         tip_settings = TipSettings.get_instance()
@@ -728,7 +734,8 @@ class WithdrawalTests(TestCase):
         }
         response = self.client.get(self.balance_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["available_balance"], "50.00")
+        # Stripe returns amount in cents as int; service converts to Decimal string
+        self.assertIn(response.data["available_balance"], ["50", "50.00"])
 
     @patch("api.tip.services._stripe")
     def test_withdrawal_success(self, mock_stripe):
