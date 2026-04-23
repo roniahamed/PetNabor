@@ -56,10 +56,17 @@ def create_connect_account(user):
 
     # Build metadata for the Express account
     email = user.email or ""
+    base_url = getattr(settings, "FRONTEND_BASE_URL", "https://petnabor.com")
+
     account = s.Account.create(
         type="express",
         email=email,
         business_type="individual",
+        business_profile={
+            # MCC 7299 = "Other personal services" — fits peer tipping on a pet social app
+            "mcc": "7299",
+            "url": base_url,
+        },
         capabilities={
             "card_payments": {"requested": True},
             "transfers": {"requested": True},
