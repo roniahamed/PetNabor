@@ -81,8 +81,7 @@ class ConnectStatusView(APIView):
     @extend_schema(
         summary="Get Stripe Connect account status",
         responses={
-            200: OpenApiResponse(description="Current connect account status."),
-            404: OpenApiResponse(description="No connect account found."),
+            200: OpenApiResponse(description="Current connect account status, or {'is_connect': False} if not connected."),
         },
         tags=["Tip / Stripe Connect"],
     )
@@ -98,8 +97,8 @@ class ConnectStatusView(APIView):
 
         if connect is None:
             return Response(
-                {"detail": "No Stripe Connect account found. Please onboard first."},
-                status=status.HTTP_404_NOT_FOUND,
+                {"is_connect": False},
+                status=status.HTTP_200_OK,
             )
 
         serializer = StripeConnectAccountSerializer(connect)
