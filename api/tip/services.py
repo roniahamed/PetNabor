@@ -429,6 +429,31 @@ def handle_payment_intent_succeeded(payment_intent):
         tip.save(update_fields=["status", "stripe_charge_id", "updated_at"])
         logger.info("Tip %s succeeded (PI: %s)", tip.id, pi_id)
 
+        # Notify both parties about the successful tip
+        try:
+            send_notification(
+                title="You received a tip!",
+                body=(
+                    f"{tip.tipper.first_name or 'Someone'} sent you a "
+                    f"${tip.recipient_amount:.2f} tip. It's on its way to your account!"
+                ),
+                user_id=tip.recipient_id,
+                notification_type=NotificationTypes.TIP_RECEIVED,
+                data={"tip_id": str(tip.id)},
+            )
+            send_notification(
+                title="Tip sent successfully!",
+                body=(
+                    f"Your ${tip.amount:.2f} tip to "
+                    f"{tip.recipient.first_name or 'the recipient'} was sent successfully."
+                ),
+                user_id=tip.tipper_id,
+                notification_type=NotificationTypes.TIP_SENT,
+                data={"tip_id": str(tip.id)},
+            )
+        except Exception as exc:
+            logger.warning("Notification failed after tip succeeded (PI: %s): %s", pi_id, exc)
+
 
 def handle_payment_intent_failed(payment_intent):
     """Mark the tip as failed."""

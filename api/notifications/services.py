@@ -35,6 +35,7 @@ NOTIFICATION_SETTINGS_MAP = {
     NotificationTypes.STREAK_BONUS: "marketing_notifications",
     NotificationTypes.MESSAGE: "message_notifications",
     NotificationTypes.TIP_RECEIVED: "system_notifications",
+    NotificationTypes.TIP_SENT: "system_notifications",
     NotificationTypes.TIP_ENABLE_REQUEST: "system_notifications",
 }
 
@@ -68,11 +69,15 @@ def send_notification(
     else:
         return "No target users provided."
 
-    # Pre-filter by user's specific notification setting to minimize database queries in the batch
+    # Pre-filter by user's specific notification setting to minimize database queries in the batch.
+    # We use an OR condition: send if the setting is True OR if the user has no settings row yet
+    # (which means they are a new user and all settings default to True).
     setting_field = NOTIFICATION_SETTINGS_MAP.get(notification_type)
     if setting_field:
+        from django.db.models import Q
         users_query = users_query.filter(
-            **{f"notification_settings__{setting_field}": True}
+            Q(**{f"notification_settings__{setting_field}": True})
+            | Q(notification_settings__isnull=True)
         )
 
     total_count = users_query.count()
