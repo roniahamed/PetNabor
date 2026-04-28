@@ -291,30 +291,77 @@ class TipHistoryView(generics.ListAPIView):
 class TipBalanceView(APIView):
     """
     GET /tip/balance/
-    Returns the user's available Stripe balance for withdrawal.
+    Returns a full balance breakdown for the current user.
+
+    Fields:
+    - available_balance:  Immediately withdrawable (Stripe settled balance)
+    - pending_balance:    Stripe is still settling (2-7 days, not withdrawable yet)
+    - held_amount:        Confirmed tips waiting for you to connect your bank account
+    - incoming_amount:    Tips where payment hasn't been confirmed by Stripe yet
+    - total_earned:       Lifetime earnings (all succeeded tips)
+    - is_connected:       Whether you have a verified Stripe account
+    - is_fully_verified:  Whether your Stripe account is fully verified
+    - minimum_withdrawal: Minimum amount you can withdraw
     """
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        summary="Get available tip balance for withdrawal",
+        summary="Get full tip balance summary",
         tags=["Tip"],
     )
     def get(self, request):
         try:
-            available = services.get_stripe_balance(request.user)
-        except stripe.error.StripeError as exc:
-            logger.error("Stripe balance fetch error: %s", str(exc))
+            summary = services.get_full_balance_summary(request.user)
+        except Exception as exc:
+            logger.error("Balance summary error for user %s: %s", request.user.id, exc)
             return Response(
-                {"detail": "Failed to fetch balance from Stripe."},
+                {"detail": "Failed to fetch balance. Please try again later."},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
         tip_settings = TipSettings.get_instance()
+
+        # Build human-readable notes so the app can display helpful messages
+        notes = []
+        if summary["held_amount"] > 0:
+            notes.append(
+                f"${summary['held_amount']:.2f} is held and will be released automatically "
+                "once you connect your bank account."
+            )
+        if summary["pending_balance"] > 0:
+            notes.append(
+                f"${summary['pending_balance']:.2f} is pending settlement by Stripe "
+                "(typically 2-7 business days) and is not yet withdrawable."
+            )
+        if summary["incoming_amount"] > 0:
+            notes.append(
+                f"${summary['incoming_amount']:.2f} in tips are being processed by Stripe."
+            )
+        if not summary["is_connected"]:
+            notes.append(
+                "Connect your bank account to receive tips and make withdrawals."
+            )
+        elif not summary["is_fully_verified"]:
+            notes.append(
+                "Complete your Stripe onboarding to unlock withdrawals."
+            )
+
         return Response(
             {
-                "available_balance": str(available),
-                "currency": "usd",
+                "available_balance": f"{summary['available_balance']:.2f}",
+                "pending_balance": f"{summary['pending_balance']:.2f}",
+                "held_amount": f"{summary['held_amount']:.2f}",
+                "incoming_amount": f"{summary['incoming_amount']:.2f}",
+                "total_earned": f"{summary['total_earned']:.2f}",
+                "currency": summary["currency"],
+                "is_connected": summary["is_connected"],
+                "is_fully_verified": summary["is_fully_verified"],
                 "minimum_withdrawal": str(tip_settings.minimum_withdrawal_amount),
+                "can_withdraw": (
+                    summary["is_fully_verified"]
+                    and summary["available_balance"] >= tip_settings.minimum_withdrawal_amount
+                ),
+                "notes": notes,
             },
             status=status.HTTP_200_OK,
         )

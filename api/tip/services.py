@@ -375,17 +375,14 @@ def release_held_tips(user):
 
 
 def handle_payment_intent_succeeded(payment_intent):
-    """Mark the tip as succeeded and capture the charge ID.
-
-    Special case for HELD tips:
-    - If tip is HELD, only update the charge_id (money is on platform).
-    - The actual transfer happens in release_held_tips() when user connects.
-    - If tip is PENDING (direct flow), mark it SUCCEEDED normally.
-    """
+    """Mark tip as SUCCEEDED. HELD tips only get charge_id saved; transfer happens when account connects."""
     pi_id = payment_intent["id"]
-    charge_id = payment_intent.get("latest_charge") or payment_intent.get(
-        "charges", {}
-    ).get("data", [{}])[0].get("id")
+
+    charge_id = payment_intent.get("latest_charge")
+    if not charge_id:
+        charges_data = payment_intent.get("charges", {}).get("data", [])
+        if charges_data:
+            charge_id = charges_data[0].get("id")
 
     with transaction.atomic():
         try:
@@ -394,70 +391,57 @@ def handle_payment_intent_succeeded(payment_intent):
             logger.warning("Webhook: Tip not found for payment_intent %s", pi_id)
             return
 
-        if tip.status == TipStatus.SUCCEEDED:
-            return  # Idempotent
+        if tip.status in (TipStatus.SUCCEEDED, TipStatus.FAILED, TipStatus.REFUNDED):
+            logger.info("Webhook: Tip %s already %s — skipping", tip.id, tip.status)
+            return
 
         if tip.status == TipStatus.HELD:
-            # Payment confirmed but recipient has no account yet.
-            # Store charge_id so we can transfer later when they connect.
+            # Charge confirmed; keep HELD until recipient connects their account.
             tip.stripe_charge_id = charge_id
             tip.save(update_fields=["stripe_charge_id", "updated_at"])
-            logger.info(
-                "Held tip %s payment confirmed (charge: %s) — awaiting recipient account",
-                tip.id, charge_id,
-            )
-
-            # Re-notify recipient that a real payment is waiting
+            logger.info("Held tip %s charge confirmed (%s) — awaiting recipient account", tip.id, charge_id)
             try:
                 send_notification(
                     title="Payment confirmed — waiting for you!",
-                    body=(
-                        f"A ${tip.amount:.2f} tip is ready for you. "
-                        "Connect your bank account to receive it immediately."
-                    ),
+                    body=f"A ${tip.amount:.2f} tip is ready. Connect your bank account to receive it.",
                     user_id=tip.recipient_id,
                     notification_type=NotificationTypes.TIP_ENABLE_REQUEST,
                     data={"action": "connect_stripe", "tip_id": str(tip.id)},
                 )
             except Exception as exc:
-                logger.warning("Notification failed for held tip: %s", exc)
+                logger.warning("Notification failed for held tip %s: %s", tip.id, exc)
             return
 
-        # Normal PENDING → SUCCEEDED
+        # PENDING → SUCCEEDED (direct transfer flow)
         tip.status = TipStatus.SUCCEEDED
         tip.stripe_charge_id = charge_id
         tip.save(update_fields=["status", "stripe_charge_id", "updated_at"])
-        logger.info("Tip %s succeeded (PI: %s)", tip.id, pi_id)
+        logger.info("Tip %s SUCCEEDED (PI: %s, charge: %s)", tip.id, pi_id, charge_id)
 
-        # Notify both parties about the successful tip
-        try:
-            send_notification(
-                title="You received a tip!",
-                body=(
-                    f"{tip.tipper.first_name or 'Someone'} sent you a "
-                    f"${tip.recipient_amount:.2f} tip. It's on its way to your account!"
-                ),
-                user_id=tip.recipient_id,
-                notification_type=NotificationTypes.TIP_RECEIVED,
-                data={"tip_id": str(tip.id)},
-            )
-            send_notification(
-                title="Tip sent successfully!",
-                body=(
-                    f"Your ${tip.amount:.2f} tip to "
-                    f"{tip.recipient.first_name or 'the recipient'} was sent successfully."
-                ),
-                user_id=tip.tipper_id,
-                notification_type=NotificationTypes.TIP_SENT,
-                data={"tip_id": str(tip.id)},
-            )
-        except Exception as exc:
-            logger.warning("Notification failed after tip succeeded (PI: %s): %s", pi_id, exc)
+    # Notifications outside atomic block
+    try:
+        send_notification(
+            title="You received a tip!",
+            body=f"{tip.tipper.first_name or 'Someone'} sent you a ${tip.recipient_amount:.2f} tip!",
+            user_id=tip.recipient_id,
+            notification_type=NotificationTypes.TIP_RECEIVED,
+            data={"tip_id": str(tip.id)},
+        )
+        send_notification(
+            title="Tip sent successfully!",
+            body=f"Your ${tip.amount:.2f} tip to {tip.recipient.first_name or 'the recipient'} was sent.",
+            user_id=tip.tipper_id,
+            notification_type=NotificationTypes.TIP_SENT,
+            data={"tip_id": str(tip.id)},
+        )
+    except Exception as exc:
+        logger.warning("Notification failed after tip succeeded (PI: %s): %s", pi_id, exc)
 
 
 def handle_payment_intent_failed(payment_intent):
-    """Mark the tip as failed."""
+    """Mark tip as FAILED and notify the tipper."""
     pi_id = payment_intent["id"]
+    failure_msg = (payment_intent.get("last_payment_error", {}) or {}).get("message", "Payment failed.")
 
     with transaction.atomic():
         try:
@@ -466,12 +450,24 @@ def handle_payment_intent_failed(payment_intent):
             logger.warning("Webhook: Tip not found for failed payment_intent %s", pi_id)
             return
 
-        if tip.status in (TipStatus.SUCCEEDED, TipStatus.FAILED):
+        if tip.status in (TipStatus.SUCCEEDED, TipStatus.FAILED, TipStatus.REFUNDED):
+            logger.info("Webhook: Tip %s already %s — skipping", tip.id, tip.status)
             return
 
         tip.status = TipStatus.FAILED
         tip.save(update_fields=["status", "updated_at"])
-        logger.info("Tip %s failed (PI: %s)", tip.id, pi_id)
+        logger.info("Tip %s FAILED (PI: %s): %s", tip.id, pi_id, failure_msg)
+
+    try:
+        send_notification(
+            title="Tip payment failed",
+            body=f"Your ${tip.amount:.2f} tip could not be processed. Please try again.",
+            user_id=tip.tipper_id,
+            notification_type=NotificationTypes.TIP_SENT,
+            data={"tip_id": str(tip.id), "status": "failed"},
+        )
+    except Exception as exc:
+        logger.warning("Notification failed after tip failure (PI: %s): %s", pi_id, exc)
 
 
 def handle_payment_intent_cancelled(payment_intent):
@@ -491,17 +487,43 @@ def handle_payment_intent_cancelled(payment_intent):
 def handle_charge_refunded(charge):
     """Mark the tip as refunded when the charge is refunded."""
     charge_id = charge["id"]
+    pi_id = charge.get("payment_intent")
 
     with transaction.atomic():
+        tip = None
+        # Try by charge_id first, fall back to payment_intent_id
         try:
             tip = Tip.objects.select_for_update().get(stripe_charge_id=charge_id)
         except Tip.DoesNotExist:
-            logger.warning("Webhook: Tip not found for refunded charge %s", charge_id)
+            if pi_id:
+                try:
+                    tip = Tip.objects.select_for_update().get(stripe_payment_intent_id=pi_id)
+                except Tip.DoesNotExist:
+                    pass
+
+        if tip is None:
+            logger.warning(
+                "Webhook: Tip not found for refunded charge %s (PI: %s)", charge_id, pi_id
+            )
             return
+
+        if tip.status == TipStatus.REFUNDED:
+            return  # Idempotent
 
         tip.status = TipStatus.REFUNDED
         tip.save(update_fields=["status", "updated_at"])
         logger.info("Tip %s refunded (charge: %s)", tip.id, charge_id)
+
+    try:
+        send_notification(
+            title="Tip refunded",
+            body=f"Your ${tip.amount:.2f} tip has been refunded.",
+            user_id=tip.tipper_id,
+            notification_type=NotificationTypes.TIP_SENT,
+            data={"tip_id": str(tip.id), "status": "refunded"},
+        )
+    except Exception as exc:
+        logger.warning("Notification failed after refund (charge: %s): %s", charge_id, exc)
 
 
 def handle_account_updated(account):
@@ -621,11 +643,85 @@ def get_stripe_balance(user):
         return Decimal("0.00")
 
     balance = s.Balance.retrieve(stripe_account=connect.stripe_account_id)
-    available = balance.get("available", [])
-    for entry in available:
+
+    available_usd = Decimal("0.00")
+    for entry in balance.get("available", []):
         if entry["currency"] == "usd":
-            return Decimal(str(entry["amount"])) / Decimal("100")
-    return Decimal("0.00")
+            available_usd = Decimal(str(entry["amount"])) / Decimal("100")
+            break
+
+    return available_usd
+
+
+def get_full_balance_summary(user):
+    """
+    Return a comprehensive balance summary for a user, including:
+    - available_balance: Stripe available balance (withdrawable)
+    - pending_balance:   Stripe pending balance (not yet settled)
+    - held_amount:       Tips in HELD status (payment confirmed, no connect account yet)
+    - incoming_amount:   Tips in PENDING status (payment not yet confirmed by Stripe)
+    - total_earned:      Lifetime SUCCEEDED tip recipient_amount
+    - is_connected:      Whether the user has a verified Stripe account
+    """
+    from django.db.models import Sum
+
+    result = {
+        "available_balance": Decimal("0.00"),
+        "pending_balance": Decimal("0.00"),
+        "held_amount": Decimal("0.00"),
+        "incoming_amount": Decimal("0.00"),
+        "total_earned": Decimal("0.00"),
+        "is_connected": False,
+        "is_fully_verified": False,
+        "currency": "usd",
+    }
+
+    # Lifetime earnings
+    earned = Tip.objects.filter(
+        recipient=user, status=TipStatus.SUCCEEDED
+    ).aggregate(total=Sum("recipient_amount"))["total"]
+    result["total_earned"] = earned or Decimal("0.00")
+
+    # Held tips (payment confirmed, waiting for connect account)
+    held = Tip.objects.filter(
+        recipient=user,
+        status=TipStatus.HELD,
+        stripe_charge_id__isnull=False,  # charge confirmed
+    ).aggregate(total=Sum("recipient_amount"))["total"]
+    result["held_amount"] = held or Decimal("0.00")
+
+    # Incoming tips (PENDING — payment intent created but not yet confirmed)
+    incoming = Tip.objects.filter(
+        recipient=user, status=TipStatus.PENDING
+    ).aggregate(total=Sum("recipient_amount"))["total"]
+    result["incoming_amount"] = incoming or Decimal("0.00")
+
+    # Stripe balance (only if connected)
+    try:
+        connect = user.stripe_connect_account
+        result["is_connected"] = True
+        result["is_fully_verified"] = connect.is_fully_verified
+    except StripeConnectAccount.DoesNotExist:
+        return result
+
+    if not connect.is_fully_verified:
+        return result
+
+    s = _stripe()
+    try:
+        balance = s.Balance.retrieve(stripe_account=connect.stripe_account_id)
+        for entry in balance.get("available", []):
+            if entry["currency"] == "usd":
+                result["available_balance"] = Decimal(str(entry["amount"])) / Decimal("100")
+                break
+        for entry in balance.get("pending", []):
+            if entry["currency"] == "usd":
+                result["pending_balance"] = Decimal(str(entry["amount"])) / Decimal("100")
+                break
+    except Exception as exc:
+        logger.warning("Failed to fetch Stripe balance for user %s: %s", user.id, exc)
+
+    return result
 
 
 def create_withdrawal(user, amount: Decimal):
