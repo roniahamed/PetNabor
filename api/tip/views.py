@@ -266,16 +266,39 @@ class TipHistoryView(generics.ListAPIView):
     def get_queryset(self):
         direction = self.request.query_params.get("direction", "all")  # sent | received | all
 
-        qs = Tip.objects.select_related("tipper", "recipient", "meeting")
+        # Statuses that a recipient should see:
+        # Only confirmed/settled payments are relevant to the receiver.
+        # PENDING = sender hasn't completed card payment yet (sender-side only)
+        # FAILED / CANCELLED = sender-side failures, irrelevant to receiver
+        RECEIVER_VISIBLE_STATUSES = [
+            TipStatus.SUCCEEDED,
+            TipStatus.HELD,
+            TipStatus.REFUNDED,
+        ]
 
         if direction == "sent":
-            qs = qs.filter(tipper=self.request.user)
+            # Sender sees everything: PENDING, FAILED, CANCELLED, SUCCEEDED, etc.
+            qs = Tip.objects.select_related("tipper", "recipient", "meeting").filter(
+                tipper=self.request.user
+            )
         elif direction == "received":
-            qs = qs.filter(recipient=self.request.user)
+            # Receiver sees only confirmed payments
+            qs = Tip.objects.select_related("tipper", "recipient", "meeting").filter(
+                recipient=self.request.user,
+                status__in=RECEIVER_VISIBLE_STATUSES,
+            )
         else:
-            qs = qs.filter(tipper=self.request.user) | qs.filter(recipient=self.request.user)
-            qs = qs.order_by("-created_at")
+            # "all" view: sent tips (all statuses) + received tips (confirmed only)
+            sent_qs = Tip.objects.select_related("tipper", "recipient", "meeting").filter(
+                tipper=self.request.user
+            )
+            received_qs = Tip.objects.select_related("tipper", "recipient", "meeting").filter(
+                recipient=self.request.user,
+                status__in=RECEIVER_VISIBLE_STATUSES,
+            )
+            qs = (sent_qs | received_qs).order_by("-created_at")
 
+        # Allow explicit status filter on top (useful for "show only my failed tips" etc.)
         status_filter = self.request.query_params.get("status")
         if status_filter and status_filter in TipStatus.values:
             qs = qs.filter(status=status_filter)
@@ -333,10 +356,6 @@ class TipBalanceView(APIView):
                 f"${summary['pending_balance']:.2f} is pending settlement by Stripe "
                 "(typically 2-7 business days) and is not yet withdrawable."
             )
-        if summary["incoming_amount"] > 0:
-            notes.append(
-                f"${summary['incoming_amount']:.2f} in tips are being processed by Stripe."
-            )
         if not summary["is_connected"]:
             notes.append(
                 "Connect your bank account to receive tips and make withdrawals."
@@ -351,7 +370,6 @@ class TipBalanceView(APIView):
                 "available_balance": f"{summary['available_balance']:.2f}",
                 "pending_balance": f"{summary['pending_balance']:.2f}",
                 "held_amount": f"{summary['held_amount']:.2f}",
-                "incoming_amount": f"{summary['incoming_amount']:.2f}",
                 "total_earned": f"{summary['total_earned']:.2f}",
                 "currency": summary["currency"],
                 "is_connected": summary["is_connected"],

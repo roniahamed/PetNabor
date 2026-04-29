@@ -662,13 +662,8 @@ def get_stripe_balance(user):
 
 def get_full_balance_summary(user):
     """
-    Return a comprehensive balance summary for a user, including:
-    - available_balance: Stripe available balance (withdrawable)
-    - pending_balance:   Stripe pending balance (not yet settled)
-    - held_amount:       Tips in HELD status (payment confirmed, no connect account yet)
-    - incoming_amount:   Tips in PENDING status (payment not yet confirmed by Stripe)
-    - total_earned:      Lifetime SUCCEEDED tip recipient_amount
-    - is_connected:      Whether the user has a verified Stripe account
+    Returns balance summary: Stripe available/pending balances + DB-tracked held tips and earnings.
+    PENDING tips (sender hasn't completed card payment) are excluded from the recipient's view.
     """
     from django.db.models import Sum
 
@@ -676,34 +671,26 @@ def get_full_balance_summary(user):
         "available_balance": Decimal("0.00"),
         "pending_balance": Decimal("0.00"),
         "held_amount": Decimal("0.00"),
-        "incoming_amount": Decimal("0.00"),
         "total_earned": Decimal("0.00"),
         "is_connected": False,
         "is_fully_verified": False,
         "currency": "usd",
     }
 
-    # Lifetime earnings
+    # Lifetime successful earnings
     earned = Tip.objects.filter(
         recipient=user, status=TipStatus.SUCCEEDED
     ).aggregate(total=Sum("recipient_amount"))["total"]
     result["total_earned"] = earned or Decimal("0.00")
 
-    # Held tips (payment confirmed, waiting for connect account)
+    # Held: charge captured on platform, waiting for recipient to connect their bank account
     held = Tip.objects.filter(
         recipient=user,
         status=TipStatus.HELD,
-        stripe_charge_id__isnull=False,  # charge confirmed
+        stripe_charge_id__isnull=False,
     ).aggregate(total=Sum("recipient_amount"))["total"]
     result["held_amount"] = held or Decimal("0.00")
 
-    # Incoming tips (PENDING — payment intent created but not yet confirmed)
-    incoming = Tip.objects.filter(
-        recipient=user, status=TipStatus.PENDING
-    ).aggregate(total=Sum("recipient_amount"))["total"]
-    result["incoming_amount"] = incoming or Decimal("0.00")
-
-    # Stripe balance (only if connected)
     try:
         connect = user.stripe_connect_account
         result["is_connected"] = True
