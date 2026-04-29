@@ -69,6 +69,13 @@ def create_connect_account(user):
             "mcc": "7299",
             "url": business_url,
         },
+        settings={
+            "payouts": {
+                "schedule": {
+                    "interval": "manual",
+                }
+            }
+        },
         capabilities={
             "card_payments": {"requested": True},
             "transfers": {"requested": True},
