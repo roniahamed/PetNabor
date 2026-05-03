@@ -55,17 +55,16 @@ def create_connect_account(user):
         pass
 
     # Build metadata for the Express account
-    email = user.email or ""
+    email = (user.email or "").strip()
     frontend_url = getattr(settings, "FRONTEND_BASE_URL", "petnabor://")
     # Stripe requires a valid HTTPS URL for business_profile.url
     business_url = getattr(settings, "BUSINESS_URL", "https://petnabor.com")
 
-    account = s.Account.create(
+    # Only include email if it's actually present — Stripe rejects empty strings
+    account_params = dict(
         type="express",
-        email=email,
         business_type="individual",
         business_profile={
-            # MCC 7299 = "Other personal services" — fits peer tipping on a pet social app
             "mcc": "7299",
             "url": business_url,
         },
@@ -82,6 +81,10 @@ def create_connect_account(user):
         },
         metadata={"user_id": str(user.id)},
     )
+    if email:
+        account_params["email"] = email
+
+    account = s.Account.create(**account_params)
 
     connect = StripeConnectAccount.objects.create(
         user=user,
