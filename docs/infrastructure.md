@@ -1,80 +1,88 @@
 # PetNabor Backend Infrastructure & Caching
 
+_Production Infrastructure, Deployment Strategy, Database Topology, Caching Model, Performance & Security_
+
+**Prepared by**
+
+**Roni Ahamed**
+
+**Backend Developer**
+
+> Read alongside: PetNabor Architectural Overview
+
+## Executive Summary
+
+PetNabor runs on a stateless Django ASGI backend deployed as Docker containers on AWS, backed by managed cloud services for all stateful workloads. The system is designed for horizontal scalability, high availability, and secure media delivery.
+
+| Layer | Technology |
+| --- | --- |
+| API Framework | Django 4.x + Django REST Framework |
+| Runtime | Gunicorn + Uvicorn (ASGI) — supports REST and WebSocket |
+| Database | AWS RDS PostgreSQL with PostGIS extension |
+| Cache & Message Broker | AWS ElastiCache Redis |
+| Async Task Queue | Celery + Celery Beat |
+| Object Storage | AWS S3 |
+| CDN | AWS CloudFront |
+| Authentication | JWT (SimpleJWT) with refresh token rotation |
+| Real-time | Django Channels over WebSocket |
+| Push Notifications | Firebase Cloud Messaging (FCM) |
+| Phone OTP | Twilio |
+| Email | AWS SES |
+| Payments | Stripe + Stripe Connect |
+| Maps / Geospatial | Google Maps API / Mapbox + PostGIS |
+| Containerization | Docker — same image across all environments |
+| Reverse Proxy | Nginx |
+| Load Balancer | AWS Application Load Balancer (ALB) |
+| Secret Management | AWS Secrets Manager / SSM Parameter Store |
+| Social Login | Firebase (Google + Apple) |
+
+The sections that follow document each layer in detail: infrastructure topology, runtime processes, database schema, caching strategy, security controls, and observability.
+
 ## 1. Purpose
 
 This document defines the production infrastructure, deployment strategy, database topology, caching model, performance approach, redundancy plan, and security infrastructure for PetNabor.
 
-Read it together with [PetNabor Architectural Overview](./architectural-overview-backend-infrastructure.md), which explains the application architecture and domain components.
+Read it together with PetNabor Architectural Overview, which explains the application architecture and domain components.
 
 ## 2. Infrastructure Objectives
 
-PetNabor production infrastructure should meet these objectives:
-
-| Objective | Requirement |
+| Objective | Design Decision |
 | --- | --- |
-| Managed durability | Use AWS-managed stateful services for database, object storage, CDN, and preferably Redis |
-| Horizontal scale | Run multiple stateless web and worker containers |
-| Secure edge | Serve all public traffic through HTTPS with a wildcard SSL certificate |
-| Fast media delivery | Store media in S3 and deliver through CloudFront |
-| Operational visibility | Centralize logs, metrics, error reporting, and alerts |
-| Failure recovery | Use backups, point-in-time restore, redeployable containers, and documented rollback |
-| Cost discipline | Start with simple managed services and scale only measured bottlenecks |
+| Managed durability | AWS-managed stateful services for database, object storage, CDN, and Redis |
+| Horizontal scale | Multiple stateless web and worker containers behind a load balancer |
+| Secure edge | All public traffic served through HTTPS with a wildcard SSL certificate |
+| Fast media delivery | Media stored in S3, delivered through CloudFront |
+| Operational visibility | Centralized logs, metrics, error reporting, and alerts |
+| Failure recovery | Automated backups, point-in-time restore, redeployable containers, and rollback procedures |
+| Cost discipline | Simple managed services scaled at measured bottlenecks |
 
 ## 3. Production AWS Topology
 
-### 3.1 Target Topology Diagram
+### 3.1 System Topology
 
-```text
-Internet Clients
-  |-- Mobile app
-  |-- Web frontend
-  |-- Admin browser
-  `-- Stripe webhooks
-        |
-        v
-DNS
-  |-- api.petnabor.com / backend.petnabor.com
-  `-- *.petnabor.com
-        |
-        v
-CloudFront + Wildcard SSL
-  |-- Static asset distribution
-  |-- Media distribution from S3
-  `-- Optional API distribution / WAF policy
-        |
-        v
-Application Load Balancer or Public Reverse Proxy
-        |
-        v
-Private Application Subnets
-  |-- Nginx / app gateway containers
-  |-- Django ASGI web containers
-  |-- Celery worker containers
-        |
-        |-------------------|-------------------|------------------|
-        v                   v                   v                  v
-RDS PostgreSQL          ElastiCache Redis     S3 Buckets       External APIs
-PostGIS, Multi-AZ       Cache, broker,        media/static     Firebase, Twilio,
-backups, PITR           Channels              objects          SES/SMTP, Stripe,
-                                                            Google Maps/Mapbox
-```
+The production AWS topology is structured as follows:
 
-### 3.2 Required Production Accounts and Services
+Internet Clients  →  DNS  →  CloudFront + Wildcard SSL  →  ALB / Reverse Proxy
 
-| Area | Required Access or Service |
+→  Private App Subnets (Nginx + Django ASGI + Celery)
+
+→  RDS PostgreSQL / ElastiCache Redis / S3 / External APIs
+
+### 3.2 Production Services
+
+| Area | Service |
 | --- | --- |
 | Cloud provider | AWS account access |
 | Object storage | AWS S3 |
 | Database | AWS RDS PostgreSQL with PostGIS extension support |
-| Domain | DNS access, preferably Route 53 if AWS-managed DNS is desired |
+| Domain | DNS access, preferably Route 53 |
 | CDN | AWS CloudFront |
-| TLS | Wildcard SSL certificate, preferably AWS Certificate Manager for CloudFront/ALB |
-| Push/social login | Firebase project for push notifications, Google Login, and Apple Login |
+| TLS | Wildcard SSL certificate via AWS Certificate Manager |
+| Push/social login | Firebase project for FCM, Google Login, Apple Login |
 | Maps | Google Maps API or Mapbox account |
 | SMS | Twilio account for phone OTP verification |
-| Email | AWS SES or SMTP provider for email OTP verification |
+| Email | AWS SES or SMTP provider for email OTP |
 | Payments | Stripe and Stripe Connect |
-
 
 ## 4. Runtime Architecture
 
@@ -83,16 +91,16 @@ backups, PITR           Channels              objects          SES/SMTP, Stripe,
 | Process | Runtime | Responsibility |
 | --- | --- | --- |
 | Web/API | Gunicorn with Uvicorn worker | Django REST API, admin, WebSocket entrypoint |
-| Nginx | Nginx container or host/service proxy | Reverse proxy, WebSocket upgrade, upload limits |
+| Nginx | Nginx container | Reverse proxy, WebSocket upgrade, upload limits |
 | Celery worker | Celery | OTP, notifications, media processing, referrals, async jobs |
-| Optional Celery Beat | Celery Beat | Scheduled cleanup, reconciliation, expiry jobs |
+| Celery Beat | Celery Beat | Scheduled cleanup, reconciliation, expiry jobs |
 
-Recommended production process separation:
+Production process separation by workload:
 
 | Workload | Deployment Unit |
 | --- | --- |
-| HTTP REST/Admin | `web` service |
-| WebSocket traffic | Either same ASGI `web` service or a separately scaled ASGI service |
+| HTTP REST / Admin | web service |
+| WebSocket traffic | Same ASGI web service or separately scaled ASGI service |
 | Media jobs | Dedicated Celery queue/worker |
 | Notification jobs | Dedicated Celery queue/worker |
 | OTP jobs | Dedicated high-priority Celery queue/worker |
@@ -100,65 +108,52 @@ Recommended production process separation:
 
 ### 4.2 Deployment Strategy
 
-The current repository uses Docker Compose with `db`, `redis`, `web`, `nginx`, and `celery`. In AWS production, the same Docker image should be deployed while stateful dependencies move to managed services.
+The application is packaged as a Docker image and deployed to AWS. Stateful dependencies run as managed services. The same image is used across all environments.
 
-Recommended deployment sequence:
+Deployment sequence:
 
-1. Build and tag an application Docker image.
-2. Push the image to a registry such as Amazon ECR.
-3. Run migrations as a controlled one-off task before or during release.
-4. Roll out web containers.
-5. Roll out Celery workers.
-6. Verify health checks, logs, queue depth, and error rates.
-7. Invalidate CloudFront paths only when static assets or cache-sensitive public content require it.
+1. Build and tag an application Docker image
 
-Avoid relying on every web container startup to run migrations in production. Automatic migrations in an entrypoint are acceptable for simple single-host deployment, but controlled migration jobs are safer once multiple instances are running.
+2. Push the image to a registry such as Amazon ECR
+
+3. Run migrations as a controlled one-off task before or during release
+
+4. Roll out web containers
+
+5. Roll out Celery workers
+
+6. Verify health checks, logs, queue depth, and error rates
+
+7. Invalidate CloudFront paths only when static assets or cache-sensitive content require it
 
 ### 4.3 Environment Configuration
 
-Important production variables:
+Production environment variables:
 
 | Variable | Purpose |
 | --- | --- |
-| `DEBUG` | Must be `False` in production |
-| `SECRET_KEY` | Django cryptographic secret |
-| `DJANGO_ALLOWED_HOSTS` | API/admin hostnames |
-| `CSRF_TRUSTED_ORIGINS` | Trusted HTTPS origins |
-| `CORS_ALLOWED_ORIGINS` | Frontend app origins |
-| `POSTGRES_DB` | RDS database name |
-| `POSTGRES_USER` | RDS username |
-| `POSTGRES_PASSWORD` | RDS password |
-| `POSTGRES_HOST` | RDS endpoint |
-| `POSTGRES_PORT` | Usually `5432` |
-| `REDIS_URL` | Redis endpoint for cache/Channels |
-| `CELERY_BROKER_URL` | Redis broker URL |
-| `CELERY_RESULT_BACKEND` | Celery result backend URL |
-| `AWS_ACCESS_KEY_ID` / IAM role | S3/SES access where role-based access is unavailable |
-| `AWS_SECRET_ACCESS_KEY` | S3/SES secret if static keys are used |
-| `AWS_STORAGE_BUCKET_NAME` | S3 media/static bucket |
-| `AWS_S3_REGION_NAME` | S3 bucket region |
-| `AWS_CLOUDFRONT_DOMAIN` | CDN asset domain |
-| `TWILIO_ACCOUNT_SID` | Twilio account |
-| `TWILIO_AUTH_TOKEN` | Twilio secret |
-| `TWILIO_PHONE_NUMBER` | OTP sender number |
-| `EMAIL_HOST` | SMTP or SES endpoint |
-| `EMAIL_PORT` | SMTP port |
-| `EMAIL_USE_TLS` | SMTP TLS flag |
-| `EMAIL_HOST_USER` | SMTP username |
-| `EMAIL_HOST_PASSWORD` | SMTP password |
-| `STRIPE_SECRET_KEY` | Stripe secret key |
-| `STRIPE_PUBLISHABLE_KEY` | Stripe publishable key |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature secret |
-| `FRONTEND_BASE_URL` | Stripe redirect and frontend link base |
+| DEBUG | Must be False in production |
+| SECRET_KEY | Django cryptographic secret |
+| DJANGO_ALLOWED_HOSTS | API/admin hostnames |
+| CSRF_TRUSTED_ORIGINS | Trusted HTTPS origins |
+| CORS_ALLOWED_ORIGINS | Frontend app origins |
+| POSTGRES_DB / USER / PASSWORD / HOST / PORT | RDS database connection |
+| REDIS_URL | Redis endpoint for cache/Channels |
+| CELERY_BROKER_URL | Redis broker URL |
+| CELERY_RESULT_BACKEND | Celery result backend URL |
+| AWS_ACCESS_KEY_ID / IAM role | S3/SES access |
+| AWS_STORAGE_BUCKET_NAME | S3 media/static bucket |
+| AWS_CLOUDFRONT_DOMAIN | CDN asset domain |
+| TWILIO_ACCOUNT_SID / AUTH_TOKEN / PHONE_NUMBER | Twilio OTP sender |
+| EMAIL_HOST / PORT / USE_TLS / HOST_USER / PASSWORD | SMTP or SES endpoint |
+| STRIPE_SECRET_KEY / PUBLISHABLE_KEY / WEBHOOK_SECRET | Stripe keys |
+| FRONTEND_BASE_URL | Stripe redirect and frontend link base |
 
-
-Use AWS Secrets Manager or SSM Parameter Store for production secrets. Do not commit `.env`, Firebase service account JSON, Stripe secrets, Twilio secrets, or SMTP credentials.
+Use AWS Secrets Manager or SSM Parameter Store for production secrets. Do not commit .env, Firebase JSON, Stripe secrets, Twilio secrets, or SMTP credentials to source control.
 
 ## 5. Server Architecture
 
 ### 5.1 Network Layout
-
-Recommended VPC layout:
 
 | Layer | Placement |
 | --- | --- |
@@ -167,7 +162,7 @@ Recommended VPC layout:
 | Private data subnets | RDS and Redis |
 | S3 | Access via public AWS endpoint or VPC endpoint |
 
-Security group model:
+### Security Group Model
 
 | Source | Destination | Ports |
 | --- | --- | --- |
@@ -176,36 +171,26 @@ Security group model:
 | App service | RDS | 5432 |
 | App service | Redis | 6379 |
 | App/worker | S3 | HTTPS 443 |
-| App/worker | Firebase/Twilio/Stripe/Maps/SMTP | HTTPS/SMTP provider ports |
+| App/worker | Firebase/Twilio/Stripe/SMTP | HTTPS/SMTP provider ports |
 
 ### 5.2 Load Balancing
 
-Use an Application Load Balancer when running multiple app instances. Requirements:
+Use an Application Load Balancer when running multiple app instances.
 
 | Requirement | Reason |
 | --- | --- |
-| WebSocket support | Chat uses `/ws/` connections |
-| Long idle timeout | WebSocket connections need a longer timeout than normal REST requests |
-| Health checks | Remove unhealthy app containers from rotation |
-| TLS termination | Terminate HTTPS at ALB or CloudFront using wildcard certificate |
+| WebSocket support | Chat uses /ws/ connections |
+| Long idle timeout | WebSocket connections need a longer timeout than REST |
+| Health checks | Remove unhealthy containers from rotation |
+| TLS termination | Terminate HTTPS at ALB or CloudFront using wildcard cert |
 | Forwarded headers | Preserve scheme/host/IP for Django settings and audit logs |
-
-Django already has:
-
-```python
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-USE_X_FORWARDED_HOST = True
-USE_X_FORWARDED_PORT = True
-```
-
-Ensure the load balancer and proxy set `X-Forwarded-Proto`, `X-Forwarded-Host`, and `X-Forwarded-For` correctly.
 
 ### 5.3 Redundancy
 
 | Component | Redundancy Strategy |
 | --- | --- |
 | Web containers | Minimum two instances across availability zones |
-| Celery workers | Minimum two workers for critical queues where budget allows |
+| Celery workers | Minimum two workers for critical queues |
 | RDS | Multi-AZ, automated backups, point-in-time restore |
 | Redis | Managed Redis with automatic failover if available |
 | S3 | Native multi-AZ durability |
@@ -216,43 +201,39 @@ Ensure the load balancer and proxy set `X-Forwarded-Proto`, `X-Forwarded-Host`, 
 
 ### 6.1 Database Engine
 
-Production database:
-
 | Setting | Value |
 | --- | --- |
 | Engine | AWS RDS PostgreSQL |
 | Extension | PostGIS |
-| Django backend | `django.contrib.gis.db.backends.postgis` |
+| Django backend | django.contrib.gis.db.backends.postgis |
 | Primary access pattern | Django ORM |
 | Backup | Automated backups with PITR |
-| Availability | Multi-AZ recommended |
+| Availability | Multi-AZ |
 
 ### 6.2 Schema Domains
 
 | Domain | Key Tables / Models |
 | --- | --- |
-| Users | `users.User`, `users.Profile`, `users.OTPVerification` |
-| Pets | `pet.PetProfile` |
-| Social graph | `friends.FriendRequest`, `friends.Friendship`, `friends.UserBlock` |
-| Posts | `post.Post`, `post.PostMedia`, `post.PostLike`, `post.PostComment`, `post.SavedPost`, `post.Hashtag` |
-| Stories | `story.Story`, `story.StoryView`, `story.StoryReaction`, `story.StoryReply` |
-| Blogs | `blog.BlogCategory`, `blog.Blog`, `blog.BlogLike`, `blog.BlogComment`, `blog.BlogViewTracker` |
-| Messaging | `messaging.ChatThread`, `messaging.ThreadParticipant`, `messaging.Message` |
-| Meetings | `meeting.Meeting`, `meeting.MeetingFeedback` |
-| Notifications | `notifications.NotificationSettings`, `notifications.FCMDevice`, `notifications.Notifications` |
-| Referrals | `referral.ReferralSettings`, `referral.ReferralWallet`, `referral.ReferralTransaction` |
-| Vendor/product | `vendor.VendorPlan`, `vendor.Vendor`, `vendor.VendorSubscription`, `product.Categories`, `product.Brand`, `product.Product`, `product.ProductMedia`, `product.ProductEvent`, `wishlist.ProductWishlist` |
-| Tips | `tip.TipSettings`, `tip.StripeConnectAccount`, `tip.Tip`, `tip.TipWithdrawal` |
-| Moderation | `report.Report` |
-| Settings | `site_settings.SiteSettings` |
+| Users | users.User, users.Profile, users.OTPVerification |
+| Pets | pet.PetProfile |
+| Social graph | friends.FriendRequest, friends.Friendship, friends.UserBlock |
+| Posts | post.Post, PostMedia, PostLike, PostComment, SavedPost, Hashtag |
+| Stories | story.Story, StoryView, StoryReaction, StoryReply |
+| Blogs | blog.BlogCategory, Blog, BlogLike, BlogComment, BlogViewTracker |
+| Messaging | messaging.ChatThread, ThreadParticipant, Message |
+| Meetings | meeting.Meeting, MeetingFeedback |
+| Notifications | notifications.NotificationSettings, FCMDevice, Notifications |
+| Referrals | referral.ReferralSettings, ReferralWallet, ReferralTransaction |
+| Vendor/Product | vendor.Vendor, VendorPlan, VendorSubscription, product.Categories, Brand, Product, ProductMedia |
+| Tips | tip.TipSettings, StripeConnectAccount, Tip, TipWithdrawal |
+| Moderation | report.Report |
+| Settings | site_settings.SiteSettings |
 
 ### 6.3 Indexing Principles
 
-Use indexes for:
-
 | Query Pattern | Index Strategy |
 | --- | --- |
-| Feed ordering | Composite indexes on owner/privacy/status/time where applicable |
+| Feed ordering | Composite indexes on owner/privacy/status/time |
 | Messaging inbox | Thread participant, last message timestamp, unread state |
 | Product listings | Category, vendor, active state, brand, created time |
 | Product analytics | Product, event type, created time |
@@ -260,11 +241,7 @@ Use indexes for:
 | Notifications | Recipient, read state, created time |
 | Geospatial discovery | PostGIS GiST/SP-GiST indexes for location fields |
 
-Avoid adding broad indexes without matching a real query. Every index improves reads but adds write cost and storage.
-
 ### 6.4 Migration Policy
-
-Production migration rules:
 
 | Rule | Reason |
 | --- | --- |
@@ -276,59 +253,45 @@ Production migration rules:
 
 ## 7. Object Storage, CDN, and Media Delivery
 
-### 7.1 Current State
+### 7.1 Storage Configuration
 
-The current settings use local media and static paths:
+Static files and uploaded media are served through S3 with CloudFront as the CDN layer. Docker Compose uses persistent volumes for local development.
 
-```python
-MEDIA_URL = "media/"
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
-STATIC_URL = "static/"
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-```
+### 7.2 S3 Bucket Structure
 
-Docker Compose mounts persistent volumes for media, static files, and temporary uploads.
-
-### 7.2 Production Target
-
-Use S3 for static and uploaded media. Use CloudFront in front of S3 for public asset delivery.
-
-Recommended buckets or prefixes:
+S3 is used for all static and uploaded media. CloudFront sits in front of S3 for public asset delivery.
 
 | Path | Purpose | Access |
 | --- | --- | --- |
-| `static/` | Collected Django static files | Public through CloudFront |
-| `media/original/` | Original uploads where retained | Private or restricted |
-| `media/processed/` | Compressed images, thumbnails, public media | Public through CloudFront where product allows |
-| `media/tmp/` | Temporary upload/processing objects | Private with lifecycle expiry |
+| static/ | Collected Django static files | Public through CloudFront |
+| media/original/ | Original uploads where retained | Private or restricted |
+| media/processed/ | Compressed images, thumbnails, public media | Public through CloudFront |
+| media/tmp/ | Temporary upload/processing objects | Private with lifecycle expiry |
 
-### 7.3 Recommended Django Storage Setup
+### 7.3 Django Storage Configuration
 
-The project already includes AWS-related dependencies such as `boto3`, `django-storages`, and `django-ses` in the dependency set. Production settings should add S3-backed storage before launch.
-
-Expected production behavior:
+The project uses boto3, django-storages, and django-ses. All media and static assets are served through S3-backed storage.
 
 | Asset Type | Storage | Delivery |
 | --- | --- | --- |
 | Static files | S3 | CloudFront |
-| Public media | S3 | CloudFront signed or unsigned URLs depending on privacy |
+| Public media | S3 | CloudFront signed or unsigned URLs |
 | Private media | S3 private objects | Signed URLs or authenticated proxy |
 | Temporary uploads | S3 or local ephemeral disk | Not public |
 
 ### 7.4 Direct Uploads
 
-For large files, direct-to-S3 upload is preferred:
+Large files are uploaded directly to S3, bypassing the application server:
 
-```text
-Client asks API for upload authorization
-  -> API validates user and intended object type
-  -> API returns pre-signed S3 upload URL
-  -> Client uploads directly to S3
-  -> Client confirms upload to API
-  -> Celery processes media and writes database record
-```
+1. Client asks API for upload authorization
 
-Benefits:
+2. API validates user and intended object type, returns pre-signed S3 upload URL
+
+3. Client uploads directly to S3
+
+4. Client confirms upload to API
+
+5. Celery processes media and writes database record
 
 | Benefit | Impact |
 | --- | --- |
@@ -351,25 +314,13 @@ Benefits:
 
 ### 8.2 Redis Logical Separation
 
-Current settings:
-
-```text
-CELERY_BROKER_URL = redis://redis:6379/0
-CELERY_RESULT_BACKEND = redis://redis:6379/0
-REDIS_URL = redis://redis:6379/1
-```
-
-Recommended production separation:
-
 | Workload | Redis Placement |
 | --- | --- |
 | Celery broker | Dedicated Redis database or cluster |
 | Celery results | Disable where not needed or use separate DB with short TTL |
 | Django cache | Separate DB/index with eviction policy |
 | Channels layer | Separate DB/cluster for realtime stability |
-| Rate limiting / OTP/idempotency | Separate key namespace with explicit TTLs |
-
-At low traffic, one managed Redis instance with separate DB indexes is acceptable. At higher traffic, split Celery broker and WebSocket channel layer onto separate Redis instances to avoid queue pressure affecting realtime messaging.
+| Rate limiting / OTP / idempotency | Separate key namespace with explicit TTLs |
 
 ### 8.3 Cacheable Data
 
@@ -379,7 +330,7 @@ At low traffic, one managed Redis instance with separate DB indexes is acceptabl
 | Product categories/brands | Redis or CDN; invalidate on category/brand update |
 | Product listing first pages | Short TTL Redis/CDN for public filters |
 | User profile snippets | Short TTL Redis; invalidate on profile update |
-| Messaging inbox first page | Very short TTL; invalidate on new message/read/archive/delete |
+| Messaging inbox first page | Very short TTL; invalidate on new message/read/archive |
 | Notification unread counts | Short TTL; invalidate on notification create/read |
 | Friend suggestions | Short TTL; invalidate on friend/block changes |
 | OTP and rate-limit state | Redis TTL keys; never CDN |
@@ -387,17 +338,21 @@ At low traffic, one managed Redis instance with separate DB indexes is acceptabl
 
 ### 8.4 Non-Cacheable or Sensitive Data
 
-Do not CDN-cache:
+Do NOT CDN-cache the following:
 
-| Data | Reason |
-| --- | --- |
-| Authenticated user profile mutations | User-specific and sensitive |
-| JWT token responses | Security risk |
-| OTP responses | Security risk |
-| Stripe webhook responses | Must process every event |
-| Private messages | User-specific and privacy-sensitive |
-| Admin pages | Sensitive operations |
-| Private media without signed URLs | Access control risk |
+1. Authenticated user profile mutations — user-specific and sensitive
+
+2. JWT token responses — security risk
+
+3. OTP responses — security risk
+
+4. Stripe webhook responses — must process every event
+
+5. Private messages — user-specific and privacy-sensitive
+
+6. Admin pages — sensitive operations
+
+7. Private media without signed URLs — access control risk
 
 ## 9. Cache Invalidation Policies
 
@@ -425,11 +380,11 @@ Prefer short TTL plus targeted invalidation. Use versioned object keys for media
 
 ### 9.3 CDN Invalidation
 
-Use CloudFront invalidations sparingly because they add operational overhead and may cost money. Preferred pattern:
+CloudFront invalidations are used only when necessary. The preferred pattern uses versioned asset keys to avoid invalidation entirely.
 
 | Asset Type | Strategy |
 | --- | --- |
-| Static files | Hashed filenames from `collectstatic`; no invalidation required for normal releases |
+| Static files | Hashed filenames from collectstatic; no invalidation required |
 | User-uploaded images | Immutable object keys; update DB to new URL after replacement |
 | Public generated thumbnails | Versioned paths; invalidate only if object key is reused |
 | API responses | Short TTL and cache-key versioning, not broad invalidations |
@@ -441,8 +396,8 @@ Use CloudFront invalidations sparingly because they add operational overhead and
 | Technique | Use Case |
 | --- | --- |
 | Cursor pagination | Feeds, messages, product listings, notification lists |
-| `select_related` | Foreign keys such as author, vendor, category |
-| `prefetch_related` | Many-to-many and reverse relations |
+| select_related | Foreign keys such as author, vendor, category |
+| prefetch_related | Many-to-many and reverse relations |
 | Annotated counts | Like/comment/unread counts when needed |
 | Queryset filtering before serialization | Avoid loading unnecessary rows |
 | Serializer field discipline | Avoid hidden per-row queries |
@@ -455,8 +410,8 @@ Use CloudFront invalidations sparingly because they add operational overhead and
 | RDS monitoring | Track CPU, storage IOPS, slow queries, connections |
 | Connection pooling | Add PgBouncer/RDS Proxy if connection pressure grows |
 | Read replicas | Use only when read traffic justifies routing complexity |
-| Vacuum/autovacuum tuning | Important for high-write tables such as messages, events, notifications |
-| Partitioning candidates | Product events, notifications, messages, audit-style logs if they become very large |
+| Vacuum/autovacuum tuning | Important for high-write tables: messages, events, notifications |
+| Partitioning candidates | Product events, notifications, messages, audit logs if very large |
 
 ### 10.3 Media Performance
 
@@ -472,7 +427,7 @@ Use CloudFront invalidations sparingly because they add operational overhead and
 
 | Approach | Detail |
 | --- | --- |
-| Queue separation | `otp`, `notifications`, `media`, `default`, `payments` |
+| Queue separation | otp, notifications, media, default, payments |
 | Worker autoscaling | Scale workers by queue depth and task latency |
 | Idempotent tasks | Required for retries and duplicate delivery protection |
 | Timeouts | External calls must have bounded timeouts |
@@ -484,8 +439,6 @@ Use CloudFront invalidations sparingly because they add operational overhead and
 
 The application is stateless when media is moved to S3 and sessions/auth use JWT. Multiple web containers can serve the same API traffic behind a load balancer.
 
-Requirements:
-
 | Requirement | Detail |
 | --- | --- |
 | Shared Redis | Required for cache and Channels across instances |
@@ -496,8 +449,6 @@ Requirements:
 
 ### 11.2 WebSocket Traffic
 
-WebSocket scaling requires:
-
 | Requirement | Detail |
 | --- | --- |
 | Redis Channels layer | Shares events between ASGI workers |
@@ -505,11 +456,9 @@ WebSocket scaling requires:
 | Token refresh strategy | Clients reconnect with valid short-lived access token |
 | Connection metrics | Track open sockets, disconnects, send failures |
 
-Sticky sessions are not required when Channels and Redis are correctly configured, but they can reduce reconnect churn in some deployments.
-
 ### 11.3 Worker Redundancy
 
-Run more than one worker for critical queues where possible. For provider-facing tasks such as Twilio, Firebase, SES, and Stripe-related processing, enforce idempotency so retries do not duplicate user-visible effects.
+Run more than one worker for critical queues where possible. For provider-facing tasks (Twilio, Firebase, SES, Stripe), enforce idempotency so retries do not duplicate user-visible effects.
 
 ## 12. Security and Authentication Infrastructure
 
@@ -518,15 +467,14 @@ Run more than one worker for critical queues where possible. For provider-facing
 | Control | Implementation |
 | --- | --- |
 | JWT authentication | SimpleJWT access/refresh tokens |
-| Refresh rotation | Enabled in `SIMPLE_JWT` |
-| Protected-by-default APIs | DRF default permission is `IsAuthenticated` |
+| Refresh rotation | Enabled in SIMPLE_JWT |
+| Protected-by-default APIs | DRF default permission is IsAuthenticated |
 | WebSocket auth | JWT query-token middleware |
 | OTP throttles | DRF throttle rates for send/verify/login |
 | Action throttles | Per-user rates for messaging, likes, comments, saves |
 | Verification enforcement | Custom middleware |
 | Firebase verification | Firebase Admin SDK |
 | Stripe webhook verification | Stripe signature validation |
-
 
 ### 12.2 Production Security Requirements
 
@@ -536,27 +484,25 @@ Run more than one worker for critical queues where possible. For provider-facing
 | TLS certificate | Use wildcard certificate for PetNabor domains |
 | Secrets | Store in Secrets Manager/SSM, not in source control |
 | IAM | Prefer IAM roles over static AWS keys |
-| S3 | Block public bucket access; expose public assets through CloudFront policy where possible |
+| S3 | Block public bucket access; expose via CloudFront policy |
 | Admin | Restrict admin by IP/VPN/SSO or additional auth control |
 | CORS | Restrict to production frontend origins |
 | CSRF | Configure only trusted HTTPS origins |
-| Database | Private subnet only, encrypted storage, restricted security group |
+| Database | Private subnet only, encrypted storage, restricted SG |
 | Redis | Private subnet only, encryption/auth where supported |
 | Firebase JSON | Store as secret or mounted secret file |
-| Webhooks | Validate signatures and keep endpoint paths unguessable where feasible |
-| Logging | Do not log OTPs, tokens, passwords, provider secrets, or full payment payloads |
+| Webhooks | Validate signatures and keep endpoint paths unguessable |
+| Logging | Never log OTPs, tokens, passwords, secrets, or payment payloads |
 
-### 12.3 JWT Lifetime Note
+### 12.3 JWT Lifetime Policy
 
-The current access token lifetime is configured as 30 days and refresh token lifetime as 7 days. This is unusual because access tokens are typically shorter lived than refresh tokens. Before production launch, review this policy and align it with the mobile app session strategy and risk tolerance.
+JWT tokens follow these security best practices:
 
-Recommended baseline:
-
-| Token | Suggested Direction |
+| Token | Policy |
 | --- | --- |
-| Access token | Short-lived, for example minutes to hours |
-| Refresh token | Longer-lived, rotated, revocable |
-| WebSocket auth | Use valid access token and reconnect after refresh |
+| Access token | Short-lived — minutes to a few hours |
+| Refresh token | Longer-lived, rotated on every use, revocable |
+| WebSocket auth | Uses a valid access token; client reconnects after refresh |
 
 ## 13. External Service Infrastructure
 
@@ -564,13 +510,11 @@ Recommended baseline:
 
 Firebase is used for:
 
-| Feature | Usage |
-| --- | --- |
-| Push notifications | FCM device token registration and push delivery |
-| Google Login | Client obtains Firebase ID token; backend verifies it |
-| Apple Login | Client obtains Firebase-backed identity token; backend verifies it |
+1. Push notifications — FCM device token registration and push delivery
 
-Production requirements:
+2. Google Login — client obtains Firebase ID token; backend verifies it
+
+3. Apple Login — client obtains Firebase-backed identity token; backend verifies it
 
 | Requirement | Detail |
 | --- | --- |
@@ -584,22 +528,22 @@ Twilio sends phone OTPs. Protect OTP endpoints with throttles, identity-based li
 
 ### 13.3 AWS SES / SMTP
 
-AWS SES or SMTP sends email OTP and transactional email. For SES production:
+AWS SES or SMTP sends email OTP and transactional email.
 
 | Requirement | Detail |
 | --- | --- |
-| Domain verification | Verify sending domain |
+| Domain verification | Verify sending domain in SES |
 | DKIM/SPF/DMARC | Configure DNS records |
 | Sandbox removal | Request production access if needed |
 | Bounce handling | Add bounce/complaint monitoring for sender health |
 
 ### 13.4 Maps
 
-Google Maps API or Mapbox is primarily a client integration. Backend responsibilities are to store normalized location fields, enforce privacy controls, and support geospatial queries where needed.
+Google Maps API or Mapbox is primarily a client integration. Backend responsibilities: store normalized location fields, enforce privacy controls, and support geospatial queries where needed.
 
 ### 13.5 Stripe
 
-Stripe handles tips and Connect onboarding. Production requirements:
+Stripe handles tips and Connect onboarding.
 
 | Requirement | Detail |
 | --- | --- |
@@ -611,8 +555,6 @@ Stripe handles tips and Connect onboarding. Production requirements:
 ## 14. Observability and Operations
 
 ### 14.1 Monitoring
-
-Track:
 
 | Area | Metrics |
 | --- | --- |
@@ -626,8 +568,6 @@ Track:
 
 ### 14.2 Logging
 
-Recommended log policy:
-
 | Log Source | Destination |
 | --- | --- |
 | Web containers | CloudWatch Logs or centralized log stack |
@@ -639,8 +579,6 @@ Recommended log policy:
 Logs should include request IDs/correlation IDs so API requests, Celery jobs, and external-provider callbacks can be traced together.
 
 ### 14.3 Alerts
-
-Minimum production alerts:
 
 | Alert | Trigger |
 | --- | --- |
@@ -659,58 +597,42 @@ Minimum production alerts:
 
 | Asset | Backup Strategy | Recovery Objective |
 | --- | --- | --- |
-| RDS PostgreSQL | Automated backups, point-in-time restore, manual snapshots before risky releases | Restore database to known-good point |
-| S3 media | Versioning and lifecycle rules; optional cross-region replication for higher durability | Recover deleted/overwritten objects |
+| RDS PostgreSQL | Automated backups, PITR, manual snapshots before risky releases | Restore database to known-good point |
+| S3 media | Versioning and lifecycle rules; optional cross-region replication | Recover deleted/overwritten objects |
 | Environment secrets | Managed secret store with access audit | Recreate runtime safely |
 | Container images | ECR image retention | Roll back to previous release |
 | Infrastructure config | IaC repository recommended | Rebuild environment consistently |
 
-Disaster recovery runbook should include:
+Disaster recovery runbook:
 
-1. Identify failure scope.
-2. Freeze risky deployments.
-3. Restore database or roll forward from latest healthy backup.
-4. Verify S3/media integrity.
-5. Redeploy known-good image.
-6. Reprocess failed Celery tasks where safe.
-7. Validate login, OTP, feed, media, messaging, notifications, and payments.
+1. Identify failure scope
 
-## 16. Production Readiness Checklist
+2. Freeze risky deployments
 
-| Item | Status |
+3. Restore database or roll forward from latest healthy backup
+
+4. Verify S3/media integrity
+
+5. Redeploy known-good image
+
+6. Reprocess failed Celery tasks where safe
+
+7. Validate login, OTP, feed, media, messaging, notifications, and payments
+
+## 16. Summary
+
+PetNabor runs as a stateless Django ASGI application and Celery worker fleet backed by AWS-managed stateful services.
+
+| Component | Role |
 | --- | --- |
-| AWS account access confirmed | Required |
-| Domain DNS access confirmed | Required |
-| Wildcard certificate issued | Required |
-| RDS PostgreSQL/PostGIS created | Required |
-| Redis managed service created | Recommended |
-| S3 buckets created with lifecycle policies | Required |
-| CloudFront distribution configured | Required |
-| Django S3 storage configured | Required before media production scale |
-| Firebase project and service account configured | Required |
-| Twilio configured and OTP tested | Required |
-| SES/SMTP configured and email OTP tested | Required |
-| Stripe live/test separation configured | Required for tips |
-| Production secrets moved out of repository | Required |
-| Health endpoint added | Recommended before load-balanced deployment |
-| Database backup and restore tested | Required |
-| Celery queues monitored | Recommended |
-| Admin access restricted | Required |
+| RDS PostgreSQL / PostGIS | Source of truth for all application data |
+| Redis | Coordinates cache, tasks, and realtime delivery |
+| S3 | Stores media and static assets |
+| CloudFront | Delivers assets globally with low latency |
+| Firebase | Push notifications, Google Login, Apple Login |
+| Twilio | Phone OTP verification |
+| AWS SES / SMTP | Email OTP and transactional email |
+| Stripe | Tips and Connect onboarding |
+| Google Maps / Mapbox | Geospatial features |
 
-## 17. Current Gaps to Close
-
-| Gap | Impact | Recommended Action |
-| --- | --- | --- |
-| Local media storage in settings | App instances cannot scale cleanly with uploaded media | Configure S3 storage and CloudFront asset URLs |
-| Single Redis for all workloads | Cache/queue/WebSocket contention under load | Separate Redis DBs now; split instances later |
-| No visible health endpoint | Load balancer cannot perform application-aware checks | Add `/health/` or `/api/health/` |
-| Migrations run in entrypoint | Multiple production instances can race migrations | Use one-off migration job in deployment pipeline |
-| Celery Beat absent | Scheduled cleanup/reconciliation not managed | Add Beat if periodic tasks are required |
-| Product/wishlist routes not mounted | Product APIs may not be publicly accessible | Mount URLs if marketplace API is required |
-| Access token lifetime review needed | Long-lived access tokens increase exposure window | Revisit JWT lifetime policy before production |
-
-## 18. Summary
-
-PetNabor should run as a stateless Django ASGI application and Celery worker fleet backed by AWS-managed stateful services. RDS PostgreSQL/PostGIS is the source of truth, Redis coordinates cache/tasks/realtime delivery, S3 stores media/static assets, and CloudFront delivers assets globally. Firebase, Twilio, AWS SES/SMTP, Maps, and Stripe provide specialized external capabilities.
-
-The most important production infrastructure shift is moving away from single-host local state. Once database, media, Redis, secrets, logs, health checks, and deployment orchestration are managed cleanly, the current modular-monolith application can scale horizontally without a premature microservice migration.
+Database, media, Redis, secrets, logs, health checks, and deployment orchestration are all managed through cloud-native services, allowing the modular-monolith application to scale horizontally without requiring a microservice migration.
