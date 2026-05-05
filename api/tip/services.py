@@ -121,12 +121,17 @@ def get_connect_account_status(user):
     """
     Fetch live status from Stripe and sync it to the DB.
     Returns the updated StripeConnectAccount instance.
+
+    If the account just became charges-enabled (first time), automatically
+    releases any HELD tips waiting for this user.
     """
     s = _stripe()
     try:
         connect = user.stripe_connect_account
     except StripeConnectAccount.DoesNotExist:
         return None
+
+    was_charges_enabled = connect.is_charges_enabled
 
     account = s.Account.retrieve(connect.stripe_account_id)
     connect.is_charges_enabled = account.charges_enabled
@@ -142,6 +147,20 @@ def get_connect_account_status(user):
             "updated_at",
         ]
     )
+
+    # Auto-release held tips when account becomes charges-enabled for the first time
+    if not was_charges_enabled and connect.is_charges_enabled:
+        logger.info(
+            "Account %s just became charges-enabled via status poll — releasing held tips for user %s",
+            connect.stripe_account_id, user.id,
+        )
+        try:
+            release_held_tips(user)
+        except Exception as exc:
+            logger.error(
+                "Error auto-releasing held tips for user %s after status poll: %s", user.id, str(exc)
+            )
+
     return connect
 
 
@@ -815,3 +834,4 @@ def construct_stripe_event(payload, sig_header):
     return s.Webhook.construct_event(
         payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
     )
+
